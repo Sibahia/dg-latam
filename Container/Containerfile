@@ -24,6 +24,7 @@ COPY src/server/package.json src/server/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /build/server/dist ./dist
 COPY src/server/data ./data
+COPY src/server/tools ./tools
 COPY --from=build /build/client/content/localhost /opt/games/dungeon-blitz-r/src/client/content/localhost
 COPY package.json /opt/games/dungeon-blitz-r/package.json
 

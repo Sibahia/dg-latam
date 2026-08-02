@@ -1,1 +1,13 @@
 .git
+node_modules
+**/node_modules
+**/dist
+*.log
+data-backup-*
+*.bak
+**/.admin_api_secret
+**/data/Accounts.json
+**/data/saves
+**/saves
+.env
+**/.env
