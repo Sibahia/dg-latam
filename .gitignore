@@ -1,0 +1,32 @@
+node_modules
+server_tapes
+src/server/dist
+src/server/Accounts.json
+src/server/saves/
+src/server/data/saves/
+temp
+.DS_Store
+build/
+logs/
+src/server/data/runtime/*crash*.log
+src/server/data/discord_account_links.json
+.env
+.discord-social-token.json
+.discord-social-channel-link.json
+src/server/.env
+src/server/.discord-social-token.json
+src/server/.discord-social-channel-link.json
+src/server/native_bridge/build/
+src/server/native_bridge/discord_social_sdk/
+
+# Security secrets
+.admin_api_secret
+
+# Local data backups
+data-backup-*/
+
+# Backup files
+*.bak
+
+# Player PII - not part of the public repo
+src/server/data/Accounts.json

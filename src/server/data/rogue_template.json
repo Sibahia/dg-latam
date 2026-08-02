@@ -1,0 +1,167 @@
+{
+  "name": "Rogue Template",
+  "class": "Rogue",
+  "level": 1,
+  "xp": 0,
+  "gold": 0,
+  "craftXP": 0,
+  "DragonOre": 0,
+  "mammothIdols": 0,
+  "DragonKeys": 0,
+  "SilverSigils": 0,
+  "alertState": 0,
+  "gender": "Female",
+  "headSet": "FemaleHead02",
+  "hairSet": "FDo16",
+  "mouthSet": "FMouth07",
+  "faceSet": "FFace11",
+  "hairColor": 1646080,
+  "skinColor": 10902329,
+  "shirtColor": 14273795,
+  "pantColor": 16576986,
+  "equippedGears": [
+    {
+      "gearID": 0,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 0,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 0,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 0,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 27,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 39,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    }
+  ],
+  "CurrentLevel": {
+    "name": "NewbieRoad",
+    "x": 1422,
+    "y": 827
+  },
+  "PreviousLevel": {
+    "name": "NewbieRoad",
+    "x": 1422,
+    "y": 827
+  },
+  "inventoryGears": [
+    {
+      "gearID": 27,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    },
+    {
+      "gearID": 39,
+      "tier": 0,
+      "runes": [0, 0, 0],
+      "colors": [0, 0]
+    }
+  ],
+  "gearSets": [],
+  "mounts": [1],
+  "pets": [],
+  "charms": [],
+  "materials": [],
+  "lockboxes": [
+    {
+      "lockboxID": 1,
+      "count": 100
+    }
+  ],
+  "OwnedDyes": [],
+  "consumables": [],
+  "missions": {
+    "1": {
+      "state": 1,
+      "currCount": 0
+    }
+  },
+  "questTrackerState": 0,
+  "friends": [],
+  "learnedAbilities": [
+    {
+      "abilityID": 3,
+      "rank": 1
+    },
+    {
+      "abilityID": 5,
+      "rank": 1
+    }
+  ],
+  "activeAbilities": [3, 5],
+  "craftTalentPoints": [],
+  "talentPoints": {},
+  "magicForge": {
+    "stats_by_building": {
+      "1": 0,
+      "2": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "12": 0,
+      "13": 0
+    },
+    "primary": 0,
+    "secondary": 0,
+    "ReadyTime": 0,
+    "secondary_tier": 0,
+    "usedlist": 0,
+    "forge_roll_a": 0,
+    "forge_roll_b": 0,
+    "is_extended_forge": false
+  },
+  "SkillResearch": {
+    "abilityID": 0,
+    "ReadyTime": 0
+  },
+  "buildingUpgrade": {
+    "buildingID": 0,
+    "rank": 0,
+    "ReadyTime": 0
+  },
+  "talentResearch": {
+    "classIndex": null,
+    "ReadyTime": 0
+  },
+  "EggHachery": {},
+  "OwnedEggsID": [],
+  "EggNotifySent": false,
+  "EggResetTime": 0,
+  "activeEggCount": 0,
+  "restingPets": [],
+  "trainingPet": [],
+  "MasterClass": 0,
+  "TalentTree": {},
+  "equippedMount": 1,
+  "activePet": {
+    "typeID": 0,
+    "special_id": 0
+  },
+  "activeConsumableID": 0,
+  "queuedConsumableID": 0,
+  "guild": null
+}
