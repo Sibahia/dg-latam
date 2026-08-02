@@ -13,6 +13,12 @@ import { JsonAdapter } from '../database/JsonAdapter';
 import type { Character } from '../database/Database';
 import { upsertInventoryGear } from '../utils/GearInventory';
 import { RewardHandler } from '../handlers/RewardHandler';
+import { PetHandler } from '../handlers/PetHandler';
+import { PetConfig } from '../core/PetConfig';
+import { GameData } from '../core/GameData';
+import { getActivePotionBonuses } from '../utils/ConsumableState';
+import { ensureSigilStoreAlertState } from '../utils/AlertState';
+import { EntityHandler } from '../handlers/EntityHandler';
 
 const registeredApps = new WeakSet<express.Application>();
 const grantDb = new JsonAdapter();
@@ -158,6 +164,32 @@ function normalizeGrantCharacterName(value: unknown): string {
     return String(value ?? '').trim().toLowerCase();
 }
 
+const GRANT_SCALAR_FIELDS = ['gold', 'mammothIdols', 'xp', 'level', 'SilverSigils', 'DragonOre', 'DragonKeys'] as const;
+const GRANT_ARRAY_FIELDS = ['mounts', 'pets', 'consumables', 'inventoryGears'] as const;
+
+function snapshotGrantFields(character: Character): Partial<Character> {
+    const snapshot: Partial<Character> = {};
+    for (const key of GRANT_SCALAR_FIELDS) {
+        snapshot[key] = character[key];
+    }
+    for (const key of GRANT_ARRAY_FIELDS) {
+        snapshot[key] = Array.isArray(character[key])
+            ? (character[key] as unknown[]).map((item) => (
+                item && typeof item === 'object' ? { ...(item as Record<string, unknown>) } : item
+            ))
+            : undefined;
+    }
+    return snapshot;
+}
+
+function restoreGrantFields(character: Character, snapshot: Partial<Character>): void {
+    for (const key of [...GRANT_SCALAR_FIELDS, ...GRANT_ARRAY_FIELDS]) {
+        if (snapshot[key] !== undefined) {
+            character[key] = snapshot[key];
+        }
+    }
+}
+
 async function mutateCharacterValue(
     userId: number,
     characterName: string,
@@ -184,8 +216,8 @@ async function mutateCharacterValue(
         return null;
     }
 
-    const mutatedCharacters = new Map<Character, Character>();
-    mutatedCharacters.set(authoritativeCharacter, { ...authoritativeCharacter });
+    const mutatedCharacters = new Map<Character, Partial<Character>>();
+    mutatedCharacters.set(authoritativeCharacter, snapshotGrantFields(authoritativeCharacter));
     let outcome = apply(authoritativeCharacter);
     const applyToCopy = (character: Character | null | undefined): void => {
         if (!character || character === authoritativeCharacter) {
@@ -195,7 +227,7 @@ async function mutateCharacterValue(
             return;
         }
         if (!mutatedCharacters.has(character)) {
-            mutatedCharacters.set(character, { ...character });
+            mutatedCharacters.set(character, snapshotGrantFields(character));
         }
         apply(character);
     };
@@ -210,8 +242,7 @@ async function mutateCharacterValue(
 
     if (!outcome.applied) {
         for (const [character, previous] of mutatedCharacters) {
-            character.gold = previous.gold;
-            character.inventoryGears = previous.inventoryGears;
+            restoreGrantFields(character, previous);
         }
         return { before: outcome.before, after: outcome.after, applied: false, onlineRecipients: 0 };
     }
@@ -223,8 +254,7 @@ async function mutateCharacterValue(
         });
     } catch (error) {
         for (const [character, previous] of mutatedCharacters) {
-            character.gold = previous.gold;
-            character.inventoryGears = previous.inventoryGears;
+            restoreGrantFields(character, previous);
         }
         throw error;
     }
@@ -251,6 +281,86 @@ function sendGearRewardPacket(session: ReturnType<typeof activeSessions>[number]
     bb.writeMethod6(gearId, 11);
     bb.writeMethod6(Math.max(1, Math.min(2, Math.round(tier))), 2);
     session.sendBitBuffer(0x33, bb);
+}
+
+function sendXpRewardPacket(session: ReturnType<typeof activeSessions>[number], amount: number): void {
+    if (session.clientEntID <= 0 || amount <= 0) {
+        return;
+    }
+    const bb = new BitBuffer(false);
+    bb.writeMethod4(Math.round(amount));
+    session.sendBitBuffer(0x2B, bb);
+}
+
+function sendMountRewardPacket(session: ReturnType<typeof activeSessions>[number], mountId: number): void {
+    if (session.clientEntID <= 0) {
+        return;
+    }
+    const bb = new BitBuffer(false);
+    bb.writeMethod4(mountId);
+    bb.writeMethod15(false);
+    session.sendBitBuffer(0x36, bb);
+}
+
+function sendNewPetRewardPacket(
+    session: ReturnType<typeof activeSessions>[number],
+    petTypeId: number,
+    specialId: number,
+    level: number
+): void {
+    if (session.clientEntID <= 0) {
+        return;
+    }
+    const bb = new BitBuffer(false);
+    bb.writeMethod6(petTypeId, 7);
+    bb.writeMethod4(specialId);
+    bb.writeMethod6(level, 6);
+    bb.writeMethod15(false);
+    session.sendBitBuffer(0x37, bb);
+}
+
+function sendConsumableRewardPacket(
+    session: ReturnType<typeof activeSessions>[number],
+    consumableId: number,
+    amount: number,
+    newTotal: number
+): void {
+    if (session.clientEntID <= 0) {
+        return;
+    }
+    const update = new BitBuffer(false);
+    update.writeMethod6(consumableId, 5);
+    update.writeMethod4(newTotal);
+    session.sendBitBuffer(0x10C, update);
+
+    const consumableDef = GameData.CONSUMABLES.find((consumable) => Number(consumable?.ConsumableID ?? 0) === consumableId);
+    const displayAmount = String(consumableDef?.Type ?? '') === 'Potion' ? amount * 5000 : amount;
+
+    const reward = new BitBuffer(false);
+    reward.writeMethod6(consumableId, 5);
+    reward.writeMethod4(displayAmount);
+    reward.writeMethod15(false);
+    session.sendBitBuffer(0x10B, reward);
+}
+
+function sendMammothIdolUpdatePacket(session: ReturnType<typeof activeSessions>[number]): void {
+    if (session.clientEntID <= 0) {
+        return;
+    }
+    const bb = new BitBuffer(false);
+    bb.writeMethod4(Number(session.character?.mammothIdols ?? 0));
+    bb.writeMethod4(0);
+    bb.writeMethod11(session.character?.showHigher ? 1 : 0, 1);
+    session.sendBitBuffer(0xA1, bb);
+}
+
+function sendSilverSigilRewardPacket(session: ReturnType<typeof activeSessions>[number], amount: number): void {
+    if (session.clientEntID <= 0 || amount <= 0) {
+        return;
+    }
+    const bb = new BitBuffer(false);
+    bb.writeMethod4(Math.round(amount));
+    session.sendBitBuffer(0x112, bb);
 }
 
 async function grantGoldToCharacter(
@@ -299,6 +409,278 @@ async function grantGearToCharacter(
     return result
         ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
         : null;
+}
+
+async function grantXpToCharacter(
+    userId: number,
+    characterName: string,
+    amount: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; granted: number; level: number; onlineRecipients: number } | null> {
+    let granted = 0;
+    let previousLevel = 1;
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const base = Math.max(1, Math.round(Number(amount)));
+            const petBonuses = PetHandler.getEquippedPetBonusRates(character);
+            const potionBonuses = getActivePotionBonuses(character, null);
+            const multiplier = 1 + petBonuses.expBonus + potionBonuses.expBonus;
+            granted = Math.max(1, Math.round(base * multiplier));
+            previousLevel = Math.max(1, Math.round(Number(character.level ?? 1)));
+            const before = Math.max(0, Math.round(Number(character.xp ?? 0)));
+            character.xp = before + granted;
+            character.level = GameData.getPlayerLevelFromXp(Number(character.xp ?? 0));
+            return { before, after: character.xp, applied: true };
+        },
+        (session) => {
+            sendXpRewardPacket(session, granted);
+            if (Math.max(1, Math.round(Number(session.character?.level ?? 1))) !== previousLevel) {
+                EntityHandler.refreshPlayerSnapshot(session);
+            }
+        },
+        store
+    );
+    return result
+        ? {
+            before: result.before,
+            after: result.after,
+            granted,
+            level: previousLevel,
+            onlineRecipients: result.onlineRecipients
+        }
+        : null;
+}
+
+async function grantMammothCoinsToCharacter(
+    userId: number,
+    characterName: string,
+    amount: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; onlineRecipients: number } | null> {
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Math.max(0, Math.round(Number(character.mammothIdols ?? 0)));
+            character.mammothIdols = before + Math.max(1, Math.round(Number(amount)));
+            return { before, after: character.mammothIdols, applied: true };
+        },
+        (session) => sendMammothIdolUpdatePacket(session),
+        store
+    );
+    return result
+        ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
+        : null;
+}
+
+async function grantMountToCharacter(
+    userId: number,
+    characterName: string,
+    mountId: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; onlineRecipients: number } | null> {
+    let grantedMountId = 0;
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Array.isArray(character.mounts) ? character.mounts.length : 0;
+            const normalized = Math.round(Number(mountId));
+            if (normalized <= 0) {
+                return { before, after: before, applied: false };
+            }
+            if (!Array.isArray(character.mounts)) {
+                character.mounts = [];
+            }
+            if (character.mounts.includes(normalized)) {
+                return { before, after: character.mounts.length, applied: false };
+            }
+            character.mounts.push(normalized);
+            grantedMountId = normalized;
+            return { before, after: character.mounts.length, applied: true };
+        },
+        (session) => sendMountRewardPacket(session, grantedMountId),
+        store
+    );
+    return result
+        ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
+        : null;
+}
+
+async function grantPetToCharacter(
+    userId: number,
+    characterName: string,
+    petTypeId: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; petTypeId: number; specialId: number; onlineRecipients: number } | null> {
+    let grantedPetTypeId = 0;
+    let grantedSpecialId = 0;
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Array.isArray(character.pets) ? character.pets.length : 0;
+            const normalized = Math.round(Number(petTypeId));
+            if (normalized <= 0) {
+                return { before, after: before, applied: false };
+            }
+            const pets = Array.isArray(character.pets) ? character.pets : [];
+            const nextSpecialId = pets.reduce((max: number, pet: any) => {
+                return Math.max(max, Number(pet?.special_id ?? 0));
+            }, 0) + 1;
+            pets.push({ typeID: normalized, special_id: nextSpecialId, level: 1, xp: 0 });
+            character.pets = pets;
+            grantedPetTypeId = normalized;
+            grantedSpecialId = nextSpecialId;
+            return { before, after: character.pets.length, applied: true };
+        },
+        (session) => sendNewPetRewardPacket(session, grantedPetTypeId, grantedSpecialId, 1),
+        store
+    );
+    return result
+        ? {
+            before: result.before,
+            after: result.after,
+            petTypeId: grantedPetTypeId,
+            specialId: grantedSpecialId,
+            onlineRecipients: result.onlineRecipients
+        }
+        : null;
+}
+
+async function grantConsumableToCharacter(
+    userId: number,
+    characterName: string,
+    consumableId: number,
+    quantity: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; consumableId: number; quantity: number; onlineRecipients: number } | null> {
+    let grantedConsumableId = 0;
+    let grantedQuantity = 0;
+    let grantedNewTotal = 0;
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Array.isArray(character.consumables) ? character.consumables.length : 0;
+            const id = Math.round(Number(consumableId));
+            const qty = Math.max(1, Math.round(Number(quantity)));
+            if (id <= 0) {
+                return { before, after: before, applied: false };
+            }
+            if (!Array.isArray(character.consumables)) {
+                character.consumables = [];
+            }
+            const entry = character.consumables.find((consumable: any) => Number(consumable?.consumableID ?? 0) === id);
+            const newTotal = entry ? Number(entry.count ?? 0) + qty : qty;
+            if (entry) {
+                entry.count = newTotal;
+            } else {
+                character.consumables.push({ consumableID: id, count: qty });
+            }
+            grantedConsumableId = id;
+            grantedQuantity = qty;
+            grantedNewTotal = newTotal;
+            return { before, after: character.consumables.length, applied: true };
+        },
+        (session) => sendConsumableRewardPacket(session, grantedConsumableId, grantedQuantity, grantedNewTotal),
+        store
+    );
+    return result
+        ? {
+            before: result.before,
+            after: result.after,
+            consumableId: grantedConsumableId,
+            quantity: grantedQuantity,
+            onlineRecipients: result.onlineRecipients
+        }
+        : null;
+}
+
+async function grantSilverSigilsToCharacter(
+    userId: number,
+    characterName: string,
+    amount: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; onlineRecipients: number } | null> {
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Math.max(0, Math.round(Number(character.SilverSigils ?? 0)));
+            character.SilverSigils = before + Math.max(1, Math.round(Number(amount)));
+            ensureSigilStoreAlertState(character);
+            return { before, after: character.SilverSigils, applied: true };
+        },
+        (session) => sendSilverSigilRewardPacket(session, Math.max(1, Math.round(Number(amount)))),
+        store
+    );
+    return result
+        ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
+        : null;
+}
+
+async function grantDragonResourceToCharacter(
+    userId: number,
+    characterName: string,
+    field: 'DragonOre' | 'DragonKeys',
+    amount: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; onlineRecipients: number } | null> {
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = Math.max(0, Math.round(Number(character[field] ?? 0)));
+            character[field] = before + Math.max(1, Math.round(Number(amount)));
+            return { before, after: character[field], applied: true };
+        },
+        () => undefined,
+        store
+    );
+    return result
+        ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
+        : null;
+}
+
+function buildGearCatalog(): Array<{ id: number; name: string; type: string; rarity: string }> {
+    const details = (GameData.GEAR_DATA as unknown as {
+        all_gear_details?: Record<string, Array<{ name?: string; type?: string; rarity?: string; realm?: string | null }>>;
+    }).all_gear_details;
+    if (!details || typeof details !== 'object') {
+        return [];
+    }
+
+    const seen = new Map<number, { id: number; name: string; type: string; rarity: string }>();
+    for (const rawId of Object.keys(details)) {
+        const id = Number(rawId);
+        if (!Number.isSafeInteger(id) || id <= 0) {
+            continue;
+        }
+        const variants = details[rawId];
+        const base = Array.isArray(variants)
+            ? variants.find((variant) => !variant?.realm) ?? variants[0]
+            : null;
+        if (!base) {
+            continue;
+        }
+        const name = String(base.name ?? '').trim();
+        if (!name) {
+            continue;
+        }
+        if (!seen.has(id)) {
+            seen.set(id, {
+                id,
+                name,
+                type: String(base.type ?? ''),
+                rarity: String(base.rarity ?? '')
+            });
+        }
+    }
+
+    return [...seen.values()].sort((a, b) => a.id - b.id);
 }
 
 export function registerAdminControlApi(staticServer: StaticServer): void {
@@ -405,6 +787,37 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
         res.status(400).json({ error: 'Unknown admin action.' });
     });
 
+    app.get('/api/admin/control/catalog', authorize, (_req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        const mounts = Object.entries(GameData.MOUNT_IDS)
+            .filter(([, id]) => Number(id) > 0)
+            .map(([name, id]) => ({ id: Number(id), name }))
+            .sort((a, b) => a.id - b.id);
+        const pets = PetConfig.PET_TYPES
+            .filter((pet) => Number(pet?.PetID ?? 0) > 0)
+            .map((pet) => ({
+                id: Number(pet.PetID),
+                name: String(pet.PetName ?? ''),
+                displayName: String(pet.DisplayName ?? '')
+            }))
+            .sort((a, b) => a.id - b.id);
+        const consumables = GameData.CONSUMABLES
+            .filter((consumable) => Number(consumable?.ConsumableID ?? 0) > 0)
+            .map((consumable) => ({
+                id: Number(consumable.ConsumableID),
+                name: String(consumable.ConsumableName ?? ''),
+                displayName: String(consumable.DisplayName ?? '')
+            }))
+            .sort((a, b) => a.id - b.id);
+        res.json({
+            ok: true,
+            mounts,
+            pets,
+            consumables,
+            gear: buildGearCatalog()
+        });
+    });
+
     app.post('/api/admin/control/grant', authorize, async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
 
@@ -433,6 +846,215 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
                 }
                 console.log(
                     `[AdminPanel] Granted ${amount} gold to ${characterName} (${userId}): ` +
+                    `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    amount,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'xp') {
+                const amount = Number(body.amount);
+                if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantXpToCharacter(userId, characterName, amount);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${result.granted} XP (base ${amount}) to ${characterName} (${userId}): ` +
+                    `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    amount,
+                    granted: result.granted,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'mammothcoins') {
+                const amount = Number(body.amount);
+                if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantMammothCoinsToCharacter(userId, characterName, amount);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${amount} Mammoth Coins to ${characterName} (${userId}): ` +
+                    `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    amount,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'mount') {
+                const mountId = Math.round(Number(body.mountId ?? 0));
+                if (!Number.isSafeInteger(mountId) || mountId <= 0) {
+                    res.status(400).json({ error: 'Invalid mountId. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantMountToCharacter(userId, characterName, mountId);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                if (result.before === result.after) {
+                    res.status(400).json({ error: 'The player already owns that mount.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted mount ${mountId} to ${characterName} (${userId}): ` +
+                    `owned ${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    mountId,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'pet') {
+                const petTypeId = Math.round(Number(body.petTypeId ?? 0));
+                if (!Number.isSafeInteger(petTypeId) || petTypeId <= 0) {
+                    res.status(400).json({ error: 'Invalid petTypeId. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantPetToCharacter(userId, characterName, petTypeId);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted pet ${petTypeId} (special ${result.specialId}) to ${characterName} (${userId}): ` +
+                    `owned ${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    petTypeId,
+                    specialId: result.specialId,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'consumable') {
+                const consumableId = Math.round(Number(body.consumableId ?? 0));
+                const quantity = Math.round(Number(body.quantity ?? 1));
+                if (!Number.isSafeInteger(consumableId) || consumableId <= 0) {
+                    res.status(400).json({ error: 'Invalid consumableId. Must be a positive integer.' });
+                    return;
+                }
+                if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+                    res.status(400).json({ error: 'Invalid quantity. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantConsumableToCharacter(userId, characterName, consumableId, quantity);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${quantity}x consumable ${consumableId} to ${characterName} (${userId}): ` +
+                    `entries ${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    consumableId,
+                    quantity,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'silversigils') {
+                const amount = Number(body.amount);
+                if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantSilverSigilsToCharacter(userId, characterName, amount);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${amount} Silver Sigils to ${characterName} (${userId}): ` +
+                    `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    amount,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
+            if (kind === 'dragonore' || kind === 'dragonkeys') {
+                const field = kind === 'dragonore' ? 'DragonOre' : 'DragonKeys';
+                const amount = Number(body.amount);
+                if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantDragonResourceToCharacter(userId, characterName, field, amount);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${amount} ${field} to ${characterName} (${userId}): ` +
                     `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
                 );
                 res.json({
@@ -488,7 +1110,9 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
                 return;
             }
 
-            res.status(400).json({ error: 'Invalid kind. Must be "gold" or "gear".' });
+            res.status(400).json({
+                error: 'Invalid kind. Must be one of: gold, xp, mammothcoins, mount, pet, consumable, silversigils, dragonore, dragonkeys, gear.'
+            });
         } catch (error) {
             console.error('[AdminPanel] Grant failed:', error);
             res.status(500).json({ error: 'The grant failed.' });
