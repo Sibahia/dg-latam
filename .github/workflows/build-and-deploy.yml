@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/dg-latam
+  IMAGE: ghcr.io/sibahia/dg-latam
 
 jobs:
   build-and-push:
