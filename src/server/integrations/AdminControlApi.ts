@@ -19,11 +19,13 @@ import { GameData } from '../core/GameData';
 import { getActivePotionBonuses } from '../utils/ConsumableState';
 import { ensureSigilStoreAlertState } from '../utils/AlertState';
 import { EntityHandler } from '../handlers/EntityHandler';
+import { LockboxHandler } from '../handlers/LockboxHandler';
+import { normalizeCharacterKey, PartyGroup } from '../core/SocialState';
 
 const registeredApps = new WeakSet<express.Application>();
 const grantDb = new JsonAdapter();
 
-type CharacterStore = Pick<JsonAdapter, 'loadCharacters' | 'saveCharacterSnapshot'>;
+type CharacterStore = Pick<JsonAdapter, 'loadCharacters' | 'saveCharacterSnapshot' | 'saveCharacters' | 'isCharacterNameTaken' | 'getAccountIdByCharName'>;
 
 function activeSessions() {
     return [...GlobalState.sessionsByToken.values()]
@@ -149,6 +151,15 @@ function healSession(session: ReturnType<typeof activeSessions>[number]): number
     return healed;
 }
 
+function escapeHtml(value: string): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function broadcastAnnouncement(message: string): number {
     let recipients = 0;
     for (const session of activeSessions()) {
@@ -165,7 +176,7 @@ function normalizeGrantCharacterName(value: unknown): string {
 }
 
 const GRANT_SCALAR_FIELDS = ['gold', 'mammothIdols', 'xp', 'level', 'SilverSigils', 'DragonOre', 'DragonKeys'] as const;
-const GRANT_ARRAY_FIELDS = ['mounts', 'pets', 'consumables', 'inventoryGears'] as const;
+const GRANT_ARRAY_FIELDS = ['mounts', 'pets', 'consumables', 'inventoryGears', 'lockboxes'] as const;
 
 function snapshotGrantFields(character: Character): Partial<Character> {
     const snapshot: Partial<Character> = {};
@@ -645,7 +656,143 @@ async function grantDragonResourceToCharacter(
         : null;
 }
 
-function buildGearCatalog(): Array<{ id: number; name: string; type: string; rarity: string }> {
+async function grantTrovesToCharacter(
+    userId: number,
+    characterName: string,
+    amount: number,
+    store: CharacterStore = grantDb
+): Promise<{ before: number; after: number; onlineRecipients: number } | null> {
+    const result = await mutateCharacterValue(
+        userId,
+        characterName,
+        (character) => {
+            const before = LockboxHandler.addLockboxesToCharacter(
+                character,
+                LockboxHandler.TROVE_LOCKBOX_ID,
+                0
+            );
+            LockboxHandler.addLockboxesToCharacter(character, LockboxHandler.TROVE_LOCKBOX_ID, Math.max(1, Math.round(Number(amount))));
+            const after = LockboxHandler.addLockboxesToCharacter(
+                character,
+                LockboxHandler.TROVE_LOCKBOX_ID,
+                0
+            );
+            return { before, after, applied: after > before };
+        },
+        (session) => LockboxHandler.sendLockboxInventoryDeltaToClient(session, LockboxHandler.TROVE_LOCKBOX_ID, Math.max(1, Math.round(Number(amount)))),
+        store
+    );
+    return result
+        ? { before: result.before, after: result.after, onlineRecipients: result.onlineRecipients }
+        : null;
+}
+
+class RenameConflictError extends Error {}
+
+async function renameCharacter(
+    userId: number,
+    characterName: string,
+    newName: string,
+    store: CharacterStore = grantDb
+): Promise<{ onlineRecipients: number } | null> {
+    const normalizedOldName = normalizeGrantCharacterName(characterName);
+    const normalizedNewName = normalizeGrantCharacterName(newName);
+    if (!Number.isSafeInteger(userId) || userId <= 0 || !normalizedOldName || !normalizedNewName) {
+        return null;
+    }
+    if (normalizedOldName === normalizedNewName) {
+        throw new RenameConflictError('The new name is identical to the current name.');
+    }
+    if (await store.isCharacterNameTaken(newName)) {
+        throw new RenameConflictError('Character name is already taken.');
+    }
+
+    const accountSessions = GlobalState.getActiveSessionsByUserId(userId).filter((session) =>
+        GlobalState.isClientConnectionOpen(session)
+    );
+    const targetSessions = accountSessions.filter((session) =>
+        normalizeGrantCharacterName(session.character?.name) === normalizedOldName
+    );
+
+    const characters = await store.loadCharacters(userId);
+    let index = characters.findIndex((character) =>
+        normalizeGrantCharacterName(character?.name) === normalizedOldName
+    );
+    if (index < 0) {
+        if (targetSessions.length === 0) {
+            return null;
+        }
+        characters.push({ ...targetSessions[0].character } as Character);
+        index = characters.length - 1;
+    }
+    characters[index] = { ...characters[index], name: newName };
+
+    for (const session of targetSessions) {
+        if (session.character) {
+            session.character.name = newName;
+        }
+        for (const listedCharacter of session.characters) {
+            if (normalizeGrantCharacterName(listedCharacter?.name) === normalizedOldName) {
+                listedCharacter.name = newName;
+            }
+        }
+    }
+
+    try {
+        await store.saveCharacters(userId, characters);
+    } catch (error) {
+        for (const session of targetSessions) {
+            if (session.character) {
+                session.character.name = characterName;
+            }
+            for (const listedCharacter of session.characters) {
+                if (normalizeGrantCharacterName(listedCharacter?.name) === normalizedNewName) {
+                    listedCharacter.name = characterName;
+                }
+            }
+        }
+        throw error;
+    }
+
+    const savedCharacters = await store.loadCharacters(userId);
+    for (const session of accountSessions) {
+        session.characters = savedCharacters;
+    }
+
+    const oldKey = normalizeCharacterKey(characterName);
+    const newKey = normalizeCharacterKey(newName);
+    for (const session of targetSessions) {
+        if (oldKey && GlobalState.sessionsByCharacterName.get(oldKey) === session) {
+            GlobalState.sessionsByCharacterName.delete(oldKey);
+        }
+        if (newKey) {
+            GlobalState.sessionsByCharacterName.set(newKey, session);
+        }
+    }
+    if (oldKey && newKey && oldKey !== newKey) {
+        const partyId = GlobalState.partyByMember.get(oldKey);
+        if (partyId) {
+            GlobalState.partyByMember.delete(oldKey);
+            GlobalState.partyByMember.set(newKey, partyId);
+        }
+        const group = GlobalState.partyGroups.get(partyId ?? 0);
+        if (group) {
+            const renamedMembers = group.members.map((member) =>
+                normalizeCharacterKey(member) === oldKey ? newName : member
+            );
+            group.members = renamedMembers;
+            if (normalizeCharacterKey(group.leader) === oldKey) {
+                group.leader = newName;
+            }
+            GlobalState.partyGroups.set(group.id, group);
+        }
+        GlobalState.refreshSessionIndexesByCharacterName(newName);
+    }
+
+    return { onlineRecipients: targetSessions.length };
+}
+
+function buildGearCatalog(): Array<{ id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string }> {
     const details = (GameData.GEAR_DATA as unknown as {
         all_gear_details?: Record<string, Array<{ name?: string; type?: string; rarity?: string; realm?: string | null }>>;
     }).all_gear_details;
@@ -653,7 +800,7 @@ function buildGearCatalog(): Array<{ id: number; name: string; type: string; rar
         return [];
     }
 
-    const seen = new Map<number, { id: number; name: string; type: string; rarity: string }>();
+    const seen = new Map<number, { id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string }>();
     for (const rawId of Object.keys(details)) {
         const id = Number(rawId);
         if (!Number.isSafeInteger(id) || id <= 0) {
@@ -671,11 +818,14 @@ function buildGearCatalog(): Array<{ id: number; name: string; type: string; rar
             continue;
         }
         if (!seen.has(id)) {
+            const meta = GameData.getGearMetaById(id);
             seen.set(id, {
                 id,
                 name,
+                displayName: meta?.displayName || name,
                 type: String(base.type ?? ''),
-                rarity: String(base.rarity ?? '')
+                rarity: String(base.rarity ?? ''),
+                usedBy: meta?.usedBy ?? ''
             });
         }
     }
@@ -779,7 +929,7 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
                 res.status(400).json({ error: 'Announcement message is required.' });
                 return;
             }
-            const recipients = broadcastAnnouncement(`[ADMIN] ${message}`);
+            const recipients = broadcastAnnouncement(`<font color="#FFD700">[ADMIN]</font> ${escapeHtml(message)}`);
             res.json({ ok: true, recipients });
             return;
         }
@@ -1110,12 +1260,91 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
                 return;
             }
 
+            if (kind === 'trove') {
+                const amount = Number(body.amount);
+                if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    res.status(400).json({ error: 'Invalid amount. Must be a positive integer.' });
+                    return;
+                }
+                const result = await grantTrovesToCharacter(userId, characterName, amount);
+                if (!result) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                console.log(
+                    `[AdminPanel] Granted ${amount} Treasure Troves to ${characterName} (${userId}): ` +
+                    `${result.before} -> ${result.after}; onlineRecipients=${result.onlineRecipients}`
+                );
+                res.json({
+                    ok: true,
+                    kind,
+                    userId,
+                    characterName,
+                    amount,
+                    before: result.before,
+                    after: result.after,
+                    onlineRecipients: result.onlineRecipients
+                });
+                return;
+            }
+
             res.status(400).json({
-                error: 'Invalid kind. Must be one of: gold, xp, mammothcoins, mount, pet, consumable, silversigils, dragonore, dragonkeys, gear.'
+                error: 'Invalid kind. Must be one of: gold, xp, mammothcoins, mount, pet, consumable, silversigils, dragonore, dragonkeys, gear, trove.'
             });
         } catch (error) {
             console.error('[AdminPanel] Grant failed:', error);
             res.status(500).json({ error: 'The grant failed.' });
+        }
+    });
+
+    app.post('/api/admin/control/rename', authorize, async (req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+
+        const body = req.body && typeof req.body === 'object'
+            ? req.body as Record<string, unknown>
+            : {};
+        const characterName = String(body.characterName ?? '').trim();
+        const newName = String(body.newName ?? '').trim();
+        const rawUserId = Number(body.userId);
+        let userId = Number.isSafeInteger(rawUserId) && rawUserId > 0 ? rawUserId : 0;
+        if (!characterName || !newName) {
+            res.status(400).json({ error: 'characterName and newName are required.' });
+            return;
+        }
+
+        try {
+            if (userId <= 0) {
+                const resolved = await grantDb.getAccountIdByCharName(characterName);
+                if (!resolved) {
+                    res.status(404).json({ error: 'Player character was not found.' });
+                    return;
+                }
+                userId = resolved;
+            }
+
+            const result = await renameCharacter(userId, characterName, newName);
+            if (!result) {
+                res.status(404).json({ error: 'Player character was not found.' });
+                return;
+            }
+            console.log(
+                `[AdminPanel] Renamed ${characterName} (${userId}) to ${newName}; ` +
+                `onlineRecipients=${result.onlineRecipients}`
+            );
+            res.json({
+                ok: true,
+                userId,
+                characterName,
+                newName,
+                onlineRecipients: result.onlineRecipients
+            });
+        } catch (error) {
+            if (error instanceof RenameConflictError) {
+                res.status(409).json({ error: error.message });
+                return;
+            }
+            console.error('[AdminPanel] Rename failed:', error);
+            res.status(500).json({ error: 'The rename failed.' });
         }
     });
 }

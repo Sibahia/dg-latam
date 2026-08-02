@@ -60,7 +60,7 @@ interface WeightedRewardPick {
 }
 
 export class LockboxHandler {
-    private static readonly TROVE_LOCKBOX_ID = 1;
+    static readonly TROVE_LOCKBOX_ID = 1;
     private static readonly DUPLICATE_PET_FALLBACK_REWARD_NAME = 'PetFood';
     private static readonly TROVE_OPTIONS: Record<number, { quantity: number; cost: number }> = {
         0: { quantity: 1, cost: 50000 },
@@ -758,6 +758,14 @@ export class LockboxHandler {
         bb.writeMethod4(delta);
         bb.writeMethod15(true);
         client.sendBitBuffer(0x104, bb);
+    }
+
+    static addLockboxesToCharacter(character: any, lockboxId: number, delta: number): number {
+        return LockboxHandler.addLockboxes(character, lockboxId, delta);
+    }
+
+    static sendLockboxInventoryDeltaToClient(client: Client, lockboxId: number, delta: number): void {
+        LockboxHandler.sendLockboxInventoryDelta(client, lockboxId, delta);
     }
 
     private static sendLockboxReveal(client: Client, reward: ResolvedLockboxReward): void {

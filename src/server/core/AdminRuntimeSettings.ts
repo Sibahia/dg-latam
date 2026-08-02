@@ -4,6 +4,7 @@ export type AdminRuntimeSettingsSnapshot = {
     oneHitEnabled: boolean;
     godModeEnabled: boolean;
     freezeEnemies: boolean;
+    allowPartyChangesInsideDungeons: boolean;
     damageMultiplier: number;
     playerSpeedMultiplier: number;
     gearDropMultiplier: number;
@@ -18,6 +19,7 @@ const DEFAULTS: MutableSettings = {
     oneHitEnabled: false,
     godModeEnabled: false,
     freezeEnemies: false,
+    allowPartyChangesInsideDungeons: false,
     damageMultiplier: 1,
     playerSpeedMultiplier: 1,
     gearDropMultiplier: 1,
@@ -52,10 +54,11 @@ export class AdminRuntimeSettings {
 
     static update(input: Record<string, unknown>): AdminRuntimeSettingsSnapshot {
         const next = { ...AdminRuntimeSettings.values };
-        const booleanKeys: Array<keyof Pick<MutableSettings, 'oneHitEnabled' | 'godModeEnabled' | 'freezeEnemies'>> = [
+        const booleanKeys: Array<keyof Pick<MutableSettings, 'oneHitEnabled' | 'godModeEnabled' | 'freezeEnemies' | 'allowPartyChangesInsideDungeons'>> = [
             'oneHitEnabled',
             'godModeEnabled',
-            'freezeEnemies'
+            'freezeEnemies',
+            'allowPartyChangesInsideDungeons'
         ];
         for (const key of booleanKeys) {
             if (key in input) {
