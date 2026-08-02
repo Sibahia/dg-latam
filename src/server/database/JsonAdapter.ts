@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { IDatabase, Character, DiscordAccountProfile, SponsorAccountMetadata, UserAccount, UserSaveData } from './Database';
+import { IDatabase, Character, DiscordAccountProfile, GearCatalogEntry, SponsorAccountMetadata, UserAccount, UserSaveData } from './Database';
 import { Config } from '../core/config';
 import { GameData } from '../core/GameData';
 import { normalizeAccountIdentifier, PasswordRecord } from '../auth/PasswordAuth';
@@ -17,7 +17,8 @@ export class JsonAdapter implements IDatabase {
             Config.MONGODB_DB_NAME,
             Config.MONGODB_ACCOUNTS_COLLECTION,
             Config.MONGODB_SAVES_COLLECTION,
-            Config.MONGODB_COUNTERS_COLLECTION
+            Config.MONGODB_COUNTERS_COLLECTION,
+            Config.MONGODB_GEAR_COLLECTION
         )
         : null;
     private accountsPath: string;
@@ -47,6 +48,52 @@ export class JsonAdapter implements IDatabase {
 
     public static async closeMongoGameData(): Promise<void> {
         await JsonAdapter.mongoGameData?.close();
+    }
+
+    public static async seedMongoGearCatalog(): Promise<void> {
+        if (!JsonAdapter.mongoGameData) {
+            return;
+        }
+        await JsonAdapter.mongoGameData.connect();
+        const existing = await JsonAdapter.mongoGameData.getGearCatalog();
+        if (Array.isArray(existing) && existing.length > 0) {
+            console.log(
+                `[GameData] Mongo gear_catalog already seeded (${existing.length} entries); skipping auto-seed.`
+            );
+            return;
+        }
+        const entries = JsonAdapter.loadGearCatalogJson();
+        if (entries.length === 0) {
+            console.warn('[GameData] No gear_catalog.json entries available to seed Mongo gear_catalog.');
+            return;
+        }
+        await JsonAdapter.mongoGameData.upsertGearCatalog(entries);
+        console.log(`[GameData] Seeded Mongo gear_catalog with ${entries.length} entries.`);
+    }
+
+    private static loadGearCatalogJson(): GearCatalogEntry[] {
+        try {
+            const catalogPath = path.resolve(Config.DATA_DIR, 'data', 'gear_catalog.json');
+            const raw = fs.readFileSync(catalogPath, 'utf8');
+            const parsed = JSON.parse(raw) as GearCatalogEntry[];
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+            return parsed
+                .filter((entry) => Number.isSafeInteger(Math.round(Number(entry?.id))) && Number(entry?.id) > 0)
+                .map((entry) => ({
+                    id: Math.round(Number(entry.id)),
+                    name: String(entry.name ?? ''),
+                    displayName: String(entry.displayName ?? ''),
+                    type: String(entry.type ?? ''),
+                    rarity: String(entry.rarity ?? ''),
+                    usedBy: String(entry.usedBy ?? ''),
+                    gearName: entry.gearName !== undefined ? String(entry.gearName) : undefined
+                }));
+        } catch (err) {
+            console.warn(`[GameData] Failed to read gear_catalog.json seed: ${err instanceof Error ? err.message : err}`);
+            return [];
+        }
     }
 
     public static configureMongoGameDataForTests(adapter: GameDataPersistenceAdapter | null): void {
@@ -716,5 +763,18 @@ export class JsonAdapter implements IDatabase {
              // Directory might not exist yet
          }
          return null;
+    }
+
+    public async getGearCatalog(): Promise<GearCatalogEntry[]> {
+        if (JsonAdapter.mongoGameData) {
+            return JsonAdapter.mongoGameData.getGearCatalog();
+        }
+        return [];
+    }
+
+    public async upsertGearCatalog(entries: GearCatalogEntry[]): Promise<void> {
+        if (JsonAdapter.mongoGameData) {
+            return JsonAdapter.mongoGameData.upsertGearCatalog(entries);
+        }
     }
 }

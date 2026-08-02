@@ -88,6 +88,16 @@ export interface UserSaveData {
     characters: Character[];
 }
 
+export interface GearCatalogEntry {
+    id: number;
+    name: string;
+    displayName: string;
+    type: string;
+    rarity: string;
+    usedBy: string;
+    gearName?: string;
+}
+
 export interface IDatabase {
     getAccount(email: string): Promise<UserAccount | null>;
     getAccountById(userId: number): Promise<UserAccount | null>;
@@ -100,4 +110,6 @@ export interface IDatabase {
     loadCharacters(userId: number): Promise<Character[]>;
     saveCharacters(userId: number, characters: Character[]): Promise<void>;
     isCharacterNameTaken(name: string): Promise<boolean>;
+    getGearCatalog(): Promise<GearCatalogEntry[]>;
+    upsertGearCatalog(entries: GearCatalogEntry[]): Promise<void>;
 }

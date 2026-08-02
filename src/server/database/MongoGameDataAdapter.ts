@@ -3,6 +3,7 @@ import { normalizeAccountIdentifier, PasswordRecord } from '../auth/PasswordAuth
 import {
     Character,
     DiscordAccountProfile,
+    GearCatalogEntry,
     IDatabase,
     SponsorAccountMetadata,
     UserAccount,
@@ -12,6 +13,7 @@ import {
 type MongoAccountDocument = Document & UserAccount & { _id: string; createdAt?: Date; updatedAt?: Date };
 type MongoSaveDocument = Document & UserSaveData & { _id: string; createdAt?: Date; updatedAt?: Date };
 type MongoCounterDocument = Document & { _id: string; value: number; createdAt?: Date; updatedAt?: Date };
+type MongoGearDocument = Document & GearCatalogEntry & { _id: number; createdAt?: Date; updatedAt?: Date };
 
 export interface GameDataPersistenceAdapter extends IDatabase {
     connect(): Promise<void>;
@@ -72,6 +74,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
     private accounts: Collection<MongoAccountDocument> | null = null;
     private saves: Collection<MongoSaveDocument> | null = null;
     private counters: Collection<MongoCounterDocument> | null = null;
+    private gear: Collection<MongoGearDocument> | null = null;
     private connectPromise: Promise<void> | null = null;
 
     constructor(
@@ -79,7 +82,8 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         private readonly databaseName: string,
         private readonly accountsCollectionName = 'accounts',
         private readonly savesCollectionName = 'saves',
-        private readonly countersCollectionName = 'counters'
+        private readonly countersCollectionName = 'counters',
+        private readonly gearCollectionName = 'gear_catalog'
     ) {}
 
     public async connect(): Promise<void> {
@@ -96,10 +100,10 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         const client = new MongoClient(this.uri, { ignoreUndefined: true });
         this.connectPromise = (async () => {
             await client.connect();
-            const db = client.db(this.databaseName);
             const accounts = db.collection<MongoAccountDocument>(this.accountsCollectionName);
             const saves = db.collection<MongoSaveDocument>(this.savesCollectionName);
             const counters = db.collection<MongoCounterDocument>(this.countersCollectionName);
+            const gear = db.collection<MongoGearDocument>(this.gearCollectionName);
 
             await Promise.all([
                 accounts.createIndex({ email: 1 }, { unique: true, name: 'account_email_unique' }),
@@ -112,13 +116,15 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
                 saves.createIndex({ 'characters.name': 1 }, { name: 'save_character_name' }),
                 // Backs loadCharacterRecordsByGuild, which runs on every region change and
                 // every guild chat message for guilded players.
-                saves.createIndex({ 'characters.guild.name': 1 }, { name: 'save_character_guild_name' })
+                saves.createIndex({ 'characters.guild.name': 1 }, { name: 'save_character_guild_name' }),
+                gear.createIndex({ id: 1 }, { unique: true, name: 'gear_catalog_id_unique' })
             ]);
 
             this.client = client;
             this.accounts = accounts;
             this.saves = saves;
             this.counters = counters;
+            this.gear = gear;
         })().catch((error) => {
             this.connectPromise = null;
             void client.close().catch(() => undefined);
@@ -134,6 +140,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         this.accounts = null;
         this.saves = null;
         this.counters = null;
+        this.gear = null;
         this.connectPromise = null;
         await client?.close();
     }
@@ -142,12 +149,13 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         accounts: Collection<MongoAccountDocument>;
         saves: Collection<MongoSaveDocument>;
         counters: Collection<MongoCounterDocument>;
+        gear: Collection<MongoGearDocument>;
     }> {
         await this.connect();
-        if (!this.accounts || !this.saves || !this.counters) {
+        if (!this.accounts || !this.saves || !this.counters || !this.gear) {
             throw new Error('Mongo game-data collections are not initialized.');
         }
-        return { accounts: this.accounts, saves: this.saves, counters: this.counters };
+        return { accounts: this.accounts, saves: this.saves, counters: this.counters, gear: this.gear };
     }
 
     private assertUsableDiscordProfile(
@@ -471,5 +479,52 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
             { projection: { user_id: 1 } }
         );
         return save ? Math.round(Number(save.user_id)) : null;
+    }
+
+    public async getGearCatalog(): Promise<GearCatalogEntry[]> {
+        const { gear } = await this.getCollections();
+        const docs = await gear.find({}).sort({ id: 1 }).toArray();
+        return docs.map(({ id, name, displayName, type, rarity, usedBy, gearName }) => ({
+            id: Math.round(Number(id)),
+            name: String(name ?? ''),
+            displayName: String(displayName ?? ''),
+            type: String(type ?? ''),
+            rarity: String(rarity ?? ''),
+            usedBy: String(usedBy ?? ''),
+            gearName: gearName !== undefined ? String(gearName) : undefined
+        }));
+    }
+
+    public async upsertGearCatalog(entries: GearCatalogEntry[]): Promise<void> {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return;
+        }
+        const { gear } = await this.getCollections();
+        const now = new Date();
+        const operations = entries
+            .filter((entry) => Number.isSafeInteger(Math.round(Number(entry?.id))) && Number(entry?.id) > 0)
+            .map((entry) => ({
+                updateOne: {
+                    filter: { id: Math.round(Number(entry.id)) },
+                    update: {
+                        $set: {
+                            id: Math.round(Number(entry.id)),
+                            name: String(entry.name ?? ''),
+                            displayName: String(entry.displayName ?? ''),
+                            type: String(entry.type ?? ''),
+                            rarity: String(entry.rarity ?? ''),
+                            usedBy: String(entry.usedBy ?? ''),
+                            gearName: entry.gearName !== undefined ? String(entry.gearName) : undefined,
+                            updatedAt: now
+                        },
+                        $setOnInsert: {
+                            _id: Math.round(Number(entry.id)),
+                            createdAt: now
+                        }
+                    },
+                    upsert: true
+                }
+            }));
+        await gear.bulkWrite(operations, { ordered: false });
     }
 }

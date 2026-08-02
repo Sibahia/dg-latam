@@ -397,6 +397,51 @@ export class GameData {
             GameData.GEAR_DROP_RULES_BY_ID = {};
             console.error('[GameData] Failed to load GearTypes.xml source rules:', err);
         }
+
+        // The Docker image does not ship content/xml, so GearTypes.xml may be
+        // unavailable at runtime (which left GEAR_META_BY_ID empty and broke the
+        // admin "Equipo" grant catalog). Mirror the committed gear_catalog.json
+        // into the meta map as a self-contained fallback.
+        if (GameData.GEAR_META_BY_ID.size === 0) {
+            GameData.loadGearCatalogJsonFallback(dataDir);
+        }
+    }
+
+    private static loadGearCatalogJsonFallback(dataDir: string): void {
+        try {
+            const catalogPath = path.join(dataDir, 'data', 'gear_catalog.json');
+            if (!fs.existsSync(catalogPath)) {
+                console.warn('[GameData] gear_catalog.json not found; gear names/classes unavailable for admin catalog.');
+                return;
+            }
+            const entries = readJsonFile<Array<{ id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string }>>(catalogPath);
+            if (!Array.isArray(entries)) {
+                return;
+            }
+            let filled = 0;
+            for (const entry of entries) {
+                const id = Math.round(Number(entry?.id));
+                if (!Number.isSafeInteger(id) || id <= 0) {
+                    continue;
+                }
+                const usedBy = String(entry?.usedBy ?? '');
+                if (!usedBy) {
+                    continue;
+                }
+                GameData.GEAR_META_BY_ID.set(id, {
+                    displayName: String(entry?.displayName ?? entry?.name ?? `#${id}`),
+                    usedBy,
+                    gearName: String(entry?.name ?? ''),
+                    isRareVariant: false
+                });
+                filled += 1;
+            }
+            if (filled > 0) {
+                console.log(`[GameData] Loaded ${filled} gear meta entries from gear_catalog.json fallback.`);
+            }
+        } catch (err) {
+            console.error('[GameData] Failed to load gear_catalog.json fallback:', err);
+        }
     }
 
     private static loadGearDropLocationMaps(dataDir: string): void {
