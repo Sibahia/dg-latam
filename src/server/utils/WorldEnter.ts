@@ -53,9 +53,9 @@ export class WorldEnter {
     private static readonly NEWS_EVENT_REMAINING_SECONDS = 666 * 60 * 60;
     private static readonly DEFAULT_NEWS_EVENT = {
         icon: 'a_NewsPetXPIcon',
-        url: 'https://theminesa.studio',
-        body: 'The Minesa Studios',
-        tooltip: 'https://theminesa.studio'
+        url: 'https://discord.gg/u9yT4MFq7M',
+        body: 'Dungeon Blitz Latam',
+        tooltip: 'https://discord.gg/u9yT4MFq7M'
     };
 
     private static asRecord(value: unknown): Record<string, any> {

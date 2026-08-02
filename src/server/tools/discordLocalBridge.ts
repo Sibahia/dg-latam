@@ -62,7 +62,7 @@ interface PresencePayload {
 
 const DEFAULT_PORT = 47631;
 const PARTY_MAX_MEMBERS = 4;
-const DEFAULT_PLAY_GAME_URL = 'https://theminesa.studio/dungeon-blitz-r';
+const DEFAULT_PLAY_GAME_URL = 'https://discord.gg/u9yT4MFq7M';
 
 function buildLocalPresenceEndpoint(pathname: string): string {
     return `http://127.0.0.1:${Config.STATIC_PORT}${pathname}`;
