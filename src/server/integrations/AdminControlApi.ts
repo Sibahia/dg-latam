@@ -958,7 +958,7 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
                 res.status(400).json({ error: 'Announcement message is required.' });
                 return;
             }
-            const recipients = broadcastAnnouncement(`[ADMIN] ${message}`);
+            const recipients = broadcastAnnouncement(`<font color="#FFD700">[ADMIN]</font> ${escapeHtml(message)}`);
             res.json({ ok: true, recipients });
             return;
         }
