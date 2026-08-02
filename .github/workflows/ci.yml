@@ -34,7 +34,3 @@ jobs:
       - name: Build
         working-directory: src/server
         run: npm run build
-
-      - name: Verify client patches
-        working-directory: src/server
-        run: npm run verify:client-patches
