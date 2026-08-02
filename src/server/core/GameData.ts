@@ -51,6 +51,7 @@ export class GameData {
         global_drops: []
     };
     private static GEAR_DROP_RULES_BY_ID: Record<number, GearDropRule[]> = {};
+    private static GEAR_META_BY_ID: Map<number, { displayName: string; usedBy: string; gearName: string; isRareVariant: boolean }> = new Map();
     private static GEAR_DROP_RULES_LOADED = false;
     private static BOSS_DROP_DUNGEON_BY_SOURCE: Record<string, string> = {};
     private static DUNGEON_BOSS_ENTITY_KEYS_BY_LEVEL: Record<string, Set<string>> = {};
@@ -310,6 +311,14 @@ export class GameData {
         return `${Math.max(0, Math.round(Number(gearId) || 0))}:${Math.max(0, Math.min(2, Math.round(Number(tier) || 0)))}`;
     }
 
+    static getGearMetaById(gearId: number): { displayName: string; usedBy: string } | null {
+        const meta = GameData.GEAR_META_BY_ID.get(Math.max(0, Math.round(Number(gearId) || 0)));
+        if (!meta) {
+            return null;
+        }
+        return { displayName: meta.displayName, usedBy: meta.usedBy };
+    }
+
     private static normalizeGearTier(tier: number | null | undefined): number | null {
         if (tier === null || tier === undefined) {
             return null;
@@ -323,6 +332,7 @@ export class GameData {
 
     private static loadGearDropRules(dataDir: string): void {
         GameData.GEAR_DROP_RULES_BY_ID = {};
+        GameData.GEAR_META_BY_ID = new Map();
         GameData.GEAR_DROP_RULES_LOADED = false;
 
         const xmlPath = GameData.findClientContentPath(dataDir, 'xml', 'GearTypes.xml');
@@ -347,6 +357,21 @@ export class GameData {
                 const realm = GameData.decodeXmlText(GameData.getXmlTagValue(body, 'Realm'));
                 const bossName = GameData.normalizeEntityDropName(GameData.decodeXmlText(GameData.getXmlTagValue(body, 'BossName')));
                 const level = Math.max(0, Math.round(Number(GameData.getXmlTagValue(body, 'Level') || 0)));
+
+                const gearName = GameData.decodeXmlText(GameData.getXmlAttribute(attrs, 'GearName') ?? '');
+                const displayName = GameData.decodeXmlText(GameData.getXmlTagValue(body, 'DisplayName'));
+                const usedBy = GameData.decodeXmlText(GameData.getXmlTagValue(body, 'UsedBy'));
+                const isRareVariant = /\d[RL]$/.test(gearName);
+                const existingMeta = GameData.GEAR_META_BY_ID.get(gearId);
+                if (!existingMeta || (existingMeta.isRareVariant && !isRareVariant)) {
+                    GameData.GEAR_META_BY_ID.set(gearId, {
+                        displayName: displayName || gearName || `#${gearId}`,
+                        usedBy,
+                        gearName,
+                        isRareVariant
+                    });
+                }
+
                 if ((!realm && !bossName) || level <= 0) {
                     continue;
                 }

@@ -77,7 +77,7 @@ function render(snapshot) {
   if (!document.activeElement?.matches('input[type="range"],input[type="checkbox"]')) syncSettings(snapshot.settings);
 }
 function syncSettings(s) {
-  ['oneHitEnabled', 'godModeEnabled', 'freezeEnemies'].forEach(k => $(k).checked = Boolean(s[k]));
+  ['oneHitEnabled', 'godModeEnabled', 'freezeEnemies', 'allowPartyChangesInsideDungeons'].forEach(k => $(k).checked = Boolean(s[k]));
   sliders.forEach(([id,, unit]) => {
     $(id).value = s[id];
     $(id + 'Out').textContent = `${Number(s[id]).toFixed(Number(s[id]) % 1 ? 2 : 0)}${unit}`;
@@ -131,11 +131,12 @@ function updateGrantPlayerSelect(snapshot) {
   const select = $('grantPlayerSelect');
   const selectedValue = select.value;
   select.innerHTML = snapshot.players.length
-    ? snapshot.players.map(p => `<option value="${p.token}">${esc(p.name)} · ${esc(p.level)} · Sala ${p.roomId}</option>`).join('')
+    ? snapshot.players.map(p => `<option value="${p.token}">${esc(p.name)} · ${esc(p.className || '?')} · ${esc(p.level)} · Sala ${p.roomId}</option>`).join('')
     : '<option value="">Sin jugadores en línea</option>';
   if (state.selectedToken && snapshot.players.some(p => p.token === state.selectedToken)) select.value = String(state.selectedToken);
   else if (selectedValue && snapshot.players.some(p => p.token === Number(selectedValue))) select.value = selectedValue;
   updateGrantTargetInfo(snapshot);
+  updateGearFilter(snapshot);
 }
 function currentGrantTarget() {
   const token = Number($('grantPlayerSelect').value);
@@ -144,10 +145,29 @@ function currentGrantTarget() {
 function updateGrantTargetInfo(snapshot) {
   const target = snapshot.players.find(p => p.token === Number($('grantPlayerSelect').value));
   $('grantTargetInfo').textContent = target
-    ? `Objetivo: ${target.name} (${target.level}, sala ${target.roomId}, ${target.hp}/${target.maxHp} HP)`
+    ? `Objetivo: ${target.name} (${target.className || '?'} · ${target.level}, sala ${target.roomId}, ${target.hp}/${target.maxHp} HP)`
     : 'Selecciona un jugador para comenzar.';
+  if (target && !$('renameOldName').value) $('renameOldName').value = target.name;
 }
-$('grantPlayerSelect').onchange = () => updateGrantTargetInfo(state.snapshot);
+function selectedGrantClass() {
+  const target = state.snapshot?.players.find(p => p.token === Number($('grantPlayerSelect').value));
+  return String(target?.className ?? '').trim().toLowerCase();
+}
+function updateGearFilter(snapshot) {
+  const select = $('gearSelect');
+  if (!select || !state.catalog) return;
+  const className = selectedGrantClass();
+  const gear = state.catalog.gear || [];
+  const filtered = className
+    ? gear.filter(g => String(g.usedBy || '').trim().toLowerCase() === className)
+    : gear;
+  const options = filtered.map(g => `<option value="${g.id}">#${g.id} — ${esc(g.displayName || g.name)}${g.rarity ? ` (${esc(g.rarity)})` : ''}</option>`).join('');
+  select.innerHTML = options || '<option value="">—</option>';
+}
+$('grantPlayerSelect').onchange = () => {
+  updateGrantTargetInfo(state.snapshot);
+  updateGearFilter(state.snapshot);
+};
 
 async function loadCatalog() {
   if (state.catalog) { renderGrantsGrid(); return; }
@@ -167,7 +187,9 @@ function numberCard(icon, title, subtitle, kind, valueId, hint) {
 function renderGrantsGrid() {
   const catalog = state.catalog;
   if (!catalog) { $('grantsGrid').innerHTML = '<div class="empty-state">Cargando catálogo…</div>'; return; }
-  const gearOptions = (catalog.gear || []).map(g => `<option value="${g.id}">#${g.id} — ${esc(g.name)}${g.rarity ? ` (${esc(g.rarity)})` : ''}</option>`).join('');
+  const className = selectedGrantClass();
+  const gearCatalog = (catalog.gear || []).filter(g => !className || String(g.usedBy || '').trim().toLowerCase() === className);
+  const gearOptions = gearCatalog.map(g => `<option value="${g.id}">#${g.id} — ${esc(g.displayName || g.name)}${g.rarity ? ` (${esc(g.rarity)})` : ''}</option>`).join('');
   const mountsOptions = selectOptions(catalog.mounts || []);
   const petsOptions = selectOptions(catalog.pets || []);
   const consumablesOptions = selectOptions(catalog.consumables || []);
@@ -184,6 +206,7 @@ function renderGrantsGrid() {
       <div class="grants-row">
         ${numberCard('<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2ZM9 21h6M10 6h.01M14 6h.01M11 9h2"/></svg>', 'Dragon Ore', 'Mena de dragón (se aplica al re-entrar)', 'dragonore', 'oreAmount', 100)}
         ${numberCard('<svg viewBox="0 0 24 24"><path d="M12 2v6M12 8l2.5-2.5M12 8L9.5 5.5M7 12h10M7 12l-3-3M17 12l3-3M8 15h8M8 15l-2 2M16 15l2 2M10 19h4"/></svg>', 'Dragon Keys', 'Llaves de dragón (se aplican al re-entrar)', 'dragonkeys', 'keysAmount', 10)}
+        ${numberCard('<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-6 15.7V22h12v-3.3A9 9 0 0 0 12 3ZM9 21h6M12 7h.01M12 12h.01M12 17h.01M15 9l-6 6"/></svg>', 'Treasure Troves', 'Cofres de tesoro para abrir con llaves', 'trove', 'troveAmount', 10)}
       </div>
     </div>
     <div class="grant-group"><h3>Colección</h3>
@@ -224,6 +247,7 @@ function submitGrant(kind) {
     case 'silversigils': payload.amount = Math.max(1, Math.round(Number($('sigilsAmount').value) || 0)); break;
     case 'dragonore': payload.amount = Math.max(1, Math.round(Number($('oreAmount').value) || 0)); break;
     case 'dragonkeys': payload.amount = Math.max(1, Math.round(Number($('keysAmount').value) || 0)); break;
+    case 'trove': payload.amount = Math.max(1, Math.round(Number($('troveAmount').value) || 0)); break;
     case 'mount': payload.mountId = Math.round(Number($('mountSelect').value)); break;
     case 'pet': payload.petTypeId = Math.round(Number($('petSelect').value)); break;
     case 'consumable':
@@ -232,6 +256,7 @@ function submitGrant(kind) {
       break;
     case 'gear':
       payload.gearId = Math.round(Number($('gearSelect').value));
+      if (!payload.gearId) { toast('Selecciona un equipo de la lista.', true); return; }
       payload.tier = Math.max(1, Math.min(2, Math.round(Number($('gearTier').value) || 1)));
       break;
     default: return;
@@ -250,6 +275,7 @@ function grantSuccessMessage(kind, name, payload, result) {
     case 'silversigils': return `${name}: +${fmt(result.amount)} Silver Sigils (${fmt(result.before)} → ${fmt(result.after)}).`;
     case 'dragonore': return `${name}: +${fmt(result.amount)} Dragon Ore (${fmt(result.before)} → ${fmt(result.after)}).`;
     case 'dragonkeys': return `${name}: +${fmt(result.amount)} Dragon Keys (${fmt(result.before)} → ${fmt(result.after)}).`;
+    case 'trove': return `${name}: +${fmt(result.amount)} Treasure Troves (${fmt(result.before)} → ${fmt(result.after)}).`;
     case 'mount': return `${name}: montura ${payload.mountId} otorgada.`;
     case 'pet': return `${name}: mascota ${payload.petTypeId} (id ${result.specialId}) otorgada.`;
     case 'consumable': return `${name}: +${payload.quantity}x consumible ${payload.consumableId}.`;
@@ -258,9 +284,30 @@ function grantSuccessMessage(kind, name, payload, result) {
   }
 }
 
+function submitRename() {
+  const characterName = $('renameOldName').value.trim();
+  const newName = $('renameNewName').value.trim();
+  if (!characterName) { toast('Escribe el nombre actual del personaje.', true); return; }
+  if (!newName) { toast('Escribe el nuevo nombre.', true); return; }
+  if (newName.toLowerCase() === characterName.toLowerCase()) { toast('El nuevo nombre es igual al actual.', true); return; }
+  const target = state.snapshot?.players.find(p => p.name === characterName);
+  const payload = { characterName, newName };
+  if (target) payload.userId = target.userId;
+  api('rename', { method: 'POST', body: JSON.stringify(payload) }).then(
+    result => {
+      toast(`${characterName} renombrado a ${result.newName}.`);
+      $('renameNewName').value = '';
+      $('renameOldName').value = result.newName;
+    },
+    error => toast(error.message, true)
+  );
+}
+$('renameSubmit').onclick = submitRename;
+$('renameNewName').addEventListener('keydown', event => { if (event.key === 'Enter') submitRename(); });
+
 $('saveSettings').onclick = async () => {
   const payload = {};
-  ['oneHitEnabled', 'godModeEnabled', 'freezeEnemies'].forEach(k => payload[k] = $(k).checked);
+  ['oneHitEnabled', 'godModeEnabled', 'freezeEnemies', 'allowPartyChangesInsideDungeons'].forEach(k => payload[k] = $(k).checked);
   sliders.forEach(([id]) => payload[id] = Number($(id).value));
   try { await api('settings', { method: 'PATCH', body: JSON.stringify(payload) }); toast('Ajustes de runtime aplicados.'); }
   catch (error) { toast(error.message, true); }

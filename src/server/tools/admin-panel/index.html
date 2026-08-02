@@ -87,6 +87,7 @@
               <label class="toggle-card"><span class="toggle-icon"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h8l-1 8 9-12h-8l1-8Z"/></svg></span><span class="toggle-copy"><b>Un golpe</b><small>Los ataques del jugador son letales</small></span><input id="oneHitEnabled" type="checkbox"><i class="switch"></i></label>
               <label class="toggle-card"><span class="toggle-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></span><span class="toggle-copy"><b>Modo Dios</b><small>Los jugadores no reciben daño</small></span><input id="godModeEnabled" type="checkbox"><i class="switch"></i></label>
               <label class="toggle-card"><span class="toggle-icon"><svg viewBox="0 0 24 24"><path d="M8 2v20M16 2v20"/></svg></span><span class="toggle-copy"><b>Congelar IA</b><small>Detener el ciclo de decisiones de los enemigos</small></span><input id="freezeEnemies" type="checkbox"><i class="switch"></i></label>
+              <label class="toggle-card"><span class="toggle-icon"><svg viewBox="0 0 24 24"><path d="M8 12h8M8 12l3-3M8 12l3 3M16 12l-3-3M16 12l-3 3"/></svg></span><span class="toggle-copy"><b>Party en Dungeon</b><small>Permitir invitar/unirse/salir dentro de una dungeon</small></span><input id="allowPartyChangesInsideDungeons" type="checkbox"><i class="switch"></i></label>
             </div>
             <div id="sliders" class="sliders"></div>
             <div class="settings-footer"><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2 2"/></svg>Los cambios son temporales</span><button id="saveSettings" class="button button-primary">Aplicar cambios<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div>
@@ -126,6 +127,18 @@
             <select id="grantPlayerSelect" aria-label="Seleccionar jugador"></select>
           </div>
           <div id="grantTargetInfo" class="grant-target-info">Selecciona un jugador para comenzar.</div>
+        </div>
+
+        <div class="grant-target-bar card">
+          <div>
+            <span class="section-label">CAMBIAR NOMBRE</span>
+            <div class="rename-fields">
+              <input id="renameOldName" type="text" maxlength="24" placeholder="Nombre actual" aria-label="Nombre actual">
+              <input id="renameNewName" type="text" maxlength="24" placeholder="Nuevo nombre" aria-label="Nuevo nombre">
+              <button id="renameSubmit" class="button button-primary button-small" type="button">Renombrar</button>
+            </div>
+          </div>
+          <div id="renameHint" class="grant-target-info">Se rellena con el jugador seleccionado. También puedes escribir un nombre para jugadores offline.</div>
         </div>
 
         <div class="grants-grid" id="grantsGrid"></div>

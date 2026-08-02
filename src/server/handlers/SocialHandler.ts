@@ -26,6 +26,7 @@ import {
     sanitizeSocialText
 } from '../core/SocialState';
 import { areClientsInSameLevelScope, getClientLevelScope } from '../core/LevelScope';
+import { AdminRuntimeSettings } from '../core/AdminRuntimeSettings';
 
 const db = new JsonAdapter();
 
@@ -1599,7 +1600,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(client)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(client)) {
             SocialHandler.sendChatStatus(client, 'You cannot form a party while inside a dungeon. Leave the dungeon first.');
             return;
         }
@@ -1620,7 +1621,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(invitee)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(invitee)) {
             SocialHandler.sendChatStatus(client, `${invitee.character.name} is inside a dungeon and cannot join a party.`);
             return;
         }
@@ -1673,13 +1674,13 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(client)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(client)) {
             SocialHandler.sendChatStatus(client, 'You cannot join a party while inside a dungeon. Leave the dungeon first.');
             SocialHandler.sendChatStatus(inviter, `${inviteeName} is inside a dungeon and cannot join a party.`);
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(inviter)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(inviter)) {
             SocialHandler.sendChatStatus(client, `${inviter.character.name} is inside a dungeon and cannot form a party.`);
             SocialHandler.sendChatStatus(inviter, 'You cannot form a party while inside a dungeon. Leave the dungeon first.');
             return;
@@ -1723,7 +1724,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(client)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(client)) {
             SocialHandler.sendChatStatus(client, 'You cannot join a party while inside a dungeon. Leave the dungeon first.');
             return;
         }
@@ -1745,7 +1746,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isPartyInsideDungeon(targetParty.group)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isPartyInsideDungeon(targetParty.group)) {
             SocialHandler.sendChatStatus(client, `${targetSession.character.name}'s party is in the middle of a dungeon run.`);
             return;
         }
@@ -1771,7 +1772,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(client)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(client)) {
             SocialHandler.sendChatStatus(client, 'You cannot leave your party while inside a dungeon. You may leave the dungeon instead.');
             return;
         }
@@ -1843,12 +1844,12 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isInsideDungeon(client)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isInsideDungeon(client)) {
             SocialHandler.sendChatStatus(client, 'You cannot remove party members while inside a dungeon.');
             return;
         }
 
-        if (SocialHandler.isCharacterInsideDungeon(targetMember)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isCharacterInsideDungeon(targetMember)) {
             SocialHandler.sendChatStatus(client, `${targetMember} is inside a dungeon and cannot be removed from the party.`);
             return;
         }
@@ -1918,7 +1919,7 @@ export class SocialHandler {
             return;
         }
 
-        if (SocialHandler.isPartyInsideDungeon(party.group)) {
+        if (!AdminRuntimeSettings.snapshot.allowPartyChangesInsideDungeons && SocialHandler.isPartyInsideDungeon(party.group)) {
             SocialHandler.sendChatStatus(client, 'The party leader cannot be changed during a dungeon run.');
             return;
         }
