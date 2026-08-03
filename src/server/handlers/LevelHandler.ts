@@ -5299,7 +5299,7 @@ export class LevelHandler {
         // this packet's boss id resolving to a canonical boss in the shared state.
         // If it does not, that anchor is unusable — so record exactly what the
         // client named and what the scope holds.
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0') {
             const scopeEntities = GlobalState.levelEntities.get(levelScope);
             console.log(`[DUNGEON-DIAG] roomBossInfo ${JSON.stringify({
                 level: scopeLevelName,

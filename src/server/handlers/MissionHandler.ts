@@ -3405,7 +3405,7 @@ export class MissionHandler {
     // rank plate. Boss deaths and cutscene closes are low-frequency events, so a
     // compact single line per event is cheap. Silence with DUNGEON_DIAG=0.
     private static isDungeonDiagEnabled(): boolean {
-        return String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0';
+        return String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0';
     }
 
     private static logDungeonDiag(event: string, extra: Record<string, unknown> = {}): void {

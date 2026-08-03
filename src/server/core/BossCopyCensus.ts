@@ -47,7 +47,7 @@ export type BossCopySnapshot = {
 };
 
 export function isBossCopyDiagEnabled(): boolean {
-    return String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0';
+    return String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0';
 }
 
 function toInt(value: unknown, fallback: number = 0): number {
