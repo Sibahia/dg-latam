@@ -2646,7 +2646,7 @@ export class EntityHandler {
         // the duplicate guards can act: whether this cue is the marked room boss,
         // and which scope entities currently carry a room-boss marker. If a copy
         // slips through, this line names it and shows why nothing anchored on it.
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0') {
             console.log(`[DUNGEON-DIAG] requiredBossSpawn ${JSON.stringify({
                 level: levelName,
                 scope: levelScope,
@@ -2767,7 +2767,7 @@ export class EntityHandler {
         EntityHandler.destroyClientLocalEntity(client, entityId, 'second_local_boss_visual', entity);
         EntityHandler.rememberEntityAlias(client, entityId, keeperId);
 
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0') {
             console.log(`[DUNGEON-DIAG] secondLocalBossVisualSuppressed ${JSON.stringify({
                 level: levelName,
                 scope: levelScope,

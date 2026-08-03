@@ -275,7 +275,7 @@ export class DungeonCompletionSystem {
         // boss dying on any other path left no trace at all. Diffing the two
         // tells you whether a missing boss kill never happened or merely
         // bypassed MissionHandler. Silence with DUNGEON_DIAG=0.
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0') {
             try {
                 console.log(`[DUNGEON-DIAG] defeatRegistered ${JSON.stringify({
                     level: state.levelName,
@@ -360,7 +360,7 @@ export class DungeonCompletionSystem {
         state.updatedAt = now;
 
         const evaluation = DungeonCompletionSystem.evaluate(levelScope, now);
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() !== '0') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() !== '0') {
             console.log(`[DUNGEON-DIAG] roomBossClearAccepted ${JSON.stringify({
                 level: state.levelName,
                 roomId: normalizedRoomId,
@@ -694,7 +694,7 @@ export class DungeonCompletionSystem {
         condition: DungeonCompletionCondition,
         now: number
     ): void {
-        if (String(process.env.DUNGEON_DIAG ?? '1').trim() === '0' || condition.mode !== 'bosses') {
+        if (String(process.env.DUNGEON_DIAG ?? '0').trim() === '0' || condition.mode !== 'bosses') {
             return;
         }
         const lastLoggedAt = DungeonCompletionSystem.lastPendingObjectiveLogAt.get(state.levelScope) ?? 0;
