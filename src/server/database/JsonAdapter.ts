@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as fssync from 'fs';
 import * as path from 'path';
 import { IDatabase, Character, DiscordAccountProfile, GearCatalogEntry, SponsorAccountMetadata, UserAccount, UserSaveData } from './Database';
 import { Config } from '../core/config';
@@ -72,9 +73,9 @@ export class JsonAdapter implements IDatabase {
     }
 
     private static loadGearCatalogJson(): GearCatalogEntry[] {
+        const catalogPath = path.resolve(Config.DATA_DIR, 'data', 'gear_catalog.json');
         try {
-            const catalogPath = path.resolve(Config.DATA_DIR, 'data', 'gear_catalog.json');
-            const raw = fs.readFileSync(catalogPath, 'utf8');
+            const raw = fssync.readFileSync(catalogPath, 'utf8');
             const parsed = JSON.parse(raw) as GearCatalogEntry[];
             if (!Array.isArray(parsed)) {
                 return [];

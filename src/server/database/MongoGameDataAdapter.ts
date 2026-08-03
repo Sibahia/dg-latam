@@ -100,6 +100,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         const client = new MongoClient(this.uri, { ignoreUndefined: true });
         this.connectPromise = (async () => {
             await client.connect();
+            const db = client.db(this.databaseName);
             const accounts = db.collection<MongoAccountDocument>(this.accountsCollectionName);
             const saves = db.collection<MongoSaveDocument>(this.savesCollectionName);
             const counters = db.collection<MongoCounterDocument>(this.countersCollectionName);
