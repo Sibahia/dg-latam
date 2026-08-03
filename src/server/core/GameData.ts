@@ -5,6 +5,7 @@ import { disassemble, parseAbc, parseSwf } from '../scripts/swfPatchUtils';
 import type { Instruction } from '../scripts/swfPatchUtils';
 import { readJsonFile } from '../utils/JsonFile';
 import { LevelConfig } from './LevelConfig';
+import { translateGearDisplayName } from '../data/gearNameTranslator';
 
 type GearDropSource = 'boss' | 'realm';
 
@@ -359,7 +360,7 @@ export class GameData {
                 const level = Math.max(0, Math.round(Number(GameData.getXmlTagValue(body, 'Level') || 0)));
 
                 const gearName = GameData.decodeXmlText(GameData.getXmlAttribute(attrs, 'GearName') ?? '');
-                const displayName = GameData.decodeXmlText(GameData.getXmlTagValue(body, 'DisplayName'));
+                const displayName = translateGearDisplayName(GameData.decodeXmlText(GameData.getXmlTagValue(body, 'DisplayName')));
                 const usedBy = GameData.decodeXmlText(GameData.getXmlTagValue(body, 'UsedBy'));
                 const isRareVariant = /\d[RL]$/.test(gearName);
                 const existingMeta = GameData.GEAR_META_BY_ID.get(gearId);
