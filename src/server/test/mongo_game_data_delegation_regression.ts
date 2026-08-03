@@ -6,6 +6,7 @@ import { PasswordRecord } from '../auth/PasswordAuth';
 import {
     Character,
     DiscordAccountProfile,
+    GearCatalogEntry,
     SponsorAccountMetadata,
     UserAccount,
     UserSaveData
@@ -63,6 +64,9 @@ class MemoryGameDataAdapter implements GameDataPersistenceAdapter {
         }
         return null;
     }
+
+    async getGearCatalog(): Promise<GearCatalogEntry[]> { return []; }
+    async upsertGearCatalog(_entries: GearCatalogEntry[]): Promise<void> {}
 }
 
 async function main(): Promise<void> {

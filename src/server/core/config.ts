@@ -228,6 +228,7 @@ export const Config = {
     MONGODB_ACCOUNTS_COLLECTION: parseStringEnv('MONGODB_ACCOUNTS_COLLECTION', 'accounts'),
     MONGODB_SAVES_COLLECTION: parseStringEnv('MONGODB_SAVES_COLLECTION', 'saves'),
     MONGODB_COUNTERS_COLLECTION: parseStringEnv('MONGODB_COUNTERS_COLLECTION', 'counters'),
+    MONGODB_GEAR_COLLECTION: parseStringEnv('MONGODB_GEAR_COLLECTION', 'gear_catalog'),
     ENABLE_MONGO_GAME_DATA: parseBooleanEnv('ENABLE_MONGO_GAME_DATA', Boolean(MONGODB_URI)),
     SECRET: resolveRuntimeKeyHex(),
     DATA_DIR: resolveServerDataDir(),

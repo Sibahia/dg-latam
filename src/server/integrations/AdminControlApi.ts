@@ -25,7 +25,29 @@ import { normalizeCharacterKey, PartyGroup } from '../core/SocialState';
 const registeredApps = new WeakSet<express.Application>();
 const grantDb = new JsonAdapter();
 
+type GearCatalogItem = { id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string };
+
+let mongoGearCache: GearCatalogItem[] | null = null;
+let mongoGearCacheAt = 0;
+const MONGO_GEAR_CACHE_TTL_MS = 60_000;
+
 type CharacterStore = Pick<JsonAdapter, 'loadCharacters' | 'saveCharacterSnapshot' | 'saveCharacters' | 'isCharacterNameTaken' | 'getAccountIdByCharName'>;
+
+async function loadMongoGearCatalog(): Promise<GearCatalogItem[] | null> {
+    const now = Date.now();
+    if (mongoGearCache && now - mongoGearCacheAt < MONGO_GEAR_CACHE_TTL_MS) {
+        return mongoGearCache;
+    }
+    try {
+        const entries = await grantDb.getGearCatalog();
+        mongoGearCache = Array.isArray(entries) && entries.length > 0 ? entries as GearCatalogItem[] : null;
+        mongoGearCacheAt = now;
+    } catch {
+        mongoGearCache = null;
+        mongoGearCacheAt = now;
+    }
+    return mongoGearCache;
+}
 
 function activeSessions() {
     return [...GlobalState.sessionsByToken.values()]
@@ -792,7 +814,14 @@ async function renameCharacter(
     return { onlineRecipients: targetSessions.length };
 }
 
-function buildGearCatalog(): Array<{ id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string }> {
+async function buildGearCatalog(): Promise<Array<{ id: number; name: string; displayName: string; type: string; rarity: string; usedBy: string }>> {
+    // Prefer the Mongo-backed catalog (seeded from the committed gear_catalog.json)
+    // so the "Equipo" dropdown is populated even when the XML isn't available.
+    const mongoCatalog = await loadMongoGearCatalog();
+    if (mongoCatalog && mongoCatalog.length > 0) {
+        return mongoCatalog;
+    }
+
     const details = (GameData.GEAR_DATA as unknown as {
         all_gear_details?: Record<string, Array<{ name?: string; type?: string; rarity?: string; realm?: string | null }>>;
     }).all_gear_details;
@@ -937,7 +966,7 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
         res.status(400).json({ error: 'Unknown admin action.' });
     });
 
-    app.get('/api/admin/control/catalog', authorize, (_req, res) => {
+    app.get('/api/admin/control/catalog', authorize, async (_req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         const mounts = Object.entries(GameData.MOUNT_IDS)
             .filter(([, id]) => Number(id) > 0)
@@ -964,7 +993,7 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
             mounts,
             pets,
             consumables,
-            gear: buildGearCatalog()
+            gear: await buildGearCatalog()
         });
     });
 

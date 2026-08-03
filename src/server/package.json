@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.16.0",
+  "version": "1.17.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -27,6 +27,7 @@
     "reset-password": "ts-node scripts/set_account_password.ts",
     "seed:test-account": "ts-node tools/seedTestAccount.ts",
     "migrate:game-data-to-mongo": "node --env-file-if-exists=.env -r ts-node/register scripts/migrate_game_data_to_mongo.ts",
+    "generate:gear-catalog": "ts-node scripts/generate_gear_catalog.ts",
     "admin": "node --env-file-if-exists=.env tools/adminPanelServer.js"
   },
   "keywords": [],

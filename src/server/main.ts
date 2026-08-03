@@ -221,6 +221,7 @@ const gameServer = new GameServer(Config.PORTS[0], router, Config.BIND_HOST);
 
 async function startServers(): Promise<void> {
     await JsonAdapter.initializeMongoGameData();
+    await JsonAdapter.seedMongoGearCatalog();
 
     if (Config.ENABLE_POLICY_SERVER) {
         policyServer = new PolicyServer(Config.POLICY_PORT, Config.BIND_HOST);
