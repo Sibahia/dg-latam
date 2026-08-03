@@ -5470,6 +5470,15 @@ export class LevelHandler {
             if (lastDoorTarget && LevelConfig.has(lastDoorTarget)) {
                 targetLevel = lastDoorTarget;
                 console.log(`[Level] Using last door target for transfer: ${targetLevel}`);
+            } else if (
+                LevelConfig.isDungeonLevel(LevelConfig.normalizeLevelName(client.currentLevel)) &&
+                client.entryLevel &&
+                LevelConfig.has(client.entryLevel)
+            ) {
+                // Leaving a mission without a door target must return to the region the
+                // player came from, not the world start. Falls back to the entry level.
+                targetLevel = client.entryLevel;
+                console.log(`[Level] Using dungeon entry level for transfer: ${targetLevel}`);
             } else {
                 targetLevel = "NewbieRoad";
             }
@@ -5598,7 +5607,7 @@ export class LevelHandler {
             targetLevel,
             savedSpawn.x,
             savedSpawn.y,
-            { x: oldX, y: oldY, hasCoord: hasOldCoord }
+            { x: oldX, y: oldY, hasCoord: hasOldCoord, airborne: Boolean(ent?.airborne) }
         );
         if (!LevelConfig.isDungeonLevel(targetLevel)) {
             clearStoredDungeonSnapshot(activeCharacter);

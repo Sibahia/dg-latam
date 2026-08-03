@@ -822,7 +822,7 @@ export class LevelConfig {
         newLevelName: string | null | undefined,
         newX: number,
         newY: number,
-        sourcePosition?: { x?: number; y?: number; hasCoord?: boolean }
+        sourcePosition?: { x?: number; y?: number; hasCoord?: boolean; airborne?: boolean }
     ): void {
         const newLevel = this.normalizeLevelName(newLevelName);
         if (!newLevel || !this.isSaveAllowedLevel(newLevel)) {
@@ -839,7 +839,12 @@ export class LevelConfig {
             let safeFrom: { name: string; x: number; y: number } | null = null;
             const sourceX = Number(sourcePosition?.x);
             const sourceY = Number(sourcePosition?.y);
+            const sourceIsAirborne = Boolean(sourcePosition?.airborne);
+            // A player crossing the house door mid-jump must not be saved at an airborne
+            // position: coming back from the house would replay that fall (or land them
+            // on a different floor). Prefer the last grounded record when airborne.
             if (
+                !sourceIsAirborne &&
                 oldLevel &&
                 oldLevel !== 'CraftTown' &&
                 this.isSaveAllowedLevel(oldLevel) &&
