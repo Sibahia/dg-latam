@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { collectUntranslatedTokens, translateGearDisplayName } from '../data/gearNameTranslator';
 
 // Generates src/server/data/gear_catalog.json from the game's canonical sources:
 //   - gear_data.json (ids, base name, type, rarity per id)
@@ -45,6 +46,7 @@ function main(): void {
     }
 
     const xmlMeta = new Map<number, { displayName: string; usedBy: string; gearName: string }>();
+    const rawDisplayNames: string[] = [];
     if (xmlPath) {
         const xml = fs.readFileSync(xmlPath, 'utf8');
         const blockPattern = /<Gear\s+([^>]*?)>([\s\S]*?)<\/Gear>/g;
@@ -57,11 +59,13 @@ function main(): void {
                 continue;
             }
             const gearName = getXmlAttribute(attrs, 'GearName') ?? '';
+            const rawDisplayName = getXmlTagValue(body, 'DisplayName') || gearName;
+            rawDisplayNames.push(rawDisplayName);
             const existing = xmlMeta.get(gearId);
             // Prefer the non-rare variant (plain name) when both exist.
             if (!existing || /\d[RL]$/.test(existing.gearName)) {
                 xmlMeta.set(gearId, {
-                    displayName: getXmlTagValue(body, 'DisplayName') || gearName || `#${gearId}`,
+                    displayName: translateGearDisplayName(rawDisplayName) || `#${gearId}`,
                     usedBy: getXmlTagValue(body, 'UsedBy').trim(),
                     gearName
                 });
@@ -102,6 +106,10 @@ function main(): void {
     }
 
     const sorted = [...seen.values()].sort((a, b) => a.id - b.id);
+    const untranslated = collectUntranslatedTokens(rawDisplayNames);
+    if (untranslated.size > 0) {
+        console.warn(`[GenGear] WARNING: ${untranslated.size} tokens without English translation: ${[...untranslated].sort().join(', ')}`);
+    }
     fs.writeFileSync(outputPath, JSON.stringify(sorted, null, 2) + '\n', 'utf8');
     console.log(`[GenGear] Wrote ${sorted.length} gear entries to ${outputPath}.`);
 }
