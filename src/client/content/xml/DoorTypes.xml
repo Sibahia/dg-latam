@@ -229,6 +229,24 @@
 		<TargetDoorID>104</TargetDoorID>
 	</DoorType>
 	<DoorType>
+		<MapName>BT_Mission1</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTown</TargetMapName>
+		<TargetDoorID>101</TargetDoorID>
+	</DoorType>
+	<DoorType>
+		<MapName>BT_Mission2</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTown</TargetMapName>
+		<TargetDoorID>102</TargetDoorID>
+	</DoorType>
+	<DoorType>
+		<MapName>BT_Mission4</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTown</TargetMapName>
+		<TargetDoorID>104</TargetDoorID>
+	</DoorType>
+	<DoorType>
 		<MapName>BridgeTown</MapName>
 		<DoorID>104</DoorID>
 		<TargetMapName>BT_Mission4</TargetMapName>
@@ -1030,6 +1048,24 @@
 	</DoorType>
 	<DoorType>
 		<MapName>BT_Mission3Hard</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTownHard</TargetMapName>
+		<TargetDoorID>104</TargetDoorID>
+	</DoorType>
+	<DoorType>
+		<MapName>BT_Mission1Hard</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTownHard</TargetMapName>
+		<TargetDoorID>101</TargetDoorID>
+	</DoorType>
+	<DoorType>
+		<MapName>BT_Mission2Hard</MapName>
+		<DoorID>2</DoorID>
+		<TargetMapName>BridgeTownHard</TargetMapName>
+		<TargetDoorID>102</TargetDoorID>
+	</DoorType>
+	<DoorType>
+		<MapName>BT_Mission4Hard</MapName>
 		<DoorID>2</DoorID>
 		<TargetMapName>BridgeTownHard</TargetMapName>
 		<TargetDoorID>104</TargetDoorID>
