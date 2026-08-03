@@ -191,7 +191,7 @@ function armExtendedRespecStone(character: Character, remainingSeconds: number):
     const forge: any = (character as any).magicForge;
     forge.primary = CharmID.RespecStone;
     forge.is_extended_forge = true;
-    forge.respec_duration_seconds = 86_400;
+    forge.respec_duration_seconds = 7_200;
     forge.respec_started_time = nowSeconds() - 10;
     forge.ReadyTime = nowSeconds() + remainingSeconds;
 }

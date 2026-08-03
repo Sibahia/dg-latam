@@ -71,7 +71,7 @@ for (const script of [
 const forgeHandler = fs.readFileSync(path.join(serverRoot, 'handlers', 'ForgeHandler.ts'), 'utf8');
 assert.match(
     forgeHandler,
-    /FORGE_DURATIONS_BY_SIZE\s*=\s*\[300, 900, 1800, 3600, 7200, 14400, 21600, 28800, 43200, 86400\]/,
+    /FORGE_DURATIONS_BY_SIZE\s*=\s*\[120, 180, 300, 900, 1800, 3600, 5400, 7200, 9000, 10800\]/,
     'server and served-client charm duration schedules must remain aligned'
 );
 

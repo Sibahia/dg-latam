@@ -19,7 +19,7 @@ const DEFAULTS: MutableSettings = {
     oneHitEnabled: false,
     godModeEnabled: false,
     freezeEnemies: false,
-    allowPartyChangesInsideDungeons: false,
+    allowPartyChangesInsideDungeons: true,
     damageMultiplier: 1,
     playerSpeedMultiplier: 1,
     gearDropMultiplier: 1,

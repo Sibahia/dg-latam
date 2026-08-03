@@ -23,7 +23,8 @@ const DEFAULT_SWF = DEFAULT_SWF_CANDIDATES.find((candidate) => fs.existsSync(can
 
 const OLD_FORCED_RESPEC_SECONDS = 259200;
 const NORMAL_RESPEC_SECONDS = 180;
-const EXTENDED_RESPEC_SECONDS = 86400;
+const CURRENT_EXTENDED_RESPEC_SECONDS = 7200;
+const EXTENDED_RESPEC_SECONDS = 7200;
 
 type RespecSlot = {
   label: "normal-first" | "extended" | "active-fallback";
@@ -51,7 +52,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
         "  ts-node src/server/scripts/patch-dungeonblitz-respec-forge-duration.ts [--verify] [--swf <path>]",
         "",
         "Patches DungeonBlitz.swf so the first local Respec Stone forge uses 3 minutes,",
-        "while active/extended Respec Stone duration paths use 24 hours.",
+        "while active/extended Respec Stone duration paths use 2 hours.",
       ].join("\n"));
       process.exit(0);
     }
@@ -125,7 +126,7 @@ function findPatches(swfPath: string): {
   const instructions = disassemble(code, "class_86.GetTimeAfterBonuses");
   const directSlots = findRespecSlots(instructions).filter((inst) => {
     const value = pushIntValue(abc, inst);
-    return value === OLD_FORCED_RESPEC_SECONDS || value === NORMAL_RESPEC_SECONDS || value === EXTENDED_RESPEC_SECONDS;
+    return value === OLD_FORCED_RESPEC_SECONDS || value === NORMAL_RESPEC_SECONDS || value === CURRENT_EXTENDED_RESPEC_SECONDS;
   });
 
   if (directSlots.length !== 3) {
@@ -158,6 +159,7 @@ function findPatches(swfPath: string): {
 
     if (
       currentValue === OLD_FORCED_RESPEC_SECONDS ||
+      currentValue === CURRENT_EXTENDED_RESPEC_SECONDS ||
       (slot.expectedSeconds === EXTENDED_RESPEC_SECONDS && currentValue === NORMAL_RESPEC_SECONDS)
     ) {
       oldForcedCount += 1;

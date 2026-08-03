@@ -15,12 +15,12 @@ export class PetConfig {
     private static readonly EGG_FIXED_PET_CLASSES = new Set(['Dragon', 'Bird', 'Ancient', 'Ghost']);
     
     // Constants from class_16 (pets.py)
-    static NEW_EGG_SET_TIME = 72000; // 20 hours
-    static EGG_HATCH_MAX_TIME = 7 * 24 * 60 * 60;
+    static NEW_EGG_SET_TIME = 10800; // 3 hours
+    static EGG_HATCH_MAX_TIME = 3 * 60 * 60;
     static EGG_HATCH_TIMES = {
-        0: 259200, // 3 days
-        1: 432000, // 5 days
-        2: 604800  // 7 days
+        0: 3600, // 1 hour
+        1: 7200, // 2 hours
+        2: 10800 // 3 hours
     };
     static MAX_EGG_SLOTS = 8;
     static EGG_GOLD_COST = [0, 5000, 25000, 50000, 75000, 250000, 500000, 750000];

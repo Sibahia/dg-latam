@@ -4,26 +4,26 @@ import { ensureBackup, parseSwz, writeSwz } from './swzPatchUtils';
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const MODERN_ABILITY_UPGRADE_TIMES_SECONDS: Record<number, number> = {
-    2: 2 * 60 * 60,
-    3: 8 * 60 * 60,
-    4: 16 * 60 * 60,
-    5: 36 * 60 * 60,
-    6: 42 * 60 * 60,
-    7: 48 * 60 * 60,
-    8: 56 * 60 * 60,
-    9: 64 * 60 * 60,
-    10: 72 * 60 * 60
+    2: 2 * 60,
+    3: 3 * 60,
+    4: 5 * 60,
+    5: 15 * 60,
+    6: 30 * 60,
+    7: 60 * 60,
+    8: 90 * 60,
+    9: 2 * 60 * 60,
+    10: 3 * 60 * 60
 };
 const MODERN_BUILDING_UPGRADE_TIMES_SECONDS: Record<number, number> = {
-    2: 4 * 60 * 60,
-    3: 12 * 60 * 60,
-    4: 24 * 60 * 60,
-    5: 48 * 60 * 60,
-    6: 56 * 60 * 60,
-    7: 64 * 60 * 60,
-    8: 72 * 60 * 60,
-    9: 84 * 60 * 60,
-    10: 96 * 60 * 60
+    2: 2 * 60,
+    3: 3 * 60,
+    4: 5 * 60,
+    5: 15 * 60,
+    6: 30 * 60,
+    7: 60 * 60,
+    8: 90 * 60,
+    9: 2 * 60 * 60,
+    10: 3 * 60 * 60
 };
 const BASE_ABILITY_RANK_ONE_TIMES_SECONDS = [20, 40, 60, 80, 100, 120, 140, 160, 180] as const;
 const BASE_MAGE_RANK_ONE_TIMES_SECONDS = [20, 40, 60, 80, 100, 120, 140, 180, 180] as const;

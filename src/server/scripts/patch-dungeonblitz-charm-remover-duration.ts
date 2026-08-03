@@ -17,11 +17,11 @@ const DEFAULT_SWF_CANDIDATES = [
 ];
 const DEFAULT_SWF = DEFAULT_SWF_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ?? DEFAULT_SWF_CANDIDATES[0];
 
-const OLD_CHARM_REMOVER_SECONDS = 86400;
-const MODERN_CHARM_REMOVER_SECONDS = 43200;
+const OLD_CHARM_REMOVER_SECONDS = 43200;
+const MODERN_CHARM_REMOVER_SECONDS = 10800;
 const CHARM_REMOVER_DURATION_CONST = "const_1166";
-const OLD_CHARM_REMOVER_HOURS = 24;
-const MODERN_CHARM_REMOVER_HOURS = 12;
+const OLD_CHARM_REMOVER_HOURS = 12;
+const MODERN_CHARM_REMOVER_HOURS = 3;
 
 function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
   let swfPath = DEFAULT_SWF;
