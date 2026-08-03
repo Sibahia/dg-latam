@@ -1023,6 +1023,7 @@ export class CharacterHandler {
              if (isDungeonLevel) {
                  const normalizedTarget = LevelConfig.normalizeLevelName(currentLevelName);
                  // Search active sessions for a party member in the same dungeon
+                 let sharedAnchor: Client | null = null;
                  for (const other of GlobalState.sessionsByToken.values()) {
                      if (!other.playerSpawned || !other.character) continue;
                      if (LevelConfig.normalizeLevelName(other.currentLevel) !== normalizedTarget) continue;
@@ -1055,7 +1056,30 @@ export class CharacterHandler {
                          ? Math.max(0, Math.min(100, Math.round(Number(other.character.questTrackerState))))
                          : undefined);
                      console.log(`[EnterWorld] Syncing dungeon instance for ${char.name} with party anchor ${other.character.name} (instanceId=${levelInstanceId})`);
+                     sharedAnchor = other;
                      break;
+                 }
+
+                 // Race window: the party anchor is mid-login (present in pendingWorld but not yet
+                 // playerSpawned). Reuse its levelInstanceId so both players share the same level
+                 // scope — otherwise they land in different scopes and never see each other.
+                 if (!sharedAnchor && !levelInstanceId) {
+                     for (const pending of GlobalState.pendingWorld.values()) {
+                         if (!pending?.targetLevel || !pending.levelInstanceId) continue;
+                         if (LevelConfig.normalizeLevelName(pending.targetLevel) !== normalizedTarget) continue;
+                         if (Math.max(0, Math.round(Number(pending.userId ?? 0))) === client.userId) continue;
+                         const anchorToken = Math.max(0, Math.round(Number(pending.syncAnchorToken ?? pending.userId ?? 0)));
+                         const anchorSession = anchorToken > 0 ? GlobalState.sessionsByToken.get(anchorToken) : null;
+                         if (anchorSession && !areClientsInSameParty(client, anchorSession)) continue;
+                         levelInstanceId = normalizeLevelInstanceId(pending.levelInstanceId) || createDungeonInstanceId(token);
+                         syncAnchorStartedAt = Number(pending.syncAnchorStartedAt ?? 0) > 0
+                             ? Math.round(Number(pending.syncAnchorStartedAt))
+                             : Date.now();
+                         syncAnchorToken = pending.syncAnchorToken || token;
+                         syncAnchorCharacterName = String(pending.syncAnchorCharacterName || pending.character?.name || '').trim();
+                         console.log(`[EnterWorld] Syncing dungeon instance for ${char.name} with pending party anchor ${syncAnchorCharacterName} (instanceId=${levelInstanceId})`);
+                         break;
+                     }
                  }
 
                  if (!levelInstanceId) {

@@ -409,7 +409,10 @@ export class EntityHandler {
     }
 
     private static selectJcMini1PartyScopeAnchor(client: Client, levelName: string): Client | null {
-        if (!EntityHandler.usesServerAuthorityHostiles(levelName) || getPartyIdForClient(client) <= 0) {
+        if (getPartyIdForClient(client) <= 0) {
+            return null;
+        }
+        if (!EntityHandler.usesServerAuthorityHostiles(levelName) && !LevelConfig.isDungeonLevel(levelName)) {
             return null;
         }
 
@@ -513,7 +516,10 @@ export class EntityHandler {
 
     static ensureJcMini1PartySharedScope(client: Client, rawLevelName: string | null | undefined, reason: string): string {
         const levelName = LevelConfig.normalizeLevelName(rawLevelName) || '';
-        if (!EntityHandler.usesServerAuthorityHostiles(levelName)) {
+        if (!EntityHandler.usesServerAuthorityHostiles(levelName) && !LevelConfig.isDungeonLevel(levelName)) {
+            return getLevelScopeKey(rawLevelName, client.levelInstanceId);
+        }
+        if (getPartyIdForClient(client) <= 0) {
             return getLevelScopeKey(rawLevelName, client.levelInstanceId);
         }
 
