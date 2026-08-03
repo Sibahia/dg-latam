@@ -156,6 +156,7 @@ function selectedGrantClass() {
 function updateGearFilter(snapshot) {
   const select = $('gearSelect');
   if (!select || !state.catalog) return;
+  const previousValue = select.value;
   const className = selectedGrantClass();
   const gear = state.catalog.gear || [];
   const filtered = className
@@ -163,6 +164,9 @@ function updateGearFilter(snapshot) {
     : gear;
   const options = filtered.map(g => `<option value="${g.id}">#${g.id} — ${esc(g.displayName || g.name)}${g.rarity ? ` (${esc(g.rarity)})` : ''}</option>`).join('');
   select.innerHTML = options || '<option value="">—</option>';
+  if (previousValue && [...select.options].some(option => option.value === previousValue)) {
+    select.value = previousValue;
+  }
 }
 $('grantPlayerSelect').onchange = () => {
   updateGrantTargetInfo(state.snapshot);
@@ -187,6 +191,13 @@ function numberCard(icon, title, subtitle, kind, valueId, hint) {
 function renderGrantsGrid() {
   const catalog = state.catalog;
   if (!catalog) { $('grantsGrid').innerHTML = '<div class="empty-state">Cargando catálogo…</div>'; return; }
+  const previousValues = {};
+  ['mountSelect', 'petSelect', 'consumableSelect', 'gearSelect', 'consumableQuantity', 'gearTier',
+    'goldAmount', 'xpAmount', 'coinsAmount', 'sigilsAmount', 'oreAmount', 'keysAmount', 'troveAmount'
+  ].forEach(id => {
+    const el = $(id);
+    if (el) previousValues[id] = el.value;
+  });
   const className = selectedGrantClass();
   const gearCatalog = (catalog.gear || []).filter(g => !className || String(g.usedBy || '').trim().toLowerCase() === className);
   const gearOptions = gearCatalog.map(g => `<option value="${g.id}">#${g.id} — ${esc(g.displayName || g.name)}${g.rarity ? ` (${esc(g.rarity)})` : ''}</option>`).join('');
@@ -234,6 +245,19 @@ function renderGrantsGrid() {
       </div>
     </div>`;
   document.querySelectorAll('#grantsGrid [data-kind]').forEach(button => button.onclick = () => submitGrant(button.dataset.kind));
+  ['mountSelect', 'petSelect', 'consumableSelect', 'gearSelect', 'consumableQuantity', 'gearTier',
+    'goldAmount', 'xpAmount', 'coinsAmount', 'sigilsAmount', 'oreAmount', 'keysAmount', 'troveAmount'
+  ].forEach(id => {
+    const el = $(id);
+    const previous = previousValues[id];
+    if (el && previous !== undefined) {
+      if (el.tagName === 'SELECT' && [...el.options].some(option => option.value === previous)) {
+        el.value = previous;
+      } else if (el.tagName === 'INPUT') {
+        el.value = previous;
+      }
+    }
+  });
 }
 function submitGrant(kind) {
   const target = currentGrantTarget();

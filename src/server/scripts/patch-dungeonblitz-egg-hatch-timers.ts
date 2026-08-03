@@ -9,8 +9,8 @@ import {
   parseAbc,
   parseSwf,
   PatchError,
+  writeS32,
   writeSwf,
-  writeU30,
 } from "./swfPatchUtils";
 
 const DEFAULT_SWF_CANDIDATES = [
@@ -19,8 +19,8 @@ const DEFAULT_SWF_CANDIDATES = [
 ];
 const DEFAULT_SWF = DEFAULT_SWF_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ?? DEFAULT_SWF_CANDIDATES[0];
 
-const OLD_EGG_HATCH_SECONDS = [259200, 518400, 604800] as const;
-const MODERN_EGG_HATCH_SECONDS = [259200, 432000, 604800] as const;
+const OLD_EGG_HATCH_SECONDS = [259200, 432000, 604800] as const;
+const MODERN_EGG_HATCH_SECONDS = [3600, 7200, 10800] as const;
 
 function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
   let swfPath = DEFAULT_SWF;
@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
         "Usage:",
         "  ts-node src/server/scripts/patch-dungeonblitz-egg-hatch-timers.ts [--verify] [--swf <path>]",
         "",
-        "Patches DungeonBlitz.swf egg hatch durations to 3d, 5d, 7d.",
+        "Patches DungeonBlitz.swf egg hatch durations to 1h, 2h, 3h.",
       ].join("\n"));
       process.exit(0);
     }
@@ -86,19 +86,11 @@ function findSequence(abc: ReturnType<typeof parseAbc>, instructions: Instructio
   return null;
 }
 
-function findIntIndex(abc: ReturnType<typeof parseAbc>, value: number): number {
-  const index = abc.intValues.findIndex((entry) => entry === value);
-  if (index < 0) {
-    throw new PatchError(`Could not find int constant ${value}.`);
-  }
-  return index;
-}
-
 function findPatches(swfPath: string): { patches: BytePatch[]; oldSequenceCount: number; modernSequenceCount: number } {
   const ctx = parseSwf(swfPath);
   const abc = parseAbc(ctx);
-  const fiveDayIntIndex = findIntIndex(abc, MODERN_EGG_HATCH_SECONDS[1]);
   const patches: BytePatch[] = [];
+  const patchedIntStarts = new Set<number>();
   let oldSequenceCount = 0;
   let modernSequenceCount = 0;
 
@@ -121,14 +113,29 @@ function findPatches(swfPath: string): { patches: BytePatch[]; oldSequenceCount:
     }
 
     oldSequenceCount += 1;
-    const rareInstruction = oldSequence[1];
-    patches.push({
-      key: `method_${methodIdx}.rareEggHatchDuration`,
-      start: methodBody.codeStart + rareInstruction.offset + 1,
-      end: methodBody.codeStart + rareInstruction.offset + rareInstruction.size,
-      data: writeU30(fiveDayIntIndex),
-      detail: "replace rare egg hatch duration from 6 days to 5 days",
-    });
+    for (let offset = 0; offset < OLD_EGG_HATCH_SECONDS.length; offset += 1) {
+      const inst = oldSequence[offset];
+      if (inst.opcode !== 0x2d || inst.operands[0]?.[0] !== "u30") {
+        throw new PatchError(`Unexpected egg hatch duration opcode 0x${inst.opcode.toString(16)} at sequence offset ${offset}`);
+      }
+      const intIndex = inst.operands[0][1];
+      const intStart = abc.intValuePositions[intIndex];
+      const intEnd = abc.intValueEndPositions[intIndex];
+      if (!intStart || !intEnd || abc.intValues[intIndex] !== OLD_EGG_HATCH_SECONDS[offset]) {
+        throw new PatchError(`Unexpected int constant for egg hatch duration ${OLD_EGG_HATCH_SECONDS[offset]}`);
+      }
+      if (patchedIntStarts.has(intStart)) {
+        continue;
+      }
+      patchedIntStarts.add(intStart);
+      patches.push({
+        key: `eggHatchConstant.${intStart}`,
+        start: intStart,
+        end: intEnd,
+        data: writeS32(MODERN_EGG_HATCH_SECONDS[offset]),
+        detail: `replace egg hatch duration ${OLD_EGG_HATCH_SECONDS[offset]} with ${MODERN_EGG_HATCH_SECONDS[offset]}`,
+      });
+    }
   }
 
   return { patches, oldSequenceCount, modernSequenceCount };
@@ -155,9 +162,6 @@ function patchSwf(swfPath: string, verify: boolean): void {
   const ctx = parseSwf(swfPath);
   ensureBackup(swfPath);
   const { body, delta } = applyPatchesToBody(ctx.body, firstPass.patches);
-  if (delta !== 0) {
-    throw new PatchError(`Unexpected egg hatch timer patch size delta: ${delta}`);
-  }
   writeSwf(ctx, body, delta);
 
   const secondPass = findPatches(swfPath);

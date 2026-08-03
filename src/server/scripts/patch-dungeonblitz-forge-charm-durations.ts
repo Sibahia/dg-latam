@@ -20,10 +20,10 @@ const DEFAULT_SWF_CANDIDATES = [
 ];
 const DEFAULT_SWF = DEFAULT_SWF_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ?? DEFAULT_SWF_CANDIDATES[0];
 
-const OLD_CHARM_DURATIONS_SECONDS = [1800, 4800, 10800, 21600, 36000, 64800, 96000, 144000, 192000, 288000] as const;
-const MODERN_CHARM_DURATIONS_SECONDS = [300, 900, 1800, 3600, 7200, 14400, 21600, 28800, 43200, 86400] as const;
-const BAD_UNSIGNED_PATCH_DURATIONS_SECONDS = [300, 900, 1800, 3600, 7200, -1984, 21600, 28800, 43200, 86400] as const;
-const BAD_CAPPED_UNSIGNED_PATCH_DURATIONS_SECONDS = [300, 900, 1800, 3600, 7200, -1984, 21600, 28800, 43200, 43200] as const;
+const OLD_CHARM_DURATIONS_SECONDS = [300, 900, 1800, 3600, 7200, 14400, 21600, 28800, 43200, 86400] as const;
+const MODERN_CHARM_DURATIONS_SECONDS = [120, 180, 300, 900, 1800, 3600, 5400, 7200, 9000, 10800] as const;
+const BAD_UNSIGNED_PATCH_DURATIONS_SECONDS = [120, 180, 300, 900, 1800, -1984, 5400, 7200, 9000, 10800] as const;
+const BAD_CAPPED_UNSIGNED_PATCH_DURATIONS_SECONDS = [120, 180, 300, 900, 1800, -1984, 5400, 7200, 9000, 9000] as const;
 
 function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
   let swfPath = DEFAULT_SWF;
@@ -45,7 +45,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
         "  ts-node src/server/scripts/patch-dungeonblitz-forge-charm-durations.ts [--verify] [--swf <path>]",
         "",
         "Patches DungeonBlitz.swf normal charm forge durations to the modern",
-        "5min, 15min, 30min, 1h, 2h, 4h, 6h, 8h, 12h, 24h schedule.",
+        "2min, 3min, 5min, 15min, 30min, 1h, 1.5h, 2h, 2.5h, 3h schedule.",
       ].join("\n"));
       process.exit(0);
     }

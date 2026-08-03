@@ -6,7 +6,7 @@ const { execFileSync } = require('child_process');
 
 const DEFAULT_SWF = path.join('src', 'client', 'content', 'localhost', 'p', 'cbp', 'DungeonBlitz.swf');
 const TRAINING_TIMES_ZERO = '[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]';
-const EGG_MAX_SECONDS = 604800;
+const EGG_MAX_SECONDS = 10800;
 
 function parseArgs(argv) {
     const args = {
