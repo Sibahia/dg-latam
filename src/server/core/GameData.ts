@@ -684,12 +684,19 @@ export class GameData {
 
         if (source === 'boss') {
             const entityKey = GameData.normalizeLookupKey(GameData.normalizeEntityDropName(context.entName));
-            return rules.some((rule) => {
+            const matchedRule = rules.some((rule) => {
                 if (!rule.bossName || GameData.normalizeLookupKey(rule.bossName) !== entityKey) {
                     return false;
                 }
                 return GameData.isGearRuleAllowedInCurrentDungeon(rule, context, source);
             });
+            if (matchedRule) {
+                return true;
+            }
+            // Bosses without authored per-boss rules (e.g. the Wing guards) fall through to
+            // their realm so they still drop gear without a dedicated SWF drop-location map.
+            const hasBossLocationMap = Boolean(GameData.BOSS_DROP_DUNGEON_BY_SOURCE?.[entityKey]);
+            return !hasBossLocationMap;
         }
 
         const realmKey = GameData.normalizeLookupKey(context.realm);
@@ -934,10 +941,9 @@ export class GameData {
             return GameData.pickRandomGearId(bossDrops, className, excludedGearIds, context, 'boss', desiredTier, excludedGearKeys);
         }
 
-        if (String(entType.EntRank ?? '').trim() === 'Boss') {
-            return 0;
-        }
-
+        // A boss without an authored boss_drops entry (e.g. the Wing guards) must still be
+        // able to drop gear. Falling through to realm drops keeps them rewarding without
+        // needing a per-boss SWF drop-location map.
         const realm = String(entType.Realm ?? '');
         const realmDrops = GameData.GEAR_DATA.realm_drops?.[realm];
         const realmGearId = GameData.pickRandomGearId(realmDrops, className, excludedGearIds, context, 'realm', desiredTier, excludedGearKeys);

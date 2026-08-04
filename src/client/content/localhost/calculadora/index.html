@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Talentos — Dungeon Blitz</title>
+<style>
+:root {
+  --bg: #12141c;
+  --panel: #1c2030;
+  --border: #2c3350;
+  --text: #e6e8f0;
+  --muted: #8b90a6;
+  --accent: #ffc93c;
+  --accent2: #5a8bff;
+  --card: #232945;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+header {
+  background: linear-gradient(135deg, #1c2030, #232945);
+  border-bottom: 2px solid var(--border);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+header h1 { font-size: 20px; color: var(--accent); }
+header p { color: var(--muted); font-size: 13px; }
+main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+.step { margin-bottom: 28px; }
+.step h2 { font-size: 15px; color: var(--accent2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.classes, .masters { display: flex; gap: 12px; flex-wrap: wrap; }
+.class-card, .master-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: all .15s;
+  min-width: 140px;
+  text-align: center;
+}
+.class-card:hover, .master-card:hover { border-color: var(--accent2); }
+.class-card.selected, .master-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.master-card { flex: 1; min-width: 180px; }
+.master-card h3 { font-size: 16px; }
+.master-card small { color: var(--muted); }
+.abilities { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.ability {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.ability b { display: block; margin-bottom: 4px; }
+.ability span { color: var(--muted); font-size: 12px; }
+.placeholder { color: var(--muted); font-style: italic; }
+.footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ Calculadora de Talentos</h1>
+  <p>Selecciona una clase y una disciplina para ver sus habilidades.</p>
+</header>
+<main>
+  <section class="step">
+    <h2>1 · Clase</h2>
+    <div class="classes" id="classes"></div>
+  </section>
+  <section class="step">
+    <h2>2 · Disciplina</h2>
+    <div class="masters" id="masters"><div class="placeholder">Primero elige una clase.</div></div>
+  </section>
+  <section class="step">
+    <h2>3 · Habilidades</h2>
+    <div class="abilities" id="abilities"><div class="placeholder">Selecciona una disciplina para ver sus 10 habilidades.</div></div>
+  </section>
+</main>
+<div class="footer">Dungeon Blitz Latam — herramienta de referencia. Los nombres de disciplina pueden variar en el juego.</div>
+<script>
+const DATA = {
+  'Rogue': {
+    'Executioner': { desc: 'Ejecutor — daño asesino a corto alcance', abilities: ['SeverStrike','WitherStrike','DaggerFlurry','VitalStrike','Assassinate','DeathBlowOld','MistWalk','ShadowBlade','SeekingBlades','PoisonDagger'] },
+    'ShadowWalker': { desc: 'Caminante de las Sombras — movilidad y control', abilities: ['CrippleStrike','HeartSeeker','ShadowTendrilDash','WhitheringMist','BlackStorm','DarkChi','ShadowArmor','ShadowLegion','ShadowStep','CorrosiveDagger'] },
+    'Soulthief': { desc: 'Ladrón de Almas — drenaje y duelo', abilities: ['Devour','FatiguingStrike','PainBender','ChaosArmor','PoisonLance','Reaper','SoulShatter','SoulReaver','GhostBlade','HeavyDagger'] }
+  },
+  'Paladin': {
+    'Sentinel': { desc: 'Centinela — tanque y protección', abilities: ['RollingSmash','ShieldFlurry','Juggernaut','SecondWind','Shockwave','Retribution','Defiance','Barrier','SentinelForm','ConcussionBolt'] },
+    'Justicar': { desc: 'Justiciero — ofensiva sagrada', abilities: ['FlameAxe','FuriousAssault','Harm','JusticeFist','LightningStorm','CleavingBlows','LeapStrike','LightningBomb','Berserker','AxeFlurry'] },
+    'Templar': { desc: 'Templario — curación y luz', abilities: ['DivineWord','Subjugate','FountainOfLife','Penance','CelestialLance','Verdict','Sanctum','CleansingLight','LeoneanAura','DivineBolt'] }
+  },
+  'Mage': {
+    'Frostwarden': { desc: 'Guardián de Escarcha — control de hielo', abilities: ['FrostBlast','FrozenWard','FrigidComet','BitterBlade','Avalanche','GlacialSpear','PermafrostClone','PolarSentry','HailstoneEmbrace','FrostBolt'] },
+    'Flameseer': { desc: 'Vidente de Fuego — daño ardiente', abilities: ['FlameSpout','IridescentBurst','FireStorm','FlameStrike','MoltenFist','FireBrand','WildFire','Pyromania','SummonDragonSoul','CrimsonShot'] },
+    'Necromancer': { desc: 'Nigromante — invocación y maldiciones', abilities: ['Lifethirst','Desecrate','Infestation','SpectralGrasp','BansheeWail','DeathMark','SummonGhoul','SummonRangedGhoul','PlagueBattalion','LichShot'] }
+  }
+};
+const classesEl = document.getElementById('classes');
+const mastersEl = document.getElementById('masters');
+const abilitiesEl = document.getElementById('abilities');
+let selectedClass = null;
+let selectedMaster = null;
+
+Object.keys(DATA).forEach(cls => {
+  const el = document.createElement('div');
+  el.className = 'class-card';
+  el.textContent = cls;
+  el.onclick = () => {
+    selectedClass = cls;
+    selectedMaster = null;
+    document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    renderMasters();
+    renderAbilities();
+  };
+  classesEl.appendChild(el);
+});
+
+function renderMasters() {
+  if (!selectedClass) { mastersEl.innerHTML = '<div class="placeholder">Primero elige una clase.</div>'; return; }
+  mastersEl.innerHTML = '';
+  Object.entries(DATA[selectedClass]).forEach(([name, info]) => {
+    const el = document.createElement('div');
+    el.className = 'master-card';
+    el.innerHTML = `<h3>${name}</h3><small>${info.desc}</small>`;
+    el.onclick = () => {
+      selectedMaster = name;
+      document.querySelectorAll('.master-card').forEach(m => m.classList.remove('selected'));
+      el.classList.add('selected');
+      renderAbilities();
+    };
+    mastersEl.appendChild(el);
+  });
+}
+
+function renderAbilities() {
+  if (!selectedClass || !selectedMaster) { abilitiesEl.innerHTML = '<div class="placeholder">Selecciona una disciplina para ver sus 10 habilidades.</div>'; return; }
+  abilitiesEl.innerHTML = '';
+  DATA[selectedClass][selectedMaster].abilities.forEach((ab, i) => {
+    const el = document.createElement('div');
+    el.className = 'ability';
+    el.innerHTML = `<b>${i + 1}. ${ab}</b><span>Rank ${i + 1}</span>`;
+    abilitiesEl.appendChild(el);
+  });
+}
+</script>
+</body>
+</html>

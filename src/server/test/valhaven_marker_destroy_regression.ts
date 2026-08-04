@@ -193,6 +193,8 @@ const BOSSES: Array<[string, string[]]> = [
     ['JC_Mission6Hard', ['PortalMasterHard']],
     ['JC_Mission7', ['EmperorMarker']],
     ['JC_Mission7Hard', ['EmperorMarkerHard']],
+    ['JC_Mission8', ['GuardCaptain']],
+    ['JC_Mission8Hard', ['GuardCaptainHard']],
     ['JC_Mission9', ['RisenBandit', 'RisenBandit2']],
     ['JC_Mission9Hard', ['RisenBanditHard', 'RisenBandit2Hard']],
     ['JC_Mission10', ['DragonTemple']],

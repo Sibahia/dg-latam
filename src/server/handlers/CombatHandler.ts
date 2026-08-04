@@ -4863,10 +4863,15 @@ export class CombatHandler {
         caller: string
     ): void {
         const levelName = getScopeLevelName(levelScope);
-        if (
-            !TutorialDungeonMechanics.isTutorialDungeon(levelName) ||
-            !TutorialDungeonMechanics.isCompletionBoss(levelScope, entity)
-        ) {
+        const isTutorialBoss = TutorialDungeonMechanics.isTutorialDungeon(levelName) &&
+            TutorialDungeonMechanics.isCompletionBoss(levelScope, entity);
+        // Server-authority party dungeons (West/East Wing) must also grant boss loot
+        // through the server path — the client reward packet is rejected there.
+        const isServerAuthorityRequiredBoss = Boolean(
+            EntityHandler.usesServerAuthorityHostiles(levelName) &&
+            MissionHandler.isRequiredDungeonCompletionBossForLevel(levelName, entity, levelScope)
+        );
+        if (!isTutorialBoss && !isServerAuthorityRequiredBoss) {
             return;
         }
 
