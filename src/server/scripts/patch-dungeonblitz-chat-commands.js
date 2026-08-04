@@ -237,6 +237,7 @@ function patchClass127Source(source, swfPath) {
     ].join('\n');
 
     const legacyPatchedReturn = 'return _loc2_ == "/lang:tr" || _loc2_ == "/lang:en" || _loc2_.indexOf("/teleport:") == 0 || _loc2_ == "\\\\lang:tr" || _loc2_ == "\\\\lang:en" || _loc2_.indexOf("\\\\teleport:") == 0;';
+    const maintenancePatchedReturn = 'return _loc2_ == "/lang:tr" || _loc2_ == "/lang:en" || _loc2_.indexOf("/teleport:") == 0 || _loc2_.indexOf("/maintenance:") == 0 || _loc2_ == "\\\\lang:tr" || _loc2_ == "\\\\lang:en" || _loc2_.indexOf("\\\\teleport:") == 0;';
     const patchedReturn = 'return _loc2_ == "/lang:tr" || _loc2_ == "/lang:en" || _loc2_.indexOf("/teleport:") == 0 || _loc2_.indexOf("/maintenance:") == 0 || _loc2_.indexOf("/ping") == 0 || _loc2_ == "\\\\lang:tr" || _loc2_ == "\\\\lang:en" || _loc2_.indexOf("\\\\teleport:") == 0 || _loc2_.indexOf("\\\\ping") == 0;';
     if (
         (source.includes(newBlock) || source.includes(patchedReturn)) &&
@@ -248,6 +249,9 @@ function patchClass127Source(source, swfPath) {
     if (source.includes('private function method_1940(param1:String) : Boolean')) {
         if (source.includes(legacyPatchedReturn)) {
             return source.replace(legacyPatchedReturn, patchedReturn);
+        }
+        if (source.includes(maintenancePatchedReturn)) {
+            return source.replace(maintenancePatchedReturn, patchedReturn);
         }
         if (!source.includes(oldReturn)) {
             throw new Error(`${path.basename(swfPath)} has an unexpected method_1940 return block.`);
