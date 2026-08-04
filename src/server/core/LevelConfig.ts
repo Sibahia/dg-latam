@@ -857,13 +857,13 @@ export class LevelConfig {
                 safeFrom = this.copyLevelRecord(currentRecord);
             } else if (oldLevel && oldLevel !== 'CraftTown' && this.isSaveAllowedLevel(oldLevel) && previousName === oldLevel) {
                 safeFrom = this.copyLevelRecord(previousRecord);
-            } else if (oldLevel && oldLevel !== 'CraftTown' && this.isSaveAllowedLevel(oldLevel) && this.hasDefaultSpawn(oldLevel)) {
-                const spawn = this.getSpawn(oldLevel);
-                safeFrom = { name: oldLevel, x: Math.round(spawn.x), y: Math.round(spawn.y) };
             } else if (currentName && this.isSaveAllowedLevel(currentName) && currentName !== 'CraftTown') {
                 safeFrom = this.copyLevelRecord(currentRecord);
             } else if (previousName && this.isSaveAllowedLevel(previousName) && previousName !== 'CraftTown') {
                 safeFrom = this.copyLevelRecord(previousRecord);
+            } else if (oldLevel && oldLevel !== 'CraftTown' && this.isSaveAllowedLevel(oldLevel) && this.hasDefaultSpawn(oldLevel)) {
+                const spawn = this.getSpawn(oldLevel);
+                safeFrom = { name: oldLevel, x: Math.round(spawn.x), y: Math.round(spawn.y) };
             }
 
             if (safeFrom) {

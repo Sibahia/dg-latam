@@ -166,16 +166,16 @@ export class DungeonCompletionConditions {
         return names;
     }
 
-    static getCanonicalBossName(
-        levelName: string | null | undefined,
-        entity: any,
-        levelScope: string = ''
-    ): string {
-        const condition = DungeonCompletionConditions.get(levelName);
-        if (!condition || condition.mode !== 'bosses') {
-            return '';
-        }
+    private static requiredByKeyCache = new Map<string, Map<string, string> | null>();
 
+    private static getRequiredByKey(levelName: string, condition: DungeonCompletionCondition | null | undefined): Map<string, string> | null {
+        if (!condition || condition.mode !== 'bosses') {
+            return null;
+        }
+        const cached = DungeonCompletionConditions.requiredByKeyCache.get(levelName);
+        if (cached !== undefined) {
+            return cached;
+        }
         const requiredByKey = new Map<string, string>();
         for (const group of condition.bossGroups ?? []) {
             for (const name of group) {
@@ -184,6 +184,20 @@ export class DungeonCompletionConditions {
         }
         for (const [alias, canonical] of Object.entries(condition.bossAliases ?? {})) {
             requiredByKey.set(normalizeIdentity(alias), canonical);
+        }
+        DungeonCompletionConditions.requiredByKeyCache.set(levelName, requiredByKey);
+        return requiredByKey;
+    }
+
+    static getCanonicalBossName(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): string {
+        const condition = DungeonCompletionConditions.get(levelName);
+        const requiredByKey = DungeonCompletionConditions.getRequiredByKey(String(levelName ?? ''), condition);
+        if (!requiredByKey || !condition) {
+            return '';
         }
 
         for (const entityName of getEntityNames(entity)) {

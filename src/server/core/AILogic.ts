@@ -285,6 +285,10 @@ export class AILogic {
             }
         }
 
+        if (players.length === 0) {
+            return { players: 0, npcs: 0 };
+        }
+
         CombatHandler.processOutOfCombatRegen(levelScope, nowMs);
         CombatHandler.processBuffExpirations(levelScope, nowMs);
 

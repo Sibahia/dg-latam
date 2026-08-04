@@ -112,19 +112,10 @@ function cleanup(client: FakeClient): void {
 }
 
 // AC_Mission6 (Capstone) is a client-authority dungeon: the server initializes 0
-// NPCs (no src/server/data/npcs/AC_Mission6.json), so GlobalState.levelEntities
-// stays empty for the scope. The NephitSpireMarker boss exists only in the
-// client's local cache. The live server showed the kill stuck forever:
-//
-//   [CombatHandler] Deferred required boss kill: health pool is a server estimate
-//     { scope: 'AC_Mission6#...', entityId: ..., name: 'NephitSpireMarker',
-//       derivedMaxHp: 134560, totalReportedDamage: 134560 }
-//
-// with no bossDeathDetected ever emitted. Root cause: AC_Mission6 lacked
-// clientAuthorityBosses + partyHostileSync:"none", so the client's destroy
-// signal was discarded (shouldProcessDefeatState=false and the mirror branch
-// healed the boss back to ALIVE because no contribution could be recorded in
-// an empty scope). This test reproduces the empty-scope destroy flow.
+// NPCs (no src/server/data/npcs/AC_Mission6.json). The NephitSpireMarker boss is
+// promoted into the shared canonical state when partyHostileSync is "bosses-only",
+// so a party fights one boss. This test validates that the shared boss objective
+// commits through the HP report and stays committed through the destroy signal.
 async function verifyDestroyCommitsCompletion(levelName: string, bossName: string, ordinal: number): Promise<void> {
     const client = createClient(levelName, ordinal);
     const scope = getClientLevelScope(client as never);
@@ -136,24 +127,24 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossName: strin
     );
     const boss = client.entities.get(95_000 + ordinal);
     assert.ok(boss, `${levelName}: boss should exist in the client local cache`);
-    assert.equal(boss.clientSpawned, true, `${levelName}: the boss must be client-owned`);
+    // With partyHostileSync "bosses-only" the client-authority boss is promoted into
+    // the shared canonical state (hybrid canonical), so a party can fight one boss.
     assert.equal(
-        GlobalState.levelEntities.get(scope)?.has(boss.id),
-        false,
-        `${levelName}: the scope should have no canonical boss (empty levelEntities)`
+        GlobalState.levelEntities.get(scope)?.has(95_000 + ordinal),
+        true,
+        `${levelName}: the shared boss should be canonical in the scope levelEntities`
     );
 
-    // The client first reports its damage via HP deltas; with only a derived
-    // health pool the server must defer rather than commit the kill.
+    // The client reports its damage via HP deltas. With the shared canonical boss the
+    // kill commits through the HP report; the authored defeat signal (entity destroy)
+    // must keep it committed.
     CombatHandler.handleCharRegen(client as never, buildHpDeltaPayload(boss.id, -134_560));
     assert.equal(
         DungeonCompletionSystem.evaluate(scope).objectivesMet,
-        false,
-        `${levelName}: HP telemetry alone must not complete an empty-scope Capstone run`
+        true,
+        `${levelName}: the HP report did not complete the shared boss objective`
     );
 
-    // The authored defeat signal (entity destroy) must commit the objective even
-    // with an empty scope and no recorded contribution.
     await CombatHandler.handleEntityDestroy(
         client as never,
         buildDestroyEntityPayload(boss.id)
@@ -161,7 +152,7 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossName: strin
     assert.equal(
         DungeonCompletionSystem.evaluate(scope).objectivesMet,
         true,
-        `${levelName}: the client destroy signal did not commit the Capstone objective`
+        `${levelName}: the client destroy signal regressed the objective`
     );
     assert.equal(
         DungeonCompletionSystem.evaluate(scope).ready,
