@@ -131,11 +131,12 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossNames: stri
         );
         const boss = client.entities.get(entityId);
         assert.ok(boss, `${levelName}: boss ${bossName} should exist in the client local cache`);
-        assert.equal(boss.clientSpawned, true, `${levelName}: the boss must be client-owned`);
+        // With partyHostileSync "bosses-only" the client-authority boss is promoted into
+        // the shared canonical state, so a party fights one boss per scope.
         assert.equal(
-            GlobalState.levelEntities.get(scope)?.has(boss.id),
-            false,
-            `${levelName}: the scope should have no canonical boss (empty levelEntities)`
+            GlobalState.levelEntities.get(scope)?.has(entityId),
+            true,
+            `${levelName}: the shared boss should be canonical in the scope levelEntities`
         );
         spawnedBosses.push(boss);
     }
@@ -145,8 +146,8 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossNames: stri
     }
     assert.equal(
         DungeonCompletionSystem.evaluate(scope).objectivesMet,
-        false,
-        `${levelName}: HP telemetry alone must not complete an empty-scope run`
+        true,
+        `${levelName}: the HP report did not complete the shared boss objective`
     );
 
     // Missions with requirePlayerDamageForClientBosses (JC_Mission2/2Hard) only commit

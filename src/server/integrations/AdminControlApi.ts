@@ -885,7 +885,7 @@ export function registerAdminControlApi(staticServer: StaticServer): void {
             res.write(`event: snapshot\ndata: ${JSON.stringify(buildAdminSnapshot())}\n\n`);
         };
         publish();
-        const interval = setInterval(publish, 1_000);
+        const interval = setInterval(publish, 5_000);
         req.on('close', () => clearInterval(interval));
     });
 

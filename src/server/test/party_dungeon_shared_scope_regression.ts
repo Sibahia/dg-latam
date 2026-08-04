@@ -16,6 +16,8 @@ type FakeClient = {
     playerSpawned: boolean;
     clientEntID: number;
     entities: Map<number, any>;
+    knownEntityIds: Set<number>;
+    entityIdAliases: Map<number, number>;
     currentRoomId: number;
 };
 
@@ -41,6 +43,8 @@ function makeClient(name: string, token: number): FakeClient {
         playerSpawned: true,
         clientEntID: token + 1000,
         entities: new Map<number, any>(),
+        knownEntityIds: new Set<number>(),
+        entityIdAliases: new Map<number, number>(),
         currentRoomId: 2
     };
 }

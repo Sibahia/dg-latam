@@ -155,7 +155,7 @@ export function isRoomBossEntity(levelScope: string, entity: any): boolean {
         return true;
     }
 
-    for (const session of GlobalState.sessionsByToken.values()) {
+    for (const session of GlobalState.getSessionsInLevelScope(levelScope)) {
         if (!session.playerSpawned || getClientLevelScope(session) !== levelScope) {
             continue;
         }

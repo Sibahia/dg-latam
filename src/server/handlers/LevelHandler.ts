@@ -1025,6 +1025,25 @@ export class LevelHandler {
         const normalizedOldLevel = LevelConfig.normalizeLevelName(oldLevel);
         const normalizedTargetLevel = LevelConfig.normalizeLevelName(targetLevel);
         const normalizedEntryLevel = LevelConfig.normalizeLevelName(client.entryLevel);
+        if (normalizedOldLevel && LevelConfig.isDungeonLevel(normalizedOldLevel) && normalizedTargetLevel) {
+            // Leaving a dungeon must return to the last grounded position the player stood
+            // on in the region, not the mission entry point. resolveDungeonSafeReturn
+            // prefers the saved region coordinates and only falls back to the entry point
+            // when no saved record exists.
+            const safeReturn = LevelConfig.resolveDungeonSafeReturn(
+                normalizedOldLevel,
+                normalizedTargetLevel,
+                activeCharacter,
+                { x: client.entryX, y: client.entryY, hasCoord: client.entryHasCoord }
+            );
+            if (safeReturn) {
+                return {
+                    x: Math.round(Number(safeReturn.x ?? 0)),
+                    y: Math.round(Number(safeReturn.y ?? 0)),
+                    hasCoord: Boolean(safeReturn.hasCoord)
+                };
+            }
+        }
         if (
             normalizedOldLevel &&
             normalizedTargetLevel &&

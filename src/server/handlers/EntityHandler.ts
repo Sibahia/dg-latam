@@ -543,10 +543,19 @@ export class EntityHandler {
         }
 
         const newScope = getLevelScopeKey(levelName, targetInstanceId);
-        if (oldScope !== newScope || oldInstanceId !== targetInstanceId) {
+        const scopeChanged = oldScope !== newScope || oldInstanceId !== targetInstanceId;
+        if (scopeChanged) {
             client.levelInstanceId = targetInstanceId;
             EntityHandler.moveClientOwnedEntitiesBetweenScopes(client, oldScope, newScope);
             GlobalState.refreshSessionIndexes(client);
+        }
+
+        // A late scope realignment leaves the moved player invisible to the rest of the
+        // shared scope: player snapshots only broadcast on the first spawn. Re-broadcast
+        // now so every member of the party sees the realigned player (and vice versa).
+        if (scopeChanged && client.playerSpawned && getPartyIdForClient(client) > 0) {
+            EntityHandler.refreshPlayerSnapshot(client);
+            EntityHandler.sendExistingPlayersToJoiner(client);
         }
 
         EntityHandler.emitJcMini1PartyScopeSnapshot(client, levelName, reason);
