@@ -250,7 +250,7 @@ export class DungeonCompletionConditions {
         entity: any,
         levelScope: string = ''
     ): boolean {
-        if (!Boolean(entity?.clientSpawned)) {
+        if (!Boolean(entity?.clientSpawned) && !Boolean(entity?.hybridCanonicalHostile)) {
             return false;
         }
         const condition = DungeonCompletionConditions.get(levelName);

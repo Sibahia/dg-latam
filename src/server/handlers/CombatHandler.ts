@@ -130,6 +130,7 @@ export class CombatHandler {
     private static readonly recentTutorialBossHitPackets = new Map<string, number>();
     private static readonly SERVER_AUTHORITY_SYNC_LEVELS = new Set<string>([
         'JC_Mini1Hard',
+        'JC_Mini2',
         'TutorialDungeon'
     ]);
 
@@ -1744,7 +1745,13 @@ export class CombatHandler {
                             CombatHandler.estimateHostileMaxHp(entity, levelScope)
                     )
                 ) ||
-                DungeonCompletionConditions.isClientAuthorityBoss(levelName, entity, levelScope) ||
+                // Hybrid canonicals mirror server-converged health, so a
+                // server-side power hit on one is authoritative and must not be
+                // deferred to the client's defeat signal.
+                (
+                    DungeonCompletionConditions.isClientAuthorityBoss(levelName, entity, levelScope) &&
+                    !Boolean(entity?.hybridCanonicalHostile)
+                ) ||
                 (
                     Boolean(entity?.clientSpawned) &&
                     DungeonCompletionConditions.isRequiredBoss(levelName, entity, levelScope) &&
@@ -2124,6 +2131,13 @@ export class CombatHandler {
             CombatHandler.processPlayerOutOfCombatRegen(session, nowMs);
         }
 
+        // Server-managed hostile regen only applies inside dungeons. City mobs
+        // are client-owned, so scanning the level map and every session's local
+        // entities for regen candidates is pure overhead outside a dungeon.
+        if (!LevelConfig.isDungeonLevel(getScopeLevelName(levelScope))) {
+            return;
+        }
+
         for (const entity of CombatHandler.collectHostileRegenCandidates(levelScope)) {
             CombatHandler.processHostileOutOfCombatRegen(levelScope, entity, nowMs);
         }
@@ -2443,6 +2457,19 @@ export class CombatHandler {
     }
 
     private static sendTranslatedPacket(viewer: Client, packetId: number, data: Buffer): boolean {
+        // Outside a dungeon (and away from server-authority hostiles) every
+        // entity id resolves to itself, so the per-viewer re-parse below is
+        // identity work. Viewers with no id aliases can take the fast path.
+        const relayScope = getClientLevelScope(viewer);
+        const relayLevelName = relayScope ? getScopeLevelName(relayScope) : '';
+        if (
+            (viewer.entityIdAliases?.size ?? 0) === 0 &&
+            !EntityHandler.usesServerAuthorityHostiles(relayLevelName) &&
+            !LevelConfig.isDungeonLevel(relayLevelName)
+        ) {
+            viewer.send(packetId, data);
+            return true;
+        }
         const translated = CombatHandler.translateOutboundPacketForViewer(viewer, packetId, data);
         if (!translated) {
             return false;
@@ -4867,11 +4894,15 @@ export class CombatHandler {
             TutorialDungeonMechanics.isCompletionBoss(levelScope, entity);
         // Server-authority party dungeons (West/East Wing) must also grant boss loot
         // through the server path — the client reward packet is rejected there.
-        const isServerAuthorityRequiredBoss = Boolean(
+        // TutorialDungeon mobs still loot through the Flash client, so only the
+        // non-tutorial server-authority sync hostiles (and the tutorial boss) are
+        // granted here to avoid double-dropping.
+        const isServerAuthoritySyncHostile = Boolean(
             EntityHandler.usesServerAuthorityHostiles(levelName) &&
-            MissionHandler.isRequiredDungeonCompletionBossForLevel(levelName, entity, levelScope)
+            !TutorialDungeonMechanics.isTutorialDungeon(levelName) &&
+            CombatHandler.isServerAuthoritySyncNpc(levelScope, entity)
         );
-        if (!isTutorialBoss && !isServerAuthorityRequiredBoss) {
+        if (!isTutorialBoss && !isServerAuthoritySyncHostile) {
             return;
         }
 
@@ -6425,6 +6456,12 @@ export class CombatHandler {
             return;
         }
 
+        // Server-managed canonical buffs only exist inside dungeons. City
+        // hostiles are client-owned, so the full level scan below is wasted work.
+        if (!LevelConfig.isDungeonLevel(getScopeLevelName(levelScope))) {
+            return;
+        }
+
         const levelMap = GlobalState.levelEntities.get(levelScope);
         if (!levelMap) {
             return;
@@ -6432,6 +6469,14 @@ export class CombatHandler {
 
         for (const entity of levelMap.values()) {
             if (!entity || entity.isPlayer || Number(entity.team ?? 0) !== EntityTeam.ENEMY) {
+                continue;
+            }
+            if (
+                !entity.activeBuffs ||
+                typeof entity.activeBuffs !== 'object' ||
+                Array.isArray(entity.activeBuffs) ||
+                Object.keys(entity.activeBuffs).length === 0
+            ) {
                 continue;
             }
 
