@@ -26,6 +26,12 @@ COPY --from=build /build/server/dist ./dist
 COPY src/server/data ./data
 COPY src/server/tools ./tools
 COPY --from=build /build/client/content/localhost /opt/games/dungeon-blitz-r/src/client/content/localhost
+# XML data (DoorTypes, GearTypes, PlayerPowerTypes, etc.) is read by the server
+# at runtime for door-aware spawns, gear drops and cast-rate limiting. Without it
+# every door/drop/cast-rate path falls back to defaults (the old "spawn at city
+# entrance" bug). Also copies the public calculadora page.
+COPY --from=build /build/client/content/xml /opt/games/dungeon-blitz-r/src/client/content/xml
+COPY --from=build /build/client/content/localhost/calculadora /opt/games/dungeon-blitz-r/src/client/content/localhost/calculadora
 COPY package.json /opt/games/dungeon-blitz-r/package.json
 
 # entrypoint.sh

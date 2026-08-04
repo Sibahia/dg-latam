@@ -509,6 +509,11 @@ try {
             res.sendFile(path.join(this.contentDir, 'index.html'));
         });
 
+        // Public Talents calculator (no auth required).
+        this.app.get(['/calculadora', '/calculadora/'], (_req, res) => {
+            res.sendFile(path.join(this.contentDir, 'calculadora', 'index.html'));
+        });
+
         this.app.get('/lostpw', (req, res) => {
             console.log(`[LostPassword] Page opened from ${this.normalizeRemoteAddress(this.resolveRequesterAddress(req)) || '-'}`);
             res.setHeader('Cache-Control', 'no-store');

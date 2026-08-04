@@ -1004,7 +1004,21 @@ export class MissionHandler {
 
     private static shouldAutoStartDungeonMission(levelName: string | null | undefined): boolean {
         const mode = DungeonCompletionConditions.get(levelName)?.mode;
-        return mode === 'full-clear' || mode === 'objectives';
+        if (mode === 'full-clear' || mode === 'objectives') {
+            return true;
+        }
+        // Bosses-mode dungeons whose mission has no contact NPC (e.g. Ancient Vault /
+        // VaultHunter, the Wing dungeons) never get offered, so auto-start them on entry
+        // so the world map can mark them complete when the dungeon finishes.
+        if (mode === 'bosses') {
+            const missionDef = MissionLoader.findPrimaryMissionByDungeon(String(levelName ?? ''));
+            return Boolean(
+                missionDef &&
+                !String(missionDef.ContactName ?? '').trim() &&
+                !MissionHandler.missionRequiresTurnIn(missionDef)
+            );
+        }
+        return false;
     }
 
     static syncFullClearDungeonEntryMissionToClient(client: Client): void {
