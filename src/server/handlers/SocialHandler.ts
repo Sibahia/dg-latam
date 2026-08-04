@@ -64,6 +64,7 @@ export class SocialHandler {
     private static readonly FRIEND_REQUEST_PROMPT_TTL_MS = 5 * 60_000;
     private static readonly TELEPORT_COMMAND_PREFIXES = ['/teleport:', 'teleport:'];
     private static readonly MAINTENANCE_COMMAND_PREFIX = '/maintenance:';
+    private static readonly PING_COMMAND_PREFIX = '/ping';
     private static readonly MAINTENANCE_COMMAND_EMAILS = new Set([
         '1@gmail.com',
         'ardaarican3399@gmail.com',
@@ -176,12 +177,24 @@ export class SocialHandler {
         client.sendBitBuffer(0xB4, bb);
     }
 
+    private static handlePingCommand(client: Client, message: string): boolean {
+        const normalized = String(message ?? '').trim().toLowerCase();
+        if (!normalized.startsWith(SocialHandler.PING_COMMAND_PREFIX)) {
+            return false;
+        }
+
+        // The Flash client timestamps its own /ping send and displays the
+        // round-trip; this echo carries the server's receipt time so operators
+        // can cross-check that the response actually returned.
+        SocialHandler.sendChatStatus(client, `Pong ${Date.now()}`);
+        return true;
+    }
+
     private static handleMaintenanceCommand(client: Client, message: string): boolean {
         const normalized = String(message ?? '').trim();
         if (!normalized.toLowerCase().startsWith(SocialHandler.MAINTENANCE_COMMAND_PREFIX)) {
             return false;
         }
-
         const email = String(client.account?.email ?? '').trim().toLowerCase();
         if (!SocialHandler.MAINTENANCE_COMMAND_EMAILS.has(email)) {
             SocialHandler.sendChatStatus(client, 'You are not authorized to use the maintenance command.');
@@ -1292,6 +1305,10 @@ export class SocialHandler {
         }
 
         if (await SocialHandler.handleTeleportCommand(client, message)) {
+            return;
+        }
+
+        if (SocialHandler.handlePingCommand(client, message)) {
             return;
         }
 

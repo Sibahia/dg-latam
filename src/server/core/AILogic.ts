@@ -18,6 +18,9 @@ import { AdminRuntimeSettings } from './AdminRuntimeSettings';
 export class AILogic {
     static readonly INTERVAL = 125; // ms (0.125s)
     static readonly TIMESTEP = 1 / 60.0;
+    // Corpses are only pruned once their death has been finalized server-side
+    // for at least this long, so loot grants and death relays are never cut short.
+    static readonly DEAD_HOSTILE_PRUNE_AGE_MS = 120_000;
     // Aggro radii, halved from their original values (240/360/180/260) so enemies
     // pull from roughly half the distance they used to.
     static readonly MELEE_AGGRO_RADIUS = 120;
@@ -291,6 +294,7 @@ export class AILogic {
 
         CombatHandler.processOutOfCombatRegen(levelScope, nowMs);
         CombatHandler.processBuffExpirations(levelScope, nowMs);
+        AILogic.pruneDeadHostiles(levelScope, nowMs);
 
         if (AdminRuntimeSettings.snapshot.freezeEnemies) {
             return { players: players.length, npcs: 0 };
@@ -328,6 +332,38 @@ export class AILogic {
             updatedNpcs += 1;
         }
         return { players: players.length, npcs: updatedNpcs };
+    }
+
+    // Purge long-dead canonical hostiles so the AI/buff/regen scans stop walking
+    // corpses every tick. Completion state is captured in DungeonCompletionSystem
+    // when the death is noted, so removing an already-finalized corpse does not
+    // un-complete the run; the 120s grace keeps any late loot/relay safe.
+    static pruneDeadHostiles(levelScope: string, nowMs: number = Date.now()): void {
+        const levelEntities = GlobalState.levelEntities.get(levelScope);
+        if (!levelEntities || levelEntities.size === 0) {
+            return;
+        }
+
+        const deadline = nowMs - AILogic.DEAD_HOSTILE_PRUNE_AGE_MS;
+        const prunedIds: number[] = [];
+        for (const [entId, npc] of levelEntities.entries()) {
+            if (!npc || npc.isPlayer || Number(npc.team ?? 0) !== 2) {
+                continue;
+            }
+            if (
+                (Boolean(npc.dead) || Boolean(npc.destroyed) || Number(npc.entState ?? EntityState.ACTIVE) === EntityState.DEAD) &&
+                Math.max(0, Math.round(Number(npc.deathFinalizedAt ?? 0))) > 0 &&
+                Math.max(0, Math.round(Number(npc.deathFinalizedAt ?? 0))) <= deadline
+            ) {
+                prunedIds.push(entId);
+            }
+        }
+        for (const entId of prunedIds) {
+            levelEntities.delete(entId);
+        }
+        if (levelEntities.size === 0) {
+            GlobalState.levelEntities.delete(levelScope);
+        }
     }
 
     static updateNpc(npc: any, players: Client[], levelScope: string, nowMs: number = Date.now()) {

@@ -26,6 +26,21 @@ function isDefeated(entity: any): boolean {
         Number(entity?.entState ?? EntityState.ACTIVE) === 6;
 }
 
+// Client-authority bosses (and their hybrid server-side mirrors) own their own
+// death through the Flash client. A scripted/cutscene dead copy shares the same
+// defeated-looking flags, so it must not satisfy boss completion on its own.
+// Server-authority hostiles (JC_Mini1Hard, JC_Mini2, TutorialDungeon, ...) are
+// killed by the server, so their defeated state is already authoritative.
+function isVerifiedBossDefeat(entity: any): boolean {
+    if (!isDefeated(entity)) {
+        return false;
+    }
+    if (Boolean(entity?.clientSpawned) || Boolean(entity?.hybridCanonicalHostile)) {
+        return Boolean(entity?.clientDefeatVerified);
+    }
+    return true;
+}
+
 function normalizeEntityName(entity: any): string {
     return String(
         entity?.name ??
@@ -825,9 +840,11 @@ export class DungeonCompletionSystem {
             const canonicalBoss = DungeonCompletionConditions.getCanonicalBossName(state.levelName, entity, state.levelScope);
 			
             if (canonicalBoss) {
-                state.defeatedBosses.add(canonicalBoss);
-                if (!state.defeatedBossAt.has(canonicalBoss)) {
-                    state.defeatedBossAt.set(canonicalBoss, now);
+                if (isVerifiedBossDefeat(entity)) {
+                    state.defeatedBosses.add(canonicalBoss);
+                    if (!state.defeatedBossAt.has(canonicalBoss)) {
+                        state.defeatedBossAt.set(canonicalBoss, now);
+                    }
                 }
             }
             const objectiveRole = DungeonCompletionConditions.getObjectiveRole(state.levelName, entity);
