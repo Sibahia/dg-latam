@@ -57,6 +57,7 @@ function createClient(levelName: string, ordinal: number): FakeClient {
         },
         entities: new Map<number, any>(),
         entityIdAliases: new Map<number, number>(),
+        knownEntityIds: new Set<number>(),
         activeDungeonCutsceneScope: '',
         activeDungeonCutsceneRoomId: 0,
         lastDungeonCutsceneStartAt: 0,

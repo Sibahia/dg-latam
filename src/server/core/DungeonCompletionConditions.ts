@@ -6,6 +6,8 @@ import type {
     DungeonCompletionMode
 } from './DungeonCompletionTypes';
 import { isRoomBossEntity } from './RoomBossState';
+import { GlobalState } from './GlobalState';
+import { getClientLevelScope, getScopeLevelName } from './LevelScope';
 
 type RawCatalog = {
     schemaVersion?: unknown;
@@ -117,7 +119,37 @@ export class DungeonCompletionConditions {
         return DungeonCompletionConditions.get(levelName)?.mode === 'bosses';
     }
 
-    static sharesClientHostileWithParty(levelName: string | null | undefined, entity: any): boolean {
+    static sharesClientHostileWithParty(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
+        // Tutorial dungeons keep their authored static policy regardless of party
+        // size: the tutorial flow drives its own server-authority mechanics.
+        const normalizedLevelForPolicy = LevelConfig.normalizeLevelName(levelName) || String(levelName ?? '').trim();
+        if (
+            normalizedLevelForPolicy === 'TutorialDungeon' ||
+            normalizedLevelForPolicy === 'TutorialDungeonHard'
+        ) {
+            const tutorialCondition = DungeonCompletionConditions.get(levelName);
+            if (tutorialCondition?.partyHostileSync === 'none') {
+                return false;
+            }
+            if (!tutorialCondition || tutorialCondition.partyHostileSync !== 'bosses-only') {
+                return true;
+            }
+            return DungeonCompletionConditions.isRequiredBoss(levelName, entity);
+        }
+
+        // Dynamic rule: when 2+ players are inside the SAME dungeon scope,
+        // everything (bosses and mobs) is shared and synced. A single player
+        // keeps the dungeon private.
+        if (levelScope && LevelConfig.isDungeonLevel(getScopeLevelName(levelScope))) {
+            return DungeonCompletionConditions.isSharedDungeonScope(levelScope);
+        }
+
+        // No scope context (legacy call sites that cannot resolve the instance):
+        // fall back to the authored static policy.
         const condition = DungeonCompletionConditions.get(levelName);
         if (condition?.partyHostileSync === 'none') {
             return false;
@@ -126,6 +158,22 @@ export class DungeonCompletionConditions {
             return true;
         }
         return DungeonCompletionConditions.isRequiredBoss(levelName, entity);
+    }
+
+    /** Counts spawned players currently inside the given dungeon scope. */
+    static countDungeonScopePlayers(levelScope: string): number {
+        let count = 0;
+        for (const session of GlobalState.getSessionsInLevelScope(levelScope)) {
+            if (session.playerSpawned && getClientLevelScope(session) === levelScope) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    /** True when 2+ spawned players share the same dungeon scope. */
+    static isSharedDungeonScope(levelScope: string): boolean {
+        return DungeonCompletionConditions.countDungeonScopePlayers(levelScope) >= 2;
     }
 
     static hasPostObjectiveCutscene(levelName: string | null | undefined): boolean {

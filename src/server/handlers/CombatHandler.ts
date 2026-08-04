@@ -1588,7 +1588,7 @@ export class CombatHandler {
             !entity ||
             typeof entity !== 'object' ||
             !authority?.playerSpawned ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return;
         }
@@ -1634,7 +1634,7 @@ export class CombatHandler {
             typeof entity !== 'object' ||
             Boolean(entity.isPlayer) ||
             Number(entity.team ?? 0) !== EntityTeam.ENEMY ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return 0;
         }
@@ -1652,7 +1652,7 @@ export class CombatHandler {
             typeof entity !== 'object' ||
             Boolean(entity.isPlayer) ||
             Number(entity.team ?? 0) !== EntityTeam.ENEMY ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return 0;
         }
@@ -1684,7 +1684,7 @@ export class CombatHandler {
             !entity ||
             Boolean(entity.isPlayer) ||
             Number(entity.team ?? 0) !== EntityTeam.ENEMY ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return false;
         }
@@ -2011,7 +2011,7 @@ export class CombatHandler {
         const healthDelta = normalizedCurrentHp - normalizedMaxHp;
         const shouldSyncEquivalentCopies =
             CombatHandler.isDungeonBossEntity(levelScope, sourceEntity) ||
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity);
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity, levelScope);
         const apply = (entity: any): void => {
             if (
                 !entity ||
@@ -2745,8 +2745,12 @@ export class CombatHandler {
         return Boolean(sourceEntity && !sourceEntity.isPlayer && Number(sourceEntity.team ?? 0) === EntityTeam.ENEMY);
     }
 
-    private static shouldMirrorClientSpawnEntityToParty(levelName: string, entity: any): boolean {
-        return EntityHandler.shouldMirrorClientSpawnEntityToParty(levelName, entity);
+    private static shouldMirrorClientSpawnEntityToParty(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
+        return EntityHandler.shouldMirrorClientSpawnEntityToParty(levelName, entity, levelScope);
     }
 
     private static canReceivePartySharedHostileHealthSync(anchor: Client, viewer: Client, levelScope: string): boolean {
@@ -2797,7 +2801,7 @@ export class CombatHandler {
         if (
             !levelScope ||
             canonicalId <= 0 ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return snapshots;
         }
@@ -2848,7 +2852,7 @@ export class CombatHandler {
         const sharedEntity = canonicalEntity ?? CombatHandler.resolveLevelEntity(levelScope, entityId);
         if (
             !sharedEntity ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sharedEntity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sharedEntity, levelScope)
         ) {
             const existingLocalId = EntityHandler.resolveEntityLocalId(viewer, entityId);
             return existingLocalId > 0 ? existingLocalId : entityId;
@@ -2874,7 +2878,7 @@ export class CombatHandler {
             if (
                 candidateId <= 0 ||
                 candidateId === entityId ||
-                !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), candidate) ||
+                !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), candidate, levelScope) ||
                 !CombatHandler.isEquivalentHostileEntity(levelScope, sharedEntity, candidate)
             ) {
                 continue;
@@ -3109,7 +3113,7 @@ export class CombatHandler {
         if (
             !levelScope ||
             canonicalId <= 0 ||
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return;
         }
@@ -3216,7 +3220,7 @@ export class CombatHandler {
         }
 
         const canonicalEntity = CombatHandler.resolveLevelEntity(levelScope, entityId);
-        if (CombatHandler.shouldMirrorClientSpawnEntityToParty(anchor.currentLevel, canonicalEntity)) {
+        if (CombatHandler.shouldMirrorClientSpawnEntityToParty(anchor.currentLevel, canonicalEntity, levelScope)) {
             return true;
         }
 
@@ -3284,7 +3288,7 @@ export class CombatHandler {
                                     ? 'missing_viewer_local_id'
                                 : !localEntity
                                     ? 'missing_entity'
-                                    : !CombatHandler.shouldMirrorClientSpawnEntityToParty(anchor.currentLevel, localEntity)
+                                    : !CombatHandler.shouldMirrorClientSpawnEntityToParty(anchor.currentLevel, localEntity, levelScope)
                                         ? 'not_party_mirror_entity'
                                         : '';
             if (skipReason) {
@@ -3959,7 +3963,7 @@ export class CombatHandler {
         }
 
         const sourceRoomId = Number.isFinite(Number(sourceEntity?.roomId)) ? Number(sourceEntity.roomId) : -1;
-        const partySharedSource = CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity);
+        const partySharedSource = CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity, levelScope);
         const dedupedRefs = Array.from(new Set(referencedEntityIds.filter((id) => Number.isFinite(id) && id > 0)));
 
         for (const other of GlobalState.getSessionsInLevelScope(levelScope)) {
@@ -4041,7 +4045,7 @@ export class CombatHandler {
             return EntityHandler.ensureEntityKnown(viewer, viewer.currentLevel, entityId);
         }
 
-        if (CombatHandler.shouldMirrorClientSpawnEntityToParty(viewer.currentLevel, entity)) {
+        if (CombatHandler.shouldMirrorClientSpawnEntityToParty(viewer.currentLevel, entity, getClientLevelScope(viewer))) {
             return true;
         }
 
@@ -4733,7 +4737,7 @@ export class CombatHandler {
             Number(entity.entState ?? EntityState.ACTIVE) !== EntityState.DEAD &&
             healthState.currentHp > 0;
         const isPartySharedHostile =
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelName), entity);
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelName), entity, levelName);
         const authoritativeKill =
             (healthState.authoritativeKill || isPartySharedHostile) &&
             !CombatHandler.shouldDeferPowerHitKillToClient(levelName, entity);
@@ -5250,7 +5254,7 @@ export class CombatHandler {
             const sourceCanonicalId = Math.max(0, Math.round(Number(sourceEntity?.id ?? sourceId)));
             if (
                 sourceCanonicalId > 0 &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity, levelScope)
             ) {
                 CombatHandler.relayPartyLocalEntityDefeat(
                     client,
@@ -5383,7 +5387,7 @@ export class CombatHandler {
                 MissionHandler.shouldProcessEnemyKillStateDungeonCompletion(client, targetEntity)
             );
             const partySharedHostileSnapshots = targetEntity &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, targetEntity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, targetEntity, levelScope)
                 ? CombatHandler.snapshotPartySharedHostileViewerHealth(sourceSession ?? client, levelScope, targetEntity)
                 : new Map<number, HostileViewerHealthSnapshot>();
             serverAuthorityNpcSnapshots = targetEntity &&
@@ -5411,7 +5415,7 @@ export class CombatHandler {
             }
             if (resolution.entity) {
                 relayDamage = Math.max(0, Math.round(Number(resolution.appliedDamage ?? relayDamage)));
-                if (CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity)) {
+                if (CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity, levelScope)) {
                 }
             }
             if (resolution.entity && CombatHandler.isServerAuthoritySyncNpc(levelScope, resolution.entity)) {
@@ -5421,7 +5425,7 @@ export class CombatHandler {
             if (
                 resolution.entity &&
                 !serverAuthorityNpcResolution &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity, levelScope)
             ) {
                 partySharedHostileHealthRelay = {
                     entity: resolution.entity,
@@ -5443,7 +5447,7 @@ export class CombatHandler {
             if (
                 resolution.killed &&
                 resolution.entity &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, resolution.entity, levelScope)
             ) {
                 partySharedHostileDeathRelay = {
                     entityId: Math.max(0, Math.round(Number(resolution.entityId ?? targetId))),
@@ -5610,7 +5614,7 @@ export class CombatHandler {
             destroyedEntity &&
             !Boolean(destroyedEntity.isPlayer) &&
             Number(destroyedEntity.team ?? 0) === EntityTeam.ENEMY &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity, levelScope)
         ) {
         }
         if (EntityHandler.usesServerAuthorityHostiles(levelName)) {
@@ -5621,7 +5625,7 @@ export class CombatHandler {
             isSeedOutsideClientSpawnDestroy = Boolean(
                 !isCanonicalServerAuthorityDestroy &&
                 rawLocalDestroyedEntity &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, rawLocalDestroyedEntity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, rawLocalDestroyedEntity, levelScope)
             );
             if (isSeedOutsideClientSpawnDestroy) {
                 entityId = rawEntityId;
@@ -5685,7 +5689,7 @@ export class CombatHandler {
             : null;
         const shouldMirrorClientSpawnEntity = Boolean(
             levelName &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity, levelScope)
         );
         const shouldRelayDestroy = EntityHandler.shouldRelayEntityToOtherClients(levelName, destroyedEntity);
         if (destroyedEntity && contributionSnapshot?.contributors?.length) {
@@ -6026,7 +6030,7 @@ export class CombatHandler {
             targetEntity &&
             !Boolean(targetEntity?.isPlayer) &&
             Number(targetEntity?.team ?? 0) === EntityTeam.ENEMY &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), targetEntity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), targetEntity, levelScope)
         ) {
             const canonicalId = Math.max(0, Math.round(Number(targetEntity.id ?? entityId)));
             if (CombatHandler.isTerminalHostileEntity(targetEntity)) {
@@ -6406,7 +6410,7 @@ export class CombatHandler {
         const entity = CombatHandler.resolveLevelEntity(levelScope, canonicalTargetId);
         if (
             !CombatHandler.isServerAuthoritySyncNpc(levelScope, entity) &&
-            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity)
+            !CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), entity, levelScope)
         ) {
             return {
                 payload,
@@ -6544,7 +6548,7 @@ export class CombatHandler {
             const sourceCanonicalId = Math.max(0, Math.round(Number(sourceEntity?.id ?? sourceId)));
             if (
                 sourceCanonicalId > 0 &&
-                CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity)
+                CombatHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), sourceEntity, levelScope)
             ) {
                 CombatHandler.relayPartyLocalEntityDefeat(
                     client,
@@ -6606,7 +6610,7 @@ export class CombatHandler {
             MissionHandler.shouldProcessEnemyKillStateDungeonCompletion(client, targetEntity)
         );
         const partySharedHostileSnapshots = targetEntity &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, targetEntity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, targetEntity, getClientLevelScope(client))
             ? CombatHandler.snapshotPartySharedHostileViewerHealth(sourceSession ?? client, levelScope, targetEntity)
             : new Map<number, HostileViewerHealthSnapshot>();
         CombatHandler.assignPartySharedHostileCombatAuthority(levelScope, targetEntity, sourceSession ?? client);
@@ -6645,7 +6649,7 @@ export class CombatHandler {
         }
         if (
             resolution.entity &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, resolution.entity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, resolution.entity, getClientLevelScope(client))
         ) {
             const appliedDamage = Math.max(0, Math.round(Number(resolution.appliedDamage ?? 0)));
             CombatHandler.rememberPartySharedHostileHpApply(
@@ -6667,7 +6671,7 @@ export class CombatHandler {
         const partySharedHostileDeathRelay = (
             resolution.killed &&
             resolution.entity &&
-            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, resolution.entity)
+            CombatHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, resolution.entity, getClientLevelScope(client))
         )
             ? {
                 entityId: Math.max(0, Math.round(Number(resolution.entityId ?? targetId))),

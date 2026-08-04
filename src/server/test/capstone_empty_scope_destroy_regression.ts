@@ -103,12 +103,15 @@ function buildClientHostileFullUpdate(entityId: number, name: string): Buffer {
     return Buffer.concat([payload, Buffer.from([0])]);
 }
 
-function cleanup(client: FakeClient): void {
+function cleanup(client: FakeClient, partner: FakeClient | null = null): void {
     const scope = getClientLevelScope(client as never);
     DungeonCompletionSystem.reset(scope);
     GlobalState.levelEntities.delete(scope);
     GlobalState.levelQuestProgress.delete(scope);
     GlobalState.sessionsByToken.delete(client.token);
+    if (partner) {
+        GlobalState.sessionsByToken.delete(partner.token);
+    }
 }
 
 // AC_Mission6 (Capstone) is a client-authority dungeon: the server initializes 0
@@ -120,6 +123,12 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossName: strin
     const client = createClient(levelName, ordinal);
     const scope = getClientLevelScope(client as never);
     GlobalState.sessionsByToken.set(client.token, client as never);
+
+    // The dynamic sharing rule promotes a client-authority boss into the shared
+    // canonical state only when 2+ players are inside the same dungeon scope.
+    const partner = createClient(levelName, ordinal + 5000);
+    partner.levelInstanceId = client.levelInstanceId;
+    GlobalState.sessionsByToken.set(partner.token, partner as never);
 
     EntityHandler.handleEntityFullUpdate(
         client as never,
@@ -160,7 +169,7 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossName: strin
         `${levelName}: the rank plate appeared before the authored ending cutscene`
     );
 
-    cleanup(client);
+    cleanup(client, partner);
 }
 
 async function main(): Promise<void> {
