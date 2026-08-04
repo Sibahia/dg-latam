@@ -208,12 +208,18 @@ async function testKeepBossDeathPropagatesCompletionToParty(): Promise<void> {
 
     for (const client of [host, party]) {
         assert.equal(Number(client.character.questTrackerState ?? 0), 100);
-        assert.equal(Number(client.character.missions[String(MissionID.ClearYourHouse)]?.state ?? 0), 3);
-        assert.equal(Number(client.character.magicForge?.stats_by_building?.['12'] ?? 0), 5);
         assert.equal(client.sentPackets.some((packet) => packet.id === 0xB7), true);
         assert.equal(client.sentPackets.some((packet) => packet.id === 0x2E), true);
         assert.equal(client.sentPackets.some((packet) => packet.id === 0x87), false);
     }
+    // Only the scope owner (the earliest sync anchor) persists the completed
+    // mission and its keep-rebuild reward on their save; the party member still
+    // experiences the completion flow and rank plate but keeps the mission in
+    // progress for their own save.
+    assert.equal(Number(host.character.missions[String(MissionID.ClearYourHouse)]?.state ?? 0), 3);
+    assert.equal(Number(host.character.magicForge?.stats_by_building?.['12'] ?? 0), 5);
+    assert.equal(Number(party.character.missions[String(MissionID.ClearYourHouse)]?.state ?? 0), 1);
+    assert.equal(Number(party.character.magicForge?.stats_by_building?.['12'] ?? 0), 0);
 }
 
 async function main(): Promise<void> {

@@ -137,6 +137,17 @@ async function main(): Promise<void> {
     const client = createClient();
     const levelScope = getClientLevelScope(client as never);
 
+    // The dynamic sharing rule only promotes a client-authority boss into the
+    // shared canonical state when 2+ players are inside the same dungeon scope,
+    // so register a party partner to exercise the shared-boss flow.
+    const partner = createClient();
+    partner.token = 41002;
+    partner.userId = 41002;
+    partner.character.name = 'CastlePartner';
+    partner.levelInstanceId = client.levelInstanceId;
+    GlobalState.sessionsByToken.set(client.token, client as never);
+    GlobalState.sessionsByToken.set(partner.token, partner as never);
+
     assert.equal(EntityHandler.usesServerAuthorityHostiles('AC_Mission1'), false);
     assert.equal(EntityHandler.usesServerAuthorityHostiles('AC_Mission1Hard'), false);
     assert.equal(EntityHandler.usesCanonicalVisibleServerAuthorityHostiles('AC_Mission1'), false);
@@ -203,6 +214,7 @@ async function main(): Promise<void> {
 
     DungeonCompletionSystem.reset(levelScope);
     GlobalState.levelEntities.delete(levelScope);
+    GlobalState.sessionsByToken.delete(partner.token);
 
     // The shared canonical boss is driven by the party owner's death signal; the
     // second viewer's destroy resolves through the shared scope once the boss is

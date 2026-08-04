@@ -1423,6 +1423,13 @@ export class MissionHandler {
 
         let completedMissionId = 0;
         let completedMissionUpdate: DungeonMissionUpdateResult | null = null;
+        // Only the scope owner persists the completed mission on their save;
+        // non-owners still experience the completion flow (rank plate, door
+        // target, cutscene) but their character.missions stays in progress.
+        const isDungeonScopeOwner = MissionHandler.isDungeonScopeOwner(client, levelScope);
+        const missionsSnapshot = isDungeonScopeOwner
+            ? null
+            : JSON.parse(JSON.stringify(MissionHandler.getMissionStateMap(client.character) ?? {}));
         if (clearedDungeon) {
             const missionUpdate = MissionHandler.updateDungeonMissionResult(client.character, currentLevel, {
                 stars: completionResult.stars,
@@ -1455,16 +1462,20 @@ export class MissionHandler {
                     );
                 }
 
-                const primedMissionId = MissionHandler.primeRescueAnnaFollowup(client, completedMissionId);
+                const primedMissionId = isDungeonScopeOwner
+                    ? MissionHandler.primeRescueAnnaFollowup(client, completedMissionId)
+                    : 0;
                 if (primedMissionId > 0) {
                     didMutate = true;
                 }
 
-                const chainedDungeonMissionId = MissionHandler.primeChainedDungeonFollowupMission(
-                    client,
-                    currentLevel,
-                    completedMissionId
-                );
+                const chainedDungeonMissionId = isDungeonScopeOwner
+                    ? MissionHandler.primeChainedDungeonFollowupMission(
+                        client,
+                        currentLevel,
+                        completedMissionId
+                    )
+                    : 0;
                 if (chainedDungeonMissionId > 0) {
                     didMutate = true;
                     if (MissionHandler.applyDungeonCompletionFollowupReturnOverride(client, completedMissionId)) {
@@ -1472,18 +1483,21 @@ export class MissionHandler {
                     }
                 }
 
-                const aggregateReconcile = MissionHandler.reconcileAttackOfOpportunityAggregateProgress(client.character);
-                if (aggregateReconcile.changed) {
-                    didMutate = true;
-                    if (aggregateReconcile.progressDelta > 0) {
-                        MissionHandler.sendMissionProgress(client, aggregateReconcile.missionId, aggregateReconcile.progressDelta);
-                    }
-                    if (aggregateReconcile.becameReadyToTurnIn) {
-                        MissionHandler.sendMissionComplete(client, aggregateReconcile.missionId);
+                if (isDungeonScopeOwner) {
+                    const aggregateReconcile = MissionHandler.reconcileAttackOfOpportunityAggregateProgress(client.character);
+                    if (aggregateReconcile.changed) {
+                        didMutate = true;
+                        if (aggregateReconcile.progressDelta > 0) {
+                            MissionHandler.sendMissionProgress(client, aggregateReconcile.missionId, aggregateReconcile.progressDelta);
+                        }
+                        if (aggregateReconcile.becameReadyToTurnIn) {
+                            MissionHandler.sendMissionComplete(client, aggregateReconcile.missionId);
+                        }
                     }
                 }
 
                 if (
+                    isDungeonScopeOwner &&
                     currentLevel === 'CraftTownTutorial' &&
                     completedMissionId === MissionID.ClearYourHouse &&
                     MissionHandler.ensureCraftTownKeepRepaired(client.character)
@@ -1496,6 +1510,7 @@ export class MissionHandler {
                 }
 
                 if (
+                    isDungeonScopeOwner &&
                     missionUpdate.newlyCompleted &&
                     completedMissionId === MissionID.ClearYourHouse &&
                     MissionHandler.claimKeepQuestCompletionReward(client, missionUpdate)
@@ -1508,6 +1523,7 @@ export class MissionHandler {
                 }
 
                 if (
+                    isDungeonScopeOwner &&
                     missionUpdate.newlyCompleted &&
                     MissionHandler.claimMeyloursEmbersRewardAndPrimeGlades(client, missionUpdate)
                 ) {
@@ -1522,6 +1538,15 @@ export class MissionHandler {
             ) {
                 didMutate = true;
             }
+        }
+
+        if (!isDungeonScopeOwner && missionsSnapshot && typeof missionsSnapshot === 'object') {
+            // Roll the in-memory missions back before the save so the shared run
+            // never marks a non-owner's mission complete on disk.
+            for (const missionKey of Object.keys(client.character.missions ?? {})) {
+                delete client.character.missions[missionKey];
+            }
+            Object.assign(client.character.missions, missionsSnapshot);
         }
 
         if (didMutate) {
@@ -2079,6 +2104,40 @@ export class MissionHandler {
         if (DungeonCompletionSystem.canQueueCompletion(levelScope)) {
             MissionHandler.scheduleDungeonCompletionForScope(levelScope, client);
         }
+    }
+
+    // The dungeon scope owner is the player who first entered/started the run:
+    // the session whose token matches the numeric levelInstanceId, or — when the
+    // instance id is not numeric — the session with the earliest sync anchor.
+    // Only the owner's character.missions is persisted as completed on a shared
+    // run; everyone else still experiences the completion flow and rank plate.
+    private static isDungeonScopeOwner(client: Client, levelScope: string | null | undefined): boolean {
+        if (!client?.character || !levelScope) {
+            return false;
+        }
+
+        const instanceOwnerToken = Math.max(0, Math.round(Number(client.levelInstanceId ?? 0) || 0));
+        if (instanceOwnerToken > 0) {
+            return client.token === instanceOwnerToken;
+        }
+
+        let ownerToken = 0;
+        let earliestAnchorAt = Number.POSITIVE_INFINITY;
+        for (const session of GlobalState.getSessionsInLevelScope(levelScope)) {
+            if (!session.playerSpawned || !session.character || getClientLevelScope(session) !== levelScope) {
+                continue;
+            }
+            const anchorAt = Math.max(0, Math.round(Number(session.syncAnchorStartedAt ?? 0) || 0));
+            const comparableAnchorAt = anchorAt > 0 ? anchorAt : Number.MAX_SAFE_INTEGER;
+            if (
+                comparableAnchorAt < earliestAnchorAt ||
+                (comparableAnchorAt === earliestAnchorAt && session.token < ownerToken)
+            ) {
+                earliestAnchorAt = comparableAnchorAt;
+                ownerToken = session.token;
+            }
+        }
+        return ownerToken > 0 && ownerToken === client.token;
     }
 
     private static hasFinalizedDungeonCompletion(client: Client, levelScope: string | null | undefined): boolean {

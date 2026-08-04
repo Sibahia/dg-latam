@@ -1783,7 +1783,7 @@ export class EntityHandler {
     private static shouldDeferLiveSharedHostileSeedToJoiner(joiner: Client, entity: any): boolean {
         return Boolean(joiner.currentLevel) &&
             !EntityHandler.usesServerAuthorityHostiles(joiner.currentLevel) &&
-            EntityHandler.isPartySharedClientSpawnHostile(joiner.currentLevel, entity) &&
+            EntityHandler.isPartySharedClientSpawnHostile(joiner.currentLevel, entity, getClientLevelScope(joiner)) &&
             !EntityHandler.isEntityDead(entity);
     }
 
@@ -1965,16 +1965,24 @@ export class EntityHandler {
         return EntityHandler.getLevelMap(client.currentLevel, client.levelInstanceId, createIfMissing);
     }
 
-    private static isPartySharedClientSpawnHostile(levelName: string | null | undefined, entity: any): boolean {
+    private static isPartySharedClientSpawnHostile(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
         return EntityHandler.isSharedClientSpawnRegionActor(levelName, entity) &&
             Number(entity?.team ?? 0) === 2 &&
-            DungeonCompletionConditions.sharesClientHostileWithParty(levelName, entity);
+            DungeonCompletionConditions.sharesClientHostileWithParty(levelName, entity, levelScope);
     }
 
-    private static isPrivateClientSpawnDungeonHostile(levelName: string | null | undefined, entity: any): boolean {
+    private static isPrivateClientSpawnDungeonHostile(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
         return EntityHandler.isSharedClientSpawnRegionActor(levelName, entity) &&
             Number(entity?.team ?? 0) === EntityTeam.ENEMY &&
-            !DungeonCompletionConditions.sharesClientHostileWithParty(levelName, entity);
+            !DungeonCompletionConditions.sharesClientHostileWithParty(levelName, entity, levelScope);
     }
 
     private static findLeaderAuthoritativeClientSpawnMatch(
@@ -2235,7 +2243,7 @@ export class EntityHandler {
             !levelMap ||
             !LevelConfig.isDungeonLevel(levelName) ||
             EntityHandler.usesServerAuthorityHostiles(levelName) ||
-            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity) ||
+            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity, getClientLevelScope(client)) ||
             !entity ||
             entity.isPlayer ||
             Number(entity.team ?? 0) !== EntityTeam.ENEMY
@@ -2809,7 +2817,7 @@ export class EntityHandler {
             !levelName ||
             !levelMap ||
             !EntityHandler.isSharedClientSpawnRegionActor(levelName, entity) ||
-            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity)
+            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity, getClientLevelScope(client))
         ) {
             return false;
         }
@@ -2911,22 +2919,34 @@ export class EntityHandler {
         return true;
     }
 
-    static shouldRelayEntityToOtherClients(levelName: string | null | undefined, entity: any): boolean {
+    static shouldRelayEntityToOtherClients(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
         if (
             EntityHandler.isPrivateClientSpawnOutdoorEntity(levelName, entity) ||
-            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity)
+            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity, levelScope)
         ) {
             return false;
         }
 
-        return !EntityHandler.isPartySharedClientSpawnHostile(levelName, entity);
+        return !EntityHandler.isPartySharedClientSpawnHostile(levelName, entity, levelScope);
     }
 
-    static shouldMirrorClientSpawnEntityToParty(levelName: string | null | undefined, entity: any): boolean {
-        return EntityHandler.isPartySharedClientSpawnHostile(levelName, entity);
+    static shouldMirrorClientSpawnEntityToParty(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
+        return EntityHandler.isPartySharedClientSpawnHostile(levelName, entity, levelScope);
     }
 
-    static shouldTrackKnownEntity(levelName: string | null | undefined, entity: any): boolean {
+    static shouldTrackKnownEntity(
+        levelName: string | null | undefined,
+        entity: any,
+        levelScope: string = ''
+    ): boolean {
         if (!entity) {
             return false;
         }
@@ -2934,7 +2954,7 @@ export class EntityHandler {
             return true;
         }
 
-        return EntityHandler.shouldRelayEntityToOtherClients(levelName, entity);
+        return EntityHandler.shouldRelayEntityToOtherClients(levelName, entity, levelScope);
     }
 
     private static canClientUsePartySharedClientSpawnEntity(client: Client, entity: any): boolean {
@@ -2944,7 +2964,7 @@ export class EntityHandler {
         if (!entity?.clientSpawned && !Boolean(entity?.hybridCanonicalHostile)) {
             return false;
         }
-        if (!EntityHandler.isPartySharedClientSpawnHostile(client.currentLevel, entity)) {
+        if (!EntityHandler.isPartySharedClientSpawnHostile(client.currentLevel, entity, getClientLevelScope(client))) {
             return false;
         }
 
@@ -2971,7 +2991,7 @@ export class EntityHandler {
         }
 
         if (
-            EntityHandler.shouldTrackKnownEntity(levelName, entity) ||
+            EntityHandler.shouldTrackKnownEntity(levelName, entity, getClientLevelScope(client)) ||
             EntityHandler.canClientUsePartySharedClientSpawnEntity(client, entity)
         ) {
             client.knownEntityIds.add(entityId);
@@ -2998,7 +3018,7 @@ export class EntityHandler {
             return false;
         }
 
-        if (EntityHandler.isPartySharedClientSpawnHostile(levelName, localEntity)) {
+        if (EntityHandler.isPartySharedClientSpawnHostile(levelName, localEntity, getClientLevelScope(client))) {
             return true;
         }
 
@@ -3184,11 +3204,11 @@ export class EntityHandler {
             return true;
         }
 
-        if (EntityHandler.isPartySharedClientSpawnHostile(client.currentLevel, entity)) {
+        if (EntityHandler.isPartySharedClientSpawnHostile(client.currentLevel, entity, getClientLevelScope(client))) {
             return EntityHandler.canClientUsePartySharedClientSpawnEntity(client, entity);
         }
 
-        if (!EntityHandler.shouldRelayEntityToOtherClients(client.currentLevel, entity)) {
+        if (!EntityHandler.shouldRelayEntityToOtherClients(client.currentLevel, entity, getClientLevelScope(client))) {
             return false;
         }
 
@@ -3486,7 +3506,7 @@ export class EntityHandler {
             }
 
             if (destroyedEntity && !destroyedEntity.isPlayer) {
-                if (EntityHandler.shouldRelayEntityToOtherClients(levelName, destroyedEntity)) {
+                if (EntityHandler.shouldRelayEntityToOtherClients(levelName, destroyedEntity, scopeKey)) {
                     if (!EntityHandler.canClientSeeEntity(other, destroyedEntity)) {
                         continue;
                     }
@@ -3974,7 +3994,7 @@ export class EntityHandler {
 
         // Client-private dungeon hostiles remain local to their authored client.
         // They must never become canonical server state when a party is created.
-        const privateDungeonHostile = EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, props);
+        const privateDungeonHostile = EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, props, getClientLevelScope(client));
         if (levelMap && !privateDungeonHostile) {
             levelMap.set(entityId, props);
         }

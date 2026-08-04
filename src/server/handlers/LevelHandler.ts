@@ -1716,7 +1716,7 @@ export class LevelHandler {
         canonicalEntity: any
     ): number {
         let localEntityId = EntityHandler.resolveEntityLocalId(viewer, canonicalId);
-        if (EntityHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), canonicalEntity)) {
+        if (EntityHandler.shouldMirrorClientSpawnEntityToParty(getScopeLevelName(levelScope), canonicalEntity, levelScope)) {
             const { CombatHandler } = require('./CombatHandler') as typeof import('./CombatHandler');
             localEntityId = CombatHandler.resolvePartySharedHostileLocalIdForSharedState(
                 viewer,
@@ -6074,7 +6074,7 @@ export class LevelHandler {
         }
         const isAliasedSharedClientSpawnUpdate =
             rawEntityId !== entityId &&
-            EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent);
+            EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent, getClientLevelScope(client));
         const isSharedClientSpawnEntity = EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent);
         if (isSharedClientSpawnEntity) {
             const sharedDead = Boolean((levelEntity ?? ent)?.dead) ||
@@ -6405,7 +6405,7 @@ export class LevelHandler {
             if (!EntityHandler.canClientSeeEntity(other, relayEntity)) {
                 continue;
             }
-            const isSharedClientSpawnEntity = EntityHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, relayEntity);
+            const isSharedClientSpawnEntity = EntityHandler.shouldMirrorClientSpawnEntityToParty(client.currentLevel, relayEntity, getClientLevelScope(client));
             let localEntityId = EntityHandler.resolveEntityLocalId(other, entityId);
             if (isSharedClientSpawnEntity) {
                 // Wait until the joiner's local proxy is built; after that the
