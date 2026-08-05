@@ -1,0 +1,916 @@
+{
+  "talents": [
+    {
+      "name": "Attack I",
+      "tier": [
+        1,
+        1
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "8",
+        "24",
+        "40",
+        "56",
+        "81"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Defense I",
+      "tier": [
+        1,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "8",
+        "13",
+        "19",
+        "27"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Health I",
+      "tier": [
+        1,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "235",
+        "469",
+        "821",
+        "1173",
+        "1760"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Chilblains",
+      "tier": [
+        2,
+        1
+      ],
+      "description": "Increases Chilblains Damage",
+      "parameter": "Chilblains Damage",
+      "values": [
+        "6%",
+        "14%",
+        "20%",
+        "34%",
+        "50%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Chilblains01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise II",
+      "tier": [
+        2,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "8",
+        "25",
+        "42",
+        "59",
+        "84"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        2,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Bind Strength",
+      "tier": [
+        3,
+        1
+      ],
+      "description": "Increases Enfeeble and Weaken effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "1%",
+        "2%",
+        "5%",
+        "10%",
+        "15%"
+      ],
+      "stat": 6,
+      "icon": "a_Signet_StrDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise III",
+      "tier": [
+        3,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "9",
+        "28",
+        "46",
+        "65",
+        "93"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Defense III",
+      "tier": [
+        3,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "9",
+        "15",
+        "22",
+        "31"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Bone Chill",
+      "tier": [
+        4,
+        1
+      ],
+      "description": "Increases Chill effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "3%",
+        "5%",
+        "10%",
+        "18%",
+        "30%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_SpdDmg04",
+      "no_add": false
+    },
+    {
+      "name": "Attack IV",
+      "tier": [
+        4,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "10",
+        "29",
+        "49",
+        "68",
+        "97"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Health IV",
+      "tier": [
+        4,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "279",
+        "558",
+        "977",
+        "1395",
+        "2093"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Piercing Cold",
+      "tier": [
+        5,
+        1
+      ],
+      "description": "Freeze Reduces Target Defense",
+      "parameter": "Defense Reduction",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Freeze01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise V",
+      "tier": [
+        5,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "11",
+        "34",
+        "56",
+        "78",
+        "112"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        5,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Chilblains",
+      "tier": [
+        6,
+        1
+      ],
+      "description": "Increases Chilblains Damage",
+      "parameter": "Chilblains Damage",
+      "values": [
+        "6%",
+        "14%",
+        "20%",
+        "34%",
+        "50%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Chilblains01",
+      "no_add": false
+    },
+    {
+      "name": "Lingering Chill",
+      "tier": [
+        6,
+        2
+      ],
+      "description": "Increases Chill Duration",
+      "parameter": "Duration (seconds)",
+      "values": [
+        "0.25",
+        "0.5",
+        "0.75",
+        "1.25",
+        "2"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_SpdDmg03",
+      "no_add": false
+    },
+    {
+      "name": "Defense VI",
+      "tier": [
+        6,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "4",
+        "12",
+        "21",
+        "29",
+        "41"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Dry Ice",
+      "tier": [
+        7,
+        1
+      ],
+      "description": "Increases Ice damage based on your Expertise.",
+      "parameter": "Damage (%Expertise)",
+      "values": [
+        "75%",
+        "150%",
+        "250%",
+        "375%",
+        "500%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_DryIce",
+      "no_add": false
+    },
+    {
+      "name": "Chilblains",
+      "tier": [
+        7,
+        2
+      ],
+      "description": "Increases Chilblains Damage",
+      "parameter": "Chilblains Damage",
+      "values": [
+        "6%",
+        "14%",
+        "20%",
+        "34%",
+        "50%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Chilblains01",
+      "no_add": false
+    },
+    {
+      "name": "Attack VII",
+      "tier": [
+        7,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "14",
+        "42",
+        "71",
+        "99",
+        "142"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Ice Casket",
+      "tier": [
+        8,
+        1
+      ],
+      "description": "Increases Freeze Durability based on your Expertise.",
+      "parameter": "Durability (%Expertise)",
+      "values": [
+        "100%",
+        "200%",
+        "300%",
+        "400%",
+        "500%"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_Casket",
+      "no_add": false
+    },
+    {
+      "name": "Expertise VIII",
+      "tier": [
+        8,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "16",
+        "45",
+        "78",
+        "109",
+        "155"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Defense VIII",
+      "tier": [
+        8,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "5",
+        "16",
+        "26",
+        "36",
+        "52"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Frost Bite",
+      "tier": [
+        9,
+        1
+      ],
+      "description": "Increases maximum number of Chilblains Stacks",
+      "parameter": "Chilblains Stacks",
+      "values": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "stat": 12,
+      "icon": "a_Signet_Chilblains02",
+      "no_add": false
+    },
+    {
+      "name": "Piercing Cold",
+      "tier": [
+        9,
+        2
+      ],
+      "description": "Freeze Reduces Target Defense",
+      "parameter": "Defense Reduction",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Freeze01",
+      "no_add": false
+    },
+    {
+      "name": "Attack IX",
+      "tier": [
+        9,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "18",
+        "54",
+        "90",
+        "125",
+        "179"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Dry Ice",
+      "tier": [
+        10,
+        1
+      ],
+      "description": "Increases Ice damage based on your Expertise.",
+      "parameter": "Damage (%Expertise)",
+      "values": [
+        "75%",
+        "150%",
+        "250%",
+        "375%",
+        "500%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_DryIce",
+      "no_add": false
+    },
+    {
+      "name": "Defense X",
+      "tier": [
+        10,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "7",
+        "20",
+        "33",
+        "46",
+        "66"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Health X",
+      "tier": [
+        10,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "520",
+        "1040",
+        "1821",
+        "2601",
+        "3902"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Chilblains",
+      "tier": [
+        11,
+        1
+      ],
+      "description": "Increases Chilblains Damage",
+      "parameter": "Chilblains Damage",
+      "values": [
+        "6%",
+        "14%",
+        "20%",
+        "34%",
+        "50%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Chilblains01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XI",
+      "tier": [
+        11,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "23",
+        "68",
+        "113",
+        "158",
+        "226"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        11,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Bind Strength",
+      "tier": [
+        12,
+        1
+      ],
+      "description": "Increases Enfeeble and Weaken effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "1%",
+        "2%",
+        "5%",
+        "10%",
+        "15%"
+      ],
+      "stat": 6,
+      "icon": "a_Signet_StrDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Attack XII",
+      "tier": [
+        12,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "25",
+        "75",
+        "124",
+        "174",
+        "249"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength03",
+      "no_add": false
+    },
+    {
+      "name": "Defense XII",
+      "tier": [
+        12,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "8",
+        "25",
+        "41",
+        "58",
+        "83"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor03",
+      "no_add": false
+    },
+    {
+      "name": "Bone Chill",
+      "tier": [
+        13,
+        1
+      ],
+      "description": "Increases Chill effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "3%",
+        "5%",
+        "10%",
+        "18%",
+        "30%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_SpdDmg04",
+      "no_add": false
+    },
+    {
+      "name": "Piercing Cold",
+      "tier": [
+        13,
+        2
+      ],
+      "description": "Freeze Reduces Target Defense",
+      "parameter": "Defense Reduction",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Freeze01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XIII",
+      "tier": [
+        13,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "29",
+        "86",
+        "143",
+        "200",
+        "286"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Cold Hearted",
+      "tier": [
+        14,
+        1
+      ],
+      "description": "Reduces the target's healing effects.",
+      "parameter": "Healing Reduction",
+      "values": [
+        "10%",
+        "20%",
+        "30%",
+        "40%",
+        "50%"
+      ],
+      "stat": 13,
+      "icon": "a_Signet_ColdHeart",
+      "no_add": false
+    },
+    {
+      "name": "Ice Casket",
+      "tier": [
+        14,
+        2
+      ],
+      "description": "Increases Freeze Durability based on your Expertise.",
+      "parameter": "Durability (%Expertise)",
+      "values": [
+        "100%",
+        "200%",
+        "300%",
+        "400%",
+        "500%"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_Casket",
+      "no_add": false
+    },
+    {
+      "name": "Attack XIV",
+      "tier": [
+        14,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "31",
+        "94",
+        "157",
+        "220",
+        "315"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength03",
+      "no_add": false
+    }
+  ],
+  "skills": [
+    {
+      "name": "PermafrostClone",
+      "description": ""
+    },
+    {
+      "name": "PolarSentry",
+      "description": ""
+    },
+    {
+      "name": "HailstoneEmbrace",
+      "description": ""
+    }
+  ],
+  "stats": [
+    {
+      "icon": "",
+      "parameter": "Attack",
+      "description": "Increases Attack",
+      "name": "Attack",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Defense",
+      "description": "Increases Defense",
+      "name": "Defense",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Expertise",
+      "description": "Increases Expertise",
+      "name": "Expertise",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Health",
+      "description": "Increases Health",
+      "name": "Health",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Recovery",
+      "description": "Increases Recovery",
+      "name": "Recovery",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Chilblains01",
+      "parameter": "Chilblains Damage",
+      "description": "Increases Chilblains Damage",
+      "name": "Chilblains",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_StrDmg01",
+      "parameter": "Effect",
+      "description": "Increases Enfeeble and Weaken effectiveness",
+      "name": "Bind Strength",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_SpdDmg04",
+      "parameter": "Effect",
+      "description": "Increases Chill effectiveness",
+      "name": "Bone Chill",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Freeze01",
+      "parameter": "Defense Reduction",
+      "description": "Freeze Reduces Target Defense",
+      "name": "Piercing Cold",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_SpdDmg03",
+      "parameter": "Duration (seconds)",
+      "description": "Increases Chill Duration",
+      "name": "Lingering Chill",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_DryIce",
+      "parameter": "Damage (%Expertise)",
+      "description": "Increases Ice damage based on your Expertise.",
+      "name": "Dry Ice",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Casket",
+      "parameter": "Durability (%Expertise)",
+      "description": "Increases Freeze Durability based on your Expertise.",
+      "name": "Ice Casket",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Chilblains02",
+      "parameter": "Chilblains Stacks",
+      "description": "Increases maximum number of Chilblains Stacks",
+      "name": "Frost Bite",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_ColdHeart",
+      "parameter": "Healing Reduction",
+      "description": "Reduces the target's healing effects.",
+      "name": "Cold Hearted",
+      "no_add": false
+    }
+  ]
+}

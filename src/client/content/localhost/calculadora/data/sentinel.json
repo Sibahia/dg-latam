@@ -1,0 +1,938 @@
+{
+  "talents": [
+    {
+      "name": "Defense I",
+      "tier": [
+        1,
+        1
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "8",
+        "13",
+        "19",
+        "27"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Attack I",
+      "tier": [
+        1,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "8",
+        "24",
+        "40",
+        "56",
+        "81"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Health I",
+      "tier": [
+        1,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "235",
+        "469",
+        "821",
+        "1173",
+        "1760"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Heroism",
+      "tier": [
+        2,
+        1
+      ],
+      "description": "Gain Recovery for 5 seconds when you fall below 20% HP",
+      "parameter": [
+        "Recovery Bonus",
+        "Cooldown (seconds)"
+      ],
+      "values": [
+        [
+          "2%",
+          "5%",
+          "9%",
+          "14%",
+          "20%"
+        ],
+        [
+          "30",
+          "30",
+          "30",
+          "25",
+          "20"
+        ]
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Heroism",
+      "no_add": true
+    },
+    {
+      "name": "Expertise II",
+      "tier": [
+        2,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "8",
+        "25",
+        "42",
+        "59",
+        "84"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        2,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Taunt",
+      "tier": [
+        3,
+        1
+      ],
+      "description": "Increases Hate Generation",
+      "parameter": "Hate",
+      "values": [
+        "10%",
+        "20%",
+        "35%",
+        "50%",
+        "75%"
+      ],
+      "stat": 6,
+      "icon": "a_Signet_Taunt",
+      "no_add": false
+    },
+    {
+      "name": "Defense III",
+      "tier": [
+        3,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "9",
+        "15",
+        "22",
+        "31"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Health III",
+      "tier": [
+        3,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "267",
+        "534",
+        "935",
+        "1336",
+        "2004"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Resilience",
+      "tier": [
+        4,
+        1
+      ],
+      "description": "Reduce the effectiveness of Debuffs that decrease your stats",
+      "parameter": "Debuff Reduction",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Resilience",
+      "no_add": false
+    },
+    {
+      "name": "Expertise IV",
+      "tier": [
+        4,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "10",
+        "29",
+        "49",
+        "68",
+        "97"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        4,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Blessed",
+      "tier": [
+        5,
+        1
+      ],
+      "description": "Reduce the amount of damage you receive from Damage Over Time effects",
+      "parameter": "DoT Reduction",
+      "values": [
+        "1%",
+        "3%",
+        "6%",
+        "10%",
+        "15%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Blessed",
+      "no_add": false
+    },
+    {
+      "name": "Defense V",
+      "tier": [
+        5,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "10",
+        "17",
+        "24",
+        "34"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Attack V",
+      "tier": [
+        5,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "11",
+        "34",
+        "56",
+        "78",
+        "112"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Fervor",
+      "tier": [
+        6,
+        1
+      ],
+      "description": "Add a percent of your Expertise to your Max HP",
+      "parameter": "HP (% Expertise)",
+      "values": [
+        "3%",
+        "8%",
+        "16%",
+        "28%",
+        "45%"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_Fervor",
+      "no_add": false
+    },
+    {
+      "name": "Expertise VI",
+      "tier": [
+        6,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "12",
+        "37",
+        "61",
+        "86",
+        "123"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Health VI",
+      "tier": [
+        6,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "348",
+        "695",
+        "1217",
+        "1738",
+        "2608"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Vigor",
+      "tier": [
+        7,
+        1
+      ],
+      "description": "Heal for a percent of your Expertise whenever you use a Combat Ability",
+      "parameter": "Healing (% Expertise)",
+      "values": [
+        "2%",
+        "5%",
+        "11%",
+        "20%",
+        "30%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_Vigor",
+      "no_add": true
+    },
+    {
+      "name": "Attack VII",
+      "tier": [
+        7,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "14",
+        "42",
+        "71",
+        "99",
+        "142"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        7,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Dominate",
+      "tier": [
+        8,
+        1
+      ],
+      "description": "Gain a Critical Chance bonus vs. Staggered and Stunned targets",
+      "parameter": "Critical Chance Bonus",
+      "values": [
+        "0.15%",
+        "0.3%",
+        "0.45%",
+        "0.75%",
+        "1.2%"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_Critical05",
+      "no_add": true
+    },
+    {
+      "name": "Expertise VIII",
+      "tier": [
+        8,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "16",
+        "45",
+        "78",
+        "109",
+        "155"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Health VIII",
+      "tier": [
+        8,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "434",
+        "869",
+        "1521",
+        "2172",
+        "3259"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Rapid Recovery",
+      "tier": [
+        9,
+        1
+      ],
+      "description": "Increases Tenacity",
+      "parameter": "Tenacity",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 12,
+      "icon": "a_Signet_RapidRecover",
+      "no_add": false
+    },
+    {
+      "name": "Defense IX",
+      "tier": [
+        9,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "6",
+        "18",
+        "30",
+        "42",
+        "60"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        9,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Conviction",
+      "tier": [
+        10,
+        1
+      ],
+      "description": "Add a percent of your Expertise to your Defense",
+      "parameter": "Defense (% Expertise)",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.6%",
+        "1%",
+        "1.5%"
+      ],
+      "stat": 13,
+      "icon": "a_Signet_Conviction",
+      "no_add": false
+    },
+    {
+      "name": "Attack X",
+      "tier": [
+        10,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "20",
+        "59",
+        "98",
+        "138",
+        "197"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Health X",
+      "tier": [
+        10,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "520",
+        "1040",
+        "1821",
+        "2601",
+        "3902"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Resilience",
+      "tier": [
+        11,
+        1
+      ],
+      "description": "Reduce the effectiveness of Debuffs that decrease your stats",
+      "parameter": "Debuff Reduction",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Resilience",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XI",
+      "tier": [
+        11,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "23",
+        "68",
+        "113",
+        "158",
+        "226"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Defense XII",
+      "tier": [
+        11,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "8",
+        "25",
+        "41",
+        "58",
+        "83"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor03",
+      "no_add": false
+    },
+    {
+      "name": "Dominate",
+      "tier": [
+        12,
+        1
+      ],
+      "description": "Gain a Critical Chance bonus vs. Staggered and Stunned targets",
+      "parameter": "Critical Chance Bonus",
+      "values": [
+        "0.15%",
+        "0.3%",
+        "0.45%",
+        "0.75%",
+        "1.2%"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_Critical05",
+      "no_add": true
+    },
+    {
+      "name": "Fervor",
+      "tier": [
+        12,
+        2
+      ],
+      "description": "Add a percent of your Expertise to your Max HP",
+      "parameter": "HP (% Expertise)",
+      "values": [
+        "3%",
+        "8%",
+        "16%",
+        "28%",
+        "45%"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_Fervor",
+      "no_add": false
+    },
+    {
+      "name": "Health XII",
+      "tier": [
+        12,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "683",
+        "1366",
+        "2391",
+        "3416",
+        "5124"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health03",
+      "no_add": false
+    },
+    {
+      "name": "Defense XIII",
+      "tier": [
+        13,
+        1
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "10",
+        "29",
+        "48",
+        "67",
+        "95"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor03",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        13,
+        2
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XIII",
+      "tier": [
+        13,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "29",
+        "86",
+        "143",
+        "200",
+        "286"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Sentinel Armor",
+      "tier": [
+        14,
+        1
+      ],
+      "description": "Gain Bonus Defense while Sentinel Form is not on Cooldown",
+      "parameter": "Defense",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "4%",
+        "5%"
+      ],
+      "stat": 14,
+      "icon": "a_Signet_SentinelArmor",
+      "no_add": true
+    },
+    {
+      "name": "Conviction",
+      "tier": [
+        14,
+        2
+      ],
+      "description": "Add a percent of your Expertise to your Defense",
+      "parameter": "Defense (% Expertise)",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.6%",
+        "1%",
+        "1.5%"
+      ],
+      "stat": 13,
+      "icon": "a_Signet_Conviction",
+      "no_add": false
+    },
+    {
+      "name": "Master Recovery",
+      "tier": [
+        14,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.5%",
+        "1.3%",
+        "2.4%",
+        "4.4%",
+        "7.5%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery03",
+      "no_add": false
+    }
+  ],
+  "skills": [
+    {
+      "name": "Defiance",
+      "description": ""
+    },
+    {
+      "name": "Barrier",
+      "description": ""
+    },
+    {
+      "name": "SentinelForm",
+      "description": ""
+    }
+  ],
+  "stats": [
+    {
+      "icon": "",
+      "parameter": "Attack",
+      "description": "Increases Attack",
+      "name": "Attack",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Defense",
+      "description": "Increases Defense",
+      "name": "Defense",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Expertise",
+      "description": "Increases Expertise",
+      "name": "Expertise",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Health",
+      "description": "Increases Health",
+      "name": "Health",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Recovery",
+      "description": "Increases Recovery",
+      "name": "Recovery",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Heroism",
+      "parameter": [
+        "Recovery Bonus",
+        "Cooldown (seconds)"
+      ],
+      "description": "Gain Recovery for 5 seconds when you fall below 20% HP",
+      "name": "Heroism",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_Taunt",
+      "parameter": "Hate",
+      "description": "Increases Hate Generation",
+      "name": "Taunt",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Resilience",
+      "parameter": "Debuff Reduction",
+      "description": "Reduce the effectiveness of Debuffs that decrease your stats",
+      "name": "Resilience",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Blessed",
+      "parameter": "DoT Reduction",
+      "description": "Reduce the amount of damage you receive from Damage Over Time effects",
+      "name": "Blessed",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Fervor",
+      "parameter": "HP (% Expertise)",
+      "description": "Add a percent of your Expertise to your Max HP",
+      "name": "Fervor",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Vigor",
+      "parameter": "Healing (% Expertise)",
+      "description": "Heal for a percent of your Expertise whenever you use a Combat Ability",
+      "name": "Vigor",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_Critical05",
+      "parameter": "Critical Chance Bonus",
+      "description": "Gain a Critical Chance bonus vs. Staggered and Stunned targets",
+      "name": "Dominate",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_RapidRecover",
+      "parameter": "Tenacity",
+      "description": "Increases Tenacity",
+      "name": "Rapid Recovery",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Conviction",
+      "parameter": "Defense (% Expertise)",
+      "description": "Add a percent of your Expertise to your Defense",
+      "name": "Conviction",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_SentinelArmor",
+      "parameter": "Defense",
+      "description": "Gain Bonus Defense while Sentinel Form is not on Cooldown",
+      "name": "Sentinel Armor",
+      "no_add": true
+    }
+  ]
+}
