@@ -118,7 +118,10 @@ function createBoss(id: number, name: string): any {
         maxHp: 194_940,
         dead: false,
         destroyed: false,
-        entState: EntityState.ACTIVE
+        entState: EntityState.ACTIVE,
+        // Real bosses carry damage once the player engages them; the completion
+        // gate requires it before a kill registers.
+        playerDamageContributed: true
     };
 }
 

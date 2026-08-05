@@ -6206,7 +6206,16 @@ export class LevelHandler {
         if (isEnemyEntity && isDefeatEntState) {
             const { CombatHandler } = require('./CombatHandler') as typeof import('./CombatHandler');
             const contributionSnapshot = CombatHandler.getContributionSnapshot(getClientLevelScope(client), entityId);
-            if (contributionSnapshot.contributors.length) {
+            // Only stamp a verified defeat when the canonical was alive BEFORE this
+            // death-state. A dead-at-start scripted copy carrying a stale
+            // contribution must not become a verified kill (auto-complete).
+            const canonicalWasAlive = Boolean(
+                levelEntity &&
+                !levelEntity.dead &&
+                !levelEntity.destroyed &&
+                !LevelHandler.isDefeatedEntityStateValue(Number(levelEntity.entState ?? EntityState.ACTIVE))
+            );
+            if (contributionSnapshot.contributors.length && canonicalWasAlive) {
                 ent.clientDefeatVerified = true;
                 if (levelEntity && levelEntity !== ent) {
                     levelEntity.clientDefeatVerified = true;

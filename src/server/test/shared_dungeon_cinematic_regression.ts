@@ -380,7 +380,10 @@ function testPostDeathCompletionCanReuseCompletedRoomCutscene(): void {
         team: 2,
         entState: 3,
         hp: 0,
-        dead: true
+        dead: true,
+        // Real bosses carry damage once the player engages them; the completion
+        // gate requires it before a kill registers.
+        playerDamageContributed: true
     };
     GlobalState.levelEntities.set(scope, new Map([[boss.id, boss]]));
     DungeonCompletionSystem.noteEntityDefeated(scope, boss);

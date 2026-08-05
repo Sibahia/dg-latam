@@ -35,6 +35,12 @@ function isVerifiedBossDefeat(levelName: string, entity: any): boolean {
     if (!isDefeated(entity)) {
         return false;
     }
+    // Server-authority levels (JC_Mini1Hard, JC_Mini2, TutorialDungeon) own their
+    // kills, so a terminal state there is always a verified defeat (including the
+    // scripted tutorial completions that fabricate un-flagged dead bosses).
+    if (EntityHandlerUsesServerAuthority(levelName)) {
+        return true;
+    }
     const condition = DungeonCompletionConditions.get(levelName);
     const isClientAuthorityLevel = Boolean(condition?.clientAuthorityBosses?.length);
     if (Boolean(entity?.clientSpawned)) {
@@ -53,6 +59,11 @@ function isVerifiedBossDefeat(levelName: string, entity: any): boolean {
         return Boolean(entity?.playerDamageContributed || entity?.clientDefeatVerified);
     }
     return true;
+}
+
+function EntityHandlerUsesServerAuthority(levelName: string | null | undefined): boolean {
+    const { EntityHandler } = require('../handlers/EntityHandler') as typeof import('../handlers/EntityHandler');
+    return EntityHandler.usesServerAuthorityHostiles(levelName);
 }
 
 function normalizeEntityName(entity: any): string {
@@ -331,7 +342,7 @@ export class DungeonCompletionSystem {
         if (entityId > 0 && isTrackableHostile(entity, state.levelName)) {
             state.defeatedHostileIds.add(entityId);
         }
-        if (canonicalBoss) {
+        if (canonicalBoss && isVerifiedBossDefeat(state.levelName, entity)) {
             state.defeatedBosses.add(canonicalBoss);
             const simultaneousWindowMs = DungeonCompletionConditions.getSimultaneousBossWindowMs(state.levelName);
             if (simultaneousWindowMs > 0 || !state.defeatedBossAt.has(canonicalBoss)) {

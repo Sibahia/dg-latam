@@ -45,7 +45,10 @@ function createBoss(id: number, name: string, roomId: number): any {
         maxHp: 1000,
         dead: true,
         destroyed: true,
-        entState: EntityState.DEAD
+        entState: EntityState.DEAD,
+        // Real bosses carry damage once the player engages them; the completion
+        // gate requires it before a kill registers.
+        playerDamageContributed: true
     };
 }
 
