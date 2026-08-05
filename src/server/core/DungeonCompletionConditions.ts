@@ -277,6 +277,29 @@ export class DungeonCompletionConditions {
             const normalizedEntityName = normalizeIdentity(entityName);
             const canonical = requiredByKey.get(normalizedEntityName);
             if (canonical) {
+                const isClientAuthorityBossName = (condition.clientAuthorityBosses ?? [])
+                    .map(normalizeIdentity)
+                    .includes(normalizeIdentity(canonical));
+                const isTerminalCopy = Boolean(
+                    entity?.dead ||
+                    entity?.destroyed ||
+                    Number(entity?.hp ?? 1) <= 0
+                );
+                // A terminal client-authority boss copy must be backed by real
+                // player damage or a verified defeat — even when it is marked as a
+                // room boss (the room-boss marker is stamped at encounter start, so
+                // it does not prove a kill). This stops Ring of Fire from completing
+                // the moment its final encounter opens. Only levels that require a
+                // room-boss marker are gated here; marker-less client-authority
+                // kills (e.g. Chief Tourzahl) keep their normal acceptance.
+                if (
+                    condition.requireRoomBossMarker &&
+                    isClientAuthorityBossName &&
+                    isTerminalCopy &&
+                    !Boolean(entity?.playerDamageContributed || entity?.clientDefeatVerified)
+                ) {
+                    return '';
+                }
                 if (
                     condition.requireRoomBossMarker &&
                     !hasExplicitRoomBossMarker(entity) &&

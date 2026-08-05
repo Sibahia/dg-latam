@@ -5604,7 +5604,15 @@ export class CombatHandler {
         if (
             destroyedEntity &&
             CombatHandler.isTerminalHostileEntity(destroyedEntity) &&
-            DungeonCompletionConditions.isRequiredBoss(levelName, destroyedEntity, levelScope)
+            DungeonCompletionConditions.isRequiredBoss(levelName, destroyedEntity, levelScope) &&
+            // A terminal required-boss destroy only counts as a real kill when it
+            // is backed by player damage / a prior verified defeat, or the level
+            // is server-authority (the server owns the kill). A scripted dead
+            // copy the level spawns at encounter start must not complete the run.
+            (
+                EntityHandler.usesServerAuthorityHostiles(levelName) ||
+                Boolean(destroyedEntity?.playerDamageContributed || destroyedEntity?.clientDefeatVerified)
+            )
         ) {
             destroyedEntity.clientDefeatVerified = true;
             await MissionHandler.handleForcedDungeonBossCompletion(client, destroyedEntity);
@@ -5654,12 +5662,16 @@ export class CombatHandler {
                 !isSeedOutsideClientSpawnDestroy &&
                 Math.round(Number(destroyedEntity.hp ?? 0)) > 0
             ) {
-                destroyedEntity.dead = false;
-                if (Number(destroyedEntity.entState ?? EntityState.ACTIVE) === EntityState.DEAD) {
-                    destroyedEntity.entState = EntityState.ACTIVE;
-                }
-                CombatHandler.sendServerAuthorityAliveCorrection(client, levelScope, destroyedEntity, 'client_destroy_rejected_alive', rawEntityId);
-                return;
+                // The client resolved the kill and reports the destroy. For a
+                // server-authority hostile whose canonical HP never reached 0
+                // through the damage-accounting relay (AoE / HP-report kills),
+                // trust the client's terminal signal and commit the death so loot
+                // and completion are granted. TutorialDungeon keeps its own
+                // mechanics via the scripted-authority path above.
+                destroyedEntity.hp = 0;
+                destroyedEntity.dead = true;
+                destroyedEntity.destroyed = true;
+                destroyedEntity.entState = EntityState.DEAD;
             }
         }
         if (EntityHandler.isHomeDummyEntity(destroyedEntity)) {

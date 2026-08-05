@@ -5966,7 +5966,15 @@ export class LevelHandler {
             const levelScope = getClientLevelScope(client);
             if (
                 isDefeatEntState &&
-                DungeonCompletionConditions.isRequiredBoss(currentLevel, canonicalEntity, levelScope)
+                DungeonCompletionConditions.isRequiredBoss(currentLevel, canonicalEntity, levelScope) &&
+                // A terminal dead-state only counts as a real kill when backed by
+                // player damage / a prior verified defeat, or on server-authority
+                // levels. A scripted dead copy spawned at encounter start (e.g.
+                // Dread Goblin Hideout) must not complete the run.
+                (
+                    EntityHandler.usesServerAuthorityHostiles(currentLevel) ||
+                    Boolean(canonicalEntity?.playerDamageContributed || canonicalEntity?.clientDefeatVerified)
+                )
             ) {
                 canonicalEntity.clientDefeatVerified = true;
                 LevelHandler.deferMissionWork(
