@@ -31,12 +31,28 @@ function isDefeated(entity: any): boolean {
 // defeated-looking flags, so it must not satisfy boss completion on its own.
 // Server-authority hostiles (JC_Mini1Hard, JC_Mini2, TutorialDungeon, ...) are
 // killed by the server, so their defeated state is already authoritative.
-function isVerifiedBossDefeat(entity: any): boolean {
+function isVerifiedBossDefeat(levelName: string, entity: any): boolean {
     if (!isDefeated(entity)) {
         return false;
     }
-    if (Boolean(entity?.clientSpawned) || Boolean(entity?.hybridCanonicalHostile)) {
+    const condition = DungeonCompletionConditions.get(levelName);
+    const isClientAuthorityLevel = Boolean(condition?.clientAuthorityBosses?.length);
+    if (Boolean(entity?.clientSpawned)) {
+        // Client-owned boss on a client-authority level: the client's defeat
+        // signal is authoritative even when the server never recorded damage.
+        if (isClientAuthorityLevel) {
+            return true;
+        }
         return Boolean(entity?.clientDefeatVerified);
+    }
+    if (Boolean(entity?.hybridCanonicalHostile)) {
+        return Boolean(entity?.clientDefeatVerified);
+    }
+    // A non-client-spawned dead copy is authoritative UNLESS the level is a
+    // client-authority boss level, where it is likely a scripted/placeholder
+    // copy that must not satisfy completion without a real kill.
+    if (isClientAuthorityLevel) {
+        return Boolean(entity?.playerDamageContributed || entity?.clientDefeatVerified);
     }
     return true;
 }
@@ -840,7 +856,7 @@ export class DungeonCompletionSystem {
             const canonicalBoss = DungeonCompletionConditions.getCanonicalBossName(state.levelName, entity, state.levelScope);
 			
             if (canonicalBoss) {
-                if (isVerifiedBossDefeat(entity)) {
+                if (isVerifiedBossDefeat(state.levelName, entity)) {
                     state.defeatedBosses.add(canonicalBoss);
                     if (!state.defeatedBossAt.has(canonicalBoss)) {
                         state.defeatedBossAt.set(canonicalBoss, now);
