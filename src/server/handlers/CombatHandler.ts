@@ -1326,7 +1326,7 @@ export class CombatHandler {
             return localId;
         }
 
-        const roomBoss = CombatHandler.findSingleRoomBossForUnknownClientHostile(client, levelScope);
+        const roomBoss = CombatHandler.findSingleRoomBossForUnknownClientHostile(client, levelScope, localEntity);
         const roomBossId = Math.max(0, Math.round(Number(roomBoss?.id ?? 0)));
         if (roomBossId > 0) {
             EntityHandler.rememberEntityAlias(client, localId, roomBossId);
@@ -1340,7 +1340,11 @@ export class CombatHandler {
         return CombatHandler.resolveClientHostileEntityAlias(client, levelScope, entityId);
     }
 
-    private static findSingleRoomBossForUnknownClientHostile(client: Client, levelScope: string): any | null {
+    private static findSingleRoomBossForUnknownClientHostile(
+        client: Client,
+        levelScope: string,
+        localEntity: any
+    ): any | null {
         if (!levelScope) {
             return null;
         }
@@ -1365,6 +1369,18 @@ export class CombatHandler {
                 continue;
             }
 
+            // A tracked required-boss copy can carry the client's start room (or no
+            // room at all), so the room match below would resolve ANY trash mob the
+            // player damages/kills in that room to the boss. The alias is only valid
+            // when the unknown hostile actually shares the boss's identity, so mob
+            // damage is never misattributed to the boss (auto-complete on any mob).
+            if (
+                !localEntity ||
+                !CombatHandler.unknownHostileMatchesBossIdentity(levelScope, localEntity, entity)
+            ) {
+                continue;
+            }
+
             const entityRoomId = getRoomBossAwareRoomId(entity);
             if (clientRoomId >= 0 && entityRoomId >= 0 && !sharesRoomIds(clientRoomId, entityRoomId)) {
                 continue;
@@ -1375,6 +1391,21 @@ export class CombatHandler {
         }
 
         return candidates.length === 1 ? candidates[0] : null;
+    }
+
+    private static unknownHostileMatchesBossIdentity(levelScope: string, localEntity: any, bossEntity: any): boolean {
+        const levelName = getScopeLevelName(levelScope);
+        const localCanonical = DungeonCompletionConditions.getCanonicalBossName(levelName, localEntity, levelScope);
+        const bossCanonical = DungeonCompletionConditions.getCanonicalBossName(levelName, bossEntity, levelScope);
+        if (localCanonical || bossCanonical) {
+            return localCanonical === bossCanonical;
+        }
+        // Neither resolves through the config; fall back to an exact identity match
+        // so a genuinely unknown boss is still aliased when it is plainly the same
+        // entity. A trash mob never shares the boss's name.
+        const localName = String(localEntity?.name ?? localEntity?.EntName ?? '').trim().toLowerCase();
+        const bossName = String(bossEntity?.name ?? bossEntity?.EntName ?? '').trim().toLowerCase();
+        return Boolean(localName) && localName === bossName;
     }
 
     private static collectHostileHealthCopies(levelScope: string, entity: any, includeEquivalent: boolean = false): any[] {
