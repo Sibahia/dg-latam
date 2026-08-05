@@ -465,9 +465,14 @@ function createChiefTourzahlBoss(hp: number): any {
         maxHp: 5000,
         dead: true,
         destroyed: true,
-        clientSpawned: true
-        // Deliberately no clientDefeatVerified/playerDamageContributed: the Flash
-        // client owns this boss, so the final damage delta never reaches the server.
+        clientSpawned: true,
+        // With the unified boss-kill acceptance the boss is tracked (promoted to a
+        // hybrid canonical), so the server records the player's damage and a legit
+        // kill carries playerDamageContributed. The old "no damage recorded"
+        // pre-tracking model no longer exists in production.
+        playerDamageContributed: true
+        // Deliberately no clientDefeatVerified: the defeat signal itself is the
+        // verification for a client-owned boss.
     };
 }
 
