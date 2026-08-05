@@ -3510,7 +3510,7 @@ export class EntityHandler {
                     if (!EntityHandler.canClientSeeEntity(other, destroyedEntity)) {
                         continue;
                     }
-                } else if (EntityHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity)) {
+                } else if (EntityHandler.shouldMirrorClientSpawnEntityToParty(levelName, destroyedEntity, scopeKey)) {
                     if (!EntityHandler.canClientUsePartySharedClientSpawnEntity(other, destroyedEntity)) {
                         continue;
                     }

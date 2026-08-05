@@ -8,6 +8,7 @@ import type {
 import { isRoomBossEntity } from './RoomBossState';
 import { GlobalState } from './GlobalState';
 import { getClientLevelScope, getScopeLevelName } from './LevelScope';
+import { getPartyIdForClient } from './PartySync';
 
 type RawCatalog = {
     schemaVersion?: unknown;
@@ -171,9 +172,33 @@ export class DungeonCompletionConditions {
         return count;
     }
 
-    /** True when 2+ spawned players share the same dungeon scope. */
+    /**
+     * True when 2+ spawned players share the same dungeon scope AND are in the
+     * same party. Requiring a common non-zero party id is what keeps the dynamic
+     * sharing rule from ever treating unrelated players (separate runs of the
+     * same mission, or a transient scope collision) as a shared dungeon: only a
+     * genuine party can put two people inside one dungeon scope. A bare scope
+     * (no instance id) is ambiguous, so it never counts as shared.
+     */
     static isSharedDungeonScope(levelScope: string): boolean {
-        return DungeonCompletionConditions.countDungeonScopePlayers(levelScope) >= 2;
+        if (!levelScope || !levelScope.includes('#')) {
+            return false;
+        }
+        let sharedPartyId = 0;
+        let count = 0;
+        for (const session of GlobalState.getSessionsInLevelScope(levelScope)) {
+            if (!session.playerSpawned || getClientLevelScope(session) !== levelScope) {
+                continue;
+            }
+            const partyId = getPartyIdForClient(session);
+            if (count === 0) {
+                sharedPartyId = partyId;
+            } else if (partyId !== sharedPartyId) {
+                return false;
+            }
+            count += 1;
+        }
+        return count >= 2 && sharedPartyId > 0;
     }
 
     static hasPostObjectiveCutscene(levelName: string | null | undefined): boolean {
@@ -277,7 +302,12 @@ export class DungeonCompletionConditions {
                             entity?.dead ||
                             entity?.destroyed ||
                             Number(entity?.hp ?? 1) <= 0
-                        )
+                        ) &&
+                        // Only a terminal copy backed by real player damage or a
+                        // verified defeat may bypass the marker. A scripted copy the
+                        // level spawns dead at the start of the final encounter must
+                        // not satisfy the required boss (Ring of Fire).
+                        Boolean(entity?.playerDamageContributed || entity?.clientDefeatVerified)
                     );
                     if (!verifiedClientBossWithoutMarker && !terminalCanonicalBossWithoutMarker) {
                         return '';

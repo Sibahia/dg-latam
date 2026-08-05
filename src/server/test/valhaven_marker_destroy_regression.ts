@@ -111,6 +111,9 @@ function cleanup(client: FakeClient, partner: FakeClient | null = null): void {
     GlobalState.sessionsByToken.delete(client.token);
     if (partner) {
         GlobalState.sessionsByToken.delete(partner.token);
+        GlobalState.partyByMember.delete(client.character.name.toLowerCase());
+        GlobalState.partyByMember.delete(partner.character.name.toLowerCase());
+        GlobalState.partyGroups.delete(8811);
     }
 }
 
@@ -126,10 +129,16 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossNames: stri
     GlobalState.sessionsByToken.set(client.token, client as never);
 
     // The dynamic sharing rule promotes a client-authority boss into the shared
-    // canonical state only when 2+ players are inside the same dungeon scope.
+    // canonical state only when 2+ players from the same party are inside the
+    // same dungeon scope.
     const partner = createClient(levelName, ordinal + 5000);
     partner.levelInstanceId = client.levelInstanceId;
+    GlobalState.partyByMember.set(client.character.name.toLowerCase(), 8811);
+    GlobalState.partyByMember.set(partner.character.name.toLowerCase(), 8811);
+    GlobalState.partyGroups.set(8811, { id: 8811, leader: client.character.name, members: [client.character.name, partner.character.name], locked: false });
+    GlobalState.sessionsByToken.set(client.token, client as never);
     GlobalState.sessionsByToken.set(partner.token, partner as never);
+
 
     const spawnedBosses: any[] = [];
     for (const [index, bossName] of bossNames.entries()) {
