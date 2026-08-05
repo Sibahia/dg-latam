@@ -5887,11 +5887,13 @@ export class LevelHandler {
         const acceptsClientAuthorityTerminal = Boolean(
             isEnemyCanonical &&
             isDefeatEntState &&
-            // The dead-state must be backed by real player damage. Without this a
-            // scripted/cutscene terminal copy of a client-authority boss (which the
-            // level places dead at mission start, e.g. Attack of Opportunity) is
-            // stamped as a verified kill on the first 0x07 it is reported.
-            Boolean(canonicalEntity?.playerDamageContributed) &&
+            // The dead-state must be backed by real player damage or a defeat that
+            // the destroy path already verified. This blocks scripted/cutscene
+            // terminal copies of a client-authority boss (placed dead at mission
+            // start) from satisfying completion on the first 0x07, while still
+            // accepting a legit kill whose damage the server never recorded (solo
+            // private runs keep the boss out of levelEntities).
+            Boolean(canonicalEntity?.playerDamageContributed || canonicalEntity?.clientDefeatVerified) &&
             DungeonCompletionConditions.isClientAuthorityBoss(
                 currentLevel,
                 canonicalEntity,
