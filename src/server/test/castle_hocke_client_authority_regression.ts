@@ -145,6 +145,9 @@ async function main(): Promise<void> {
     partner.userId = 41002;
     partner.character.name = 'CastlePartner';
     partner.levelInstanceId = client.levelInstanceId;
+    GlobalState.partyByMember.set(client.character.name.toLowerCase(), 8811);
+    GlobalState.partyByMember.set(partner.character.name.toLowerCase(), 8811);
+    GlobalState.partyGroups.set(8811, { id: 8811, leader: client.character.name, members: [client.character.name, partner.character.name], locked: false });
     GlobalState.sessionsByToken.set(client.token, client as never);
     GlobalState.sessionsByToken.set(partner.token, partner as never);
 
@@ -215,6 +218,9 @@ async function main(): Promise<void> {
     DungeonCompletionSystem.reset(levelScope);
     GlobalState.levelEntities.delete(levelScope);
     GlobalState.sessionsByToken.delete(partner.token);
+    GlobalState.partyByMember.delete(client.character.name.toLowerCase());
+    GlobalState.partyByMember.delete(partner.character.name.toLowerCase());
+    GlobalState.partyGroups.delete(8811);
 
     // The shared canonical boss is driven by the party owner's death signal; the
     // second viewer's destroy resolves through the shared scope once the boss is

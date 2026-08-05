@@ -5887,6 +5887,11 @@ export class LevelHandler {
         const acceptsClientAuthorityTerminal = Boolean(
             isEnemyCanonical &&
             isDefeatEntState &&
+            // The dead-state must be backed by real player damage. Without this a
+            // scripted/cutscene terminal copy of a client-authority boss (which the
+            // level places dead at mission start, e.g. Attack of Opportunity) is
+            // stamped as a verified kill on the first 0x07 it is reported.
+            Boolean(canonicalEntity?.playerDamageContributed) &&
             DungeonCompletionConditions.isClientAuthorityBoss(
                 currentLevel,
                 canonicalEntity,
@@ -6075,7 +6080,7 @@ export class LevelHandler {
         const isAliasedSharedClientSpawnUpdate =
             rawEntityId !== entityId &&
             EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent, getClientLevelScope(client));
-        const isSharedClientSpawnEntity = EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent);
+        const isSharedClientSpawnEntity = EntityHandler.shouldMirrorClientSpawnEntityToParty(currentLevel, levelEntity ?? ent, getClientLevelScope(client));
         if (isSharedClientSpawnEntity) {
             const sharedDead = Boolean((levelEntity ?? ent)?.dead) ||
                 Number((levelEntity ?? ent)?.entState ?? EntityState.ACTIVE) === EntityState.DEAD ||

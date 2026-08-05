@@ -5797,6 +5797,17 @@ export class CombatHandler {
             }
             if (CombatHandler.isServerAuthoritySyncNpc(levelScope, destroyedEntity)) {
                 EntityHandler.noteServerAuthorityHostileDestroyed(levelScope, entityId, destroyedEntity);
+                // The power-hit/HP-report relay normally finalizes server-authority
+                // deaths and grants their server-side loot. A client-only destroy
+                // (AoE blast, visual proxy kill) skips that relay entirely, so the
+                // mob was removed from levelEntities without any drop. Finalize it
+                // here so server-authority mobs (e.g. East Wing) drop their loot.
+                CombatHandler.finalizeHostileDeath(client, levelScope, entityId, destroyedEntity, {
+                    includeAnchor: true,
+                    sendHpCorrection: false,
+                    destroyLocal: true,
+                    reason: 'client_destroy_server_authority_finalize'
+                });
             }
             const levelMap = GlobalState.levelEntities.get(levelScope);
             levelMap?.delete(entityId);
