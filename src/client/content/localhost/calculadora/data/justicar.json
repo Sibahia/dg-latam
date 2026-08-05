@@ -1,0 +1,916 @@
+{
+  "talents": [
+    {
+      "name": "Attack I",
+      "tier": [
+        1,
+        1
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "8",
+        "24",
+        "40",
+        "56",
+        "81"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        1,
+        2
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Defense I",
+      "tier": [
+        1,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "8",
+        "13",
+        "19",
+        "27"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Immolation",
+      "tier": [
+        2,
+        1
+      ],
+      "description": "Increases Ignite Damage",
+      "parameter": "Ignite Damage",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "10%",
+        "16%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Ignite01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise II",
+      "tier": [
+        2,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "8",
+        "25",
+        "42",
+        "59",
+        "84"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Health II",
+      "tier": [
+        2,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "245",
+        "490",
+        "857",
+        "1225",
+        "1837"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Acid Edge",
+      "tier": [
+        3,
+        1
+      ],
+      "description": "Increases effectiveness of Armor Bane and Armor Break",
+      "parameter": "Effect",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "8%",
+        "10%"
+      ],
+      "stat": 6,
+      "icon": "a_Signet_ArmorDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Attack III",
+      "tier": [
+        3,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "9",
+        "28",
+        "46",
+        "65",
+        "93"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        3,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Volatile",
+      "tier": [
+        4,
+        1
+      ],
+      "description": "Gain a Poison Damage bonus against Cursed targets.",
+      "parameter": "Poison Damage Bonus",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "8%",
+        "10%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Critical03",
+      "no_add": true
+    },
+    {
+      "name": "Expertise IV",
+      "tier": [
+        4,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "10",
+        "29",
+        "49",
+        "68",
+        "97"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Defense IV",
+      "tier": [
+        4,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "10",
+        "16",
+        "23",
+        "32"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Corrosive Strikes",
+      "tier": [
+        5,
+        1
+      ],
+      "description": "Increases Armor Bane and Armor Break durations",
+      "parameter": "Duration (seconds)",
+      "values": [
+        "0.1",
+        "0.3",
+        "0.6",
+        "1.1",
+        "1.8"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_ArmorDmg02",
+      "no_add": false
+    },
+    {
+      "name": "Attack V",
+      "tier": [
+        5,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "11",
+        "34",
+        "56",
+        "78",
+        "112"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Health V",
+      "tier": [
+        5,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "318",
+        "637",
+        "1114",
+        "1591",
+        "2387"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Immolation",
+      "tier": [
+        6,
+        1
+      ],
+      "description": "Increases Ignite Damage",
+      "parameter": "Ignite Damage",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "10%",
+        "16%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Ignite01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise VI",
+      "tier": [
+        6,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "12",
+        "37",
+        "61",
+        "86",
+        "123"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Defense VI",
+      "tier": [
+        6,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "4",
+        "12",
+        "21",
+        "29",
+        "41"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Heavy Blows",
+      "tier": [
+        7,
+        1
+      ],
+      "description": "Increases Heavy Blow Critical Effect",
+      "parameter": "Heavy Blow Damage",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_Critical04",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        7,
+        2
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Attack VII",
+      "tier": [
+        7,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "14",
+        "42",
+        "71",
+        "99",
+        "142"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Immolation",
+      "tier": [
+        8,
+        1
+      ],
+      "description": "Increases Ignite Damage",
+      "parameter": "Ignite Damage",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "10%",
+        "16%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Ignite01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise VIII",
+      "tier": [
+        8,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "16",
+        "45",
+        "78",
+        "109",
+        "155"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Defense VIII",
+      "tier": [
+        8,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "5",
+        "16",
+        "26",
+        "36",
+        "52"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor02",
+      "no_add": false
+    },
+    {
+      "name": "Heavy Blows",
+      "tier": [
+        9,
+        1
+      ],
+      "description": "Increases Heavy Blow Critical Effect",
+      "parameter": "Heavy Blow Damage",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_Critical04",
+      "no_add": false
+    },
+    {
+      "name": "Attack IX",
+      "tier": [
+        9,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "18",
+        "54",
+        "90",
+        "125",
+        "179"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        9,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Fury",
+      "tier": [
+        10,
+        1
+      ],
+      "description": "Gain a Damage Bonus for 3 seconds when you reduce a target to 0 HP. 10 second cooldown.",
+      "parameter": "Damage Bonus",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "6%",
+        "10%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_Fury",
+      "no_add": true
+    },
+    {
+      "name": "Volatile",
+      "tier": [
+        10,
+        2
+      ],
+      "description": "Gain a Poison Damage bonus against Cursed targets.",
+      "parameter": "Poison Damage Bonus",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "8%",
+        "10%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Critical03",
+      "no_add": true
+    },
+    {
+      "name": "Expertise X",
+      "tier": [
+        10,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "20",
+        "59",
+        "98",
+        "138",
+        "197"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Fire Shield",
+      "tier": [
+        11,
+        1
+      ],
+      "description": "Damage nearby foes when melee attacked by an Ignited enemy",
+      "parameter": "Cooldown (seconds)",
+      "values": [
+        "15",
+        "13",
+        "10",
+        "8",
+        "6"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_FireShield",
+      "no_add": false
+    },
+    {
+      "name": "Defense XI",
+      "tier": [
+        11,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "8",
+        "23",
+        "38",
+        "53",
+        "76"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor03",
+      "no_add": false
+    },
+    {
+      "name": "Health XI",
+      "tier": [
+        11,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "624",
+        "1247",
+        "2183",
+        "3118",
+        "4678"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health03",
+      "no_add": false
+    },
+    {
+      "name": "Volatile",
+      "tier": [
+        12,
+        1
+      ],
+      "description": "Gain a Poison Damage bonus against Cursed targets.",
+      "parameter": "Poison Damage Bonus",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "8%",
+        "10%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Critical03",
+      "no_add": true
+    },
+    {
+      "name": "Attack XII",
+      "tier": [
+        12,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "25",
+        "75",
+        "124",
+        "174",
+        "249"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength03",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        12,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Zeal",
+      "tier": [
+        13,
+        1
+      ],
+      "description": "Add a percent of your Expertise to your Attack",
+      "parameter": "Attack (% Expertise)",
+      "values": [
+        "0.5%",
+        "1%",
+        "2%",
+        "3%",
+        "5%"
+      ],
+      "stat": 12,
+      "icon": "a_Signet_Zeal",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XIII",
+      "tier": [
+        13,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "29",
+        "86",
+        "143",
+        "200",
+        "286"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Health XIII",
+      "tier": [
+        13,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "784",
+        "1567",
+        "2743",
+        "3918",
+        "5877"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health03",
+      "no_add": false
+    },
+    {
+      "name": "Pain Eater",
+      "tier": [
+        14,
+        1
+      ],
+      "description": "Gain an Attack Speed bonus for 5 seconds when you fall below 20% HP. 15 second cooldown.",
+      "parameter": "Attack Speed Bonus",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 13,
+      "icon": "a_Signet_PainEater",
+      "no_add": true
+    },
+    {
+      "name": "Heavy Blows",
+      "tier": [
+        14,
+        2
+      ],
+      "description": "Increases Heavy Blow Critical Effect",
+      "parameter": "Heavy Blow Damage",
+      "values": [
+        "1%",
+        "2%",
+        "4%",
+        "7%",
+        "10%"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_Critical04",
+      "no_add": false
+    },
+    {
+      "name": "Zeal",
+      "tier": [
+        14,
+        3
+      ],
+      "description": "Add a percent of your Expertise to your Attack",
+      "parameter": "Attack (% Expertise)",
+      "values": [
+        "0.5%",
+        "1%",
+        "2%",
+        "3%",
+        "5%"
+      ],
+      "stat": 12,
+      "icon": "a_Signet_Zeal",
+      "no_add": false
+    }
+  ],
+  "skills": [
+    {
+      "name": "LeapStrike",
+      "description": ""
+    },
+    {
+      "name": "LightningBomb",
+      "description": ""
+    },
+    {
+      "name": "Berserker",
+      "description": ""
+    }
+  ],
+  "stats": [
+    {
+      "icon": "",
+      "parameter": "Attack",
+      "description": "Increases Attack",
+      "name": "Attack",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Defense",
+      "description": "Increases Defense",
+      "name": "Defense",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Expertise",
+      "description": "Increases Expertise",
+      "name": "Expertise",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Health",
+      "description": "Increases Health",
+      "name": "Health",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Recovery",
+      "description": "Increases Recovery",
+      "name": "Recovery",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Ignite01",
+      "parameter": "Ignite Damage",
+      "description": "Increases Ignite Damage",
+      "name": "Immolation",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_ArmorDmg01",
+      "parameter": "Effect",
+      "description": "Increases effectiveness of Armor Bane and Armor Break",
+      "name": "Acid Edge",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Critical03",
+      "parameter": "Poison Damage Bonus",
+      "description": "Gain a Poison Damage bonus against Cursed targets.",
+      "name": "Volatile",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_ArmorDmg02",
+      "parameter": "Duration (seconds)",
+      "description": "Increases Armor Bane and Armor Break durations",
+      "name": "Corrosive Strikes",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Critical04",
+      "parameter": "Heavy Blow Damage",
+      "description": "Increases Heavy Blow Critical Effect",
+      "name": "Heavy Blows",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Fury",
+      "parameter": "Damage Bonus",
+      "description": "Gain a Damage Bonus for 3 seconds when you reduce a target to 0 HP. 10 second cooldown.",
+      "name": "Fury",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_FireShield",
+      "parameter": "Cooldown (seconds)",
+      "description": "Damage nearby foes when melee attacked by an Ignited enemy",
+      "name": "Fire Shield",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Zeal",
+      "parameter": "Attack (% Expertise)",
+      "description": "Add a percent of your Expertise to your Attack",
+      "name": "Zeal",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_PainEater",
+      "parameter": "Attack Speed Bonus",
+      "description": "Gain an Attack Speed bonus for 5 seconds when you fall below 20% HP. 15 second cooldown.",
+      "name": "Pain Eater",
+      "no_add": true
+    }
+  ]
+}

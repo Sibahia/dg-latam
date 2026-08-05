@@ -105,7 +105,11 @@ function createRaptor(id: number, name: string): any {
         maxHp: 100,
         dead: true,
         destroyed: true,
-        entState: EntityState.DEAD
+        entState: EntityState.DEAD,
+        // Production script-spawned bosses carry a verified defeat once the client
+        // reports the kill; the dead-at-start gate in isVerifiedBossDefeat requires
+        // it for non-clientSpawned copies on client-authority levels.
+        clientDefeatVerified: true
     };
 }
 

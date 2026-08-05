@@ -1,0 +1,923 @@
+{
+  "talents": [
+    {
+      "name": "Expertise I",
+      "tier": [
+        1,
+        1
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "8",
+        "24",
+        "40",
+        "56",
+        "81"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        1,
+        2
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Defense I",
+      "tier": [
+        1,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "8",
+        "13",
+        "19",
+        "27"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Ethereal",
+      "tier": [
+        2,
+        1
+      ],
+      "description": "Gain a Defense bonus while in Stealth",
+      "parameter": "Defense Bonus",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "8%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Stealth01",
+      "no_add": true
+    },
+    {
+      "name": "Attack II",
+      "tier": [
+        2,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "8",
+        "25",
+        "42",
+        "59",
+        "84"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Health II",
+      "tier": [
+        2,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "245",
+        "490",
+        "857",
+        "1225",
+        "1837"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Bone Breaker",
+      "tier": [
+        3,
+        1
+      ],
+      "description": "Increases Cripple effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "10%",
+        "20%",
+        "30%",
+        "40%",
+        "50%"
+      ],
+      "stat": 6,
+      "icon": "a_Signet_SpdDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Expertise III",
+      "tier": [
+        3,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "9",
+        "28",
+        "46",
+        "65",
+        "93"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        3,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Opportunist",
+      "tier": [
+        4,
+        1
+      ],
+      "description": "Gain a Critical Chance bonus while in Stealth",
+      "parameter": "Critical Chance Bonus",
+      "values": [
+        "0.15%",
+        "0.3%",
+        "0.6%",
+        "1.05%",
+        "1.5%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Stealth02",
+      "no_add": true
+    },
+    {
+      "name": "Attack IV",
+      "tier": [
+        4,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "10",
+        "29",
+        "49",
+        "68",
+        "97"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength01",
+      "no_add": false
+    },
+    {
+      "name": "Health IV",
+      "tier": [
+        4,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "279",
+        "558",
+        "977",
+        "1395",
+        "2093"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health01",
+      "no_add": false
+    },
+    {
+      "name": "Pounce",
+      "tier": [
+        5,
+        1
+      ],
+      "description": "Deal extra damage to slowed and immobilized enemies",
+      "parameter": "Bonus Damage",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "7%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Pounce",
+      "no_add": true
+    },
+    {
+      "name": "Expertise V",
+      "tier": [
+        5,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "11",
+        "34",
+        "56",
+        "78",
+        "112"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise01",
+      "no_add": false
+    },
+    {
+      "name": "Defense V",
+      "tier": [
+        5,
+        3
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "3",
+        "10",
+        "17",
+        "24",
+        "34"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor01",
+      "no_add": false
+    },
+    {
+      "name": "Nerve Strike",
+      "tier": [
+        6,
+        1
+      ],
+      "description": "Increases Enfeeble and Weaken durations",
+      "parameter": "Duration (seconds)",
+      "values": [
+        "0.25",
+        "0.5",
+        "75",
+        "1.25",
+        "1.75"
+      ],
+      "stat": 9,
+      "icon": "a_Signet_StrDmg02",
+      "no_add": false
+    },
+    {
+      "name": "Attack VI",
+      "tier": [
+        6,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "12",
+        "37",
+        "61",
+        "86",
+        "123"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Lesser Recovery",
+      "tier": [
+        6,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.1%",
+        "0.3%",
+        "0.8%",
+        "1.8%",
+        "3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery01",
+      "no_add": false
+    },
+    {
+      "name": "Shadow Refuge",
+      "tier": [
+        7,
+        1
+      ],
+      "description": "Heal for a percent of your Expertise when entering Stealth",
+      "parameter": "Healing (% Expertise)",
+      "values": [
+        "5%",
+        "10%",
+        "20%",
+        "35%",
+        "60%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_Stealth03",
+      "no_add": true
+    },
+    {
+      "name": "Opportunist",
+      "tier": [
+        7,
+        2
+      ],
+      "description": "Gain a Critical Chance bonus while in Stealth",
+      "parameter": "Critical Chance Bonus",
+      "values": [
+        "0.15%",
+        "0.3%",
+        "0.6%",
+        "1.05%",
+        "1.5%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Stealth02",
+      "no_add": true
+    },
+    {
+      "name": "Expertise VII",
+      "tier": [
+        7,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "14",
+        "42",
+        "71",
+        "99",
+        "142"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Acid Edge",
+      "tier": [
+        8,
+        1
+      ],
+      "description": "Increases effectiveness of Armor Bane and Armor Break",
+      "parameter": "Effect",
+      "values": [
+        "2%",
+        "4%",
+        "6%",
+        "8%",
+        "10%"
+      ],
+      "stat": 11,
+      "icon": "a_Signet_ArmorDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Pounce",
+      "tier": [
+        8,
+        2
+      ],
+      "description": "Deal extra damage to slowed and immobilized enemies",
+      "parameter": "Bonus Damage",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "7%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Pounce",
+      "no_add": true
+    },
+    {
+      "name": "Expertise VIII",
+      "tier": [
+        8,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "16",
+        "45",
+        "78",
+        "109",
+        "155"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Bind Strength",
+      "tier": [
+        9,
+        1
+      ],
+      "description": "Increases Enfeeble and Weaken effectiveness",
+      "parameter": "Effect",
+      "values": [
+        "1%",
+        "2%",
+        "5%",
+        "10%",
+        "15%"
+      ],
+      "stat": 12,
+      "icon": "a_Signet_StrDmg01",
+      "no_add": false
+    },
+    {
+      "name": "Attack IX",
+      "tier": [
+        9,
+        2
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "18",
+        "54",
+        "90",
+        "125",
+        "179"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength02",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        9,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Ethereal",
+      "tier": [
+        10,
+        1
+      ],
+      "description": "Gain a Defense bonus while in Stealth",
+      "parameter": "Defense Bonus",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "8%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Stealth01",
+      "no_add": true
+    },
+    {
+      "name": "Expertise X",
+      "tier": [
+        10,
+        2
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "20",
+        "59",
+        "98",
+        "138",
+        "197"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise02",
+      "no_add": false
+    },
+    {
+      "name": "Health X",
+      "tier": [
+        10,
+        3
+      ],
+      "description": "Increases Health",
+      "parameter": "Health",
+      "values": [
+        "520",
+        "1040",
+        "1821",
+        "2601",
+        "3902"
+      ],
+      "stat": 3,
+      "icon": "a_Signet_Health02",
+      "no_add": false
+    },
+    {
+      "name": "Opportunist",
+      "tier": [
+        11,
+        1
+      ],
+      "description": "Gain a Critical Chance bonus while in Stealth",
+      "parameter": "Critical Chance Bonus",
+      "values": [
+        "0.15%",
+        "0.3%",
+        "0.6%",
+        "1.05%",
+        "1.5%"
+      ],
+      "stat": 7,
+      "icon": "a_Signet_Stealth02",
+      "no_add": true
+    },
+    {
+      "name": "Hamstring",
+      "tier": [
+        11,
+        2
+      ],
+      "description": "Increases Cripple duration",
+      "parameter": "Duration (seconds)",
+      "values": [
+        "0.5",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "stat": 13,
+      "icon": "a_Signet_SpdDmg02",
+      "no_add": false
+    },
+    {
+      "name": "Attack XI",
+      "tier": [
+        11,
+        3
+      ],
+      "description": "Increases Attack",
+      "parameter": "Attack",
+      "values": [
+        "23",
+        "68",
+        "113",
+        "158",
+        "226"
+      ],
+      "stat": 0,
+      "icon": "a_Signet_Strength03",
+      "no_add": false
+    },
+    {
+      "name": "Pounce",
+      "tier": [
+        12,
+        1
+      ],
+      "description": "Deal extra damage to slowed and immobilized enemies",
+      "parameter": "Bonus Damage",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "7%"
+      ],
+      "stat": 8,
+      "icon": "a_Signet_Pounce",
+      "no_add": true
+    },
+    {
+      "name": "Corrosive Strikes",
+      "tier": [
+        12,
+        2
+      ],
+      "description": "Increases Armor Bane and Armor Break durations",
+      "parameter": "Duration (seconds)",
+      "values": [
+        "0.1",
+        "0.3",
+        "0.6",
+        "1.1",
+        "1.8"
+      ],
+      "stat": 14,
+      "icon": "a_Signet_ArmorDmg02",
+      "no_add": false
+    },
+    {
+      "name": "Expertise XII",
+      "tier": [
+        12,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "25",
+        "75",
+        "124",
+        "174",
+        "249"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    },
+    {
+      "name": "Shadow Refuge",
+      "tier": [
+        13,
+        1
+      ],
+      "description": "Heal for a percent of your Expertise when entering Stealth",
+      "parameter": "Healing (% Expertise)",
+      "values": [
+        "5%",
+        "10%",
+        "20%",
+        "35%",
+        "60%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_Stealth03",
+      "no_add": true
+    },
+    {
+      "name": "Defense XIII",
+      "tier": [
+        13,
+        2
+      ],
+      "description": "Increases Defense",
+      "parameter": "Defense",
+      "values": [
+        "10",
+        "29",
+        "48",
+        "67",
+        "95"
+      ],
+      "stat": 1,
+      "icon": "a_Signet_Armor03",
+      "no_add": false
+    },
+    {
+      "name": "Greater Recovery",
+      "tier": [
+        13,
+        3
+      ],
+      "description": "Increases Recovery",
+      "parameter": "Recovery",
+      "values": [
+        "0.2%",
+        "0.6%",
+        "1.4%",
+        "2.9%",
+        "5.3%"
+      ],
+      "stat": 4,
+      "icon": "a_Signet_Recovery02",
+      "no_add": false
+    },
+    {
+      "name": "Shadow Refuge",
+      "tier": [
+        14,
+        1
+      ],
+      "description": "Heal for a percent of your Expertise when entering Stealth",
+      "parameter": "Healing (% Expertise)",
+      "values": [
+        "5%",
+        "10%",
+        "20%",
+        "35%",
+        "60%"
+      ],
+      "stat": 10,
+      "icon": "a_Signet_Stealth03",
+      "no_add": true
+    },
+    {
+      "name": "Ethereal",
+      "tier": [
+        14,
+        2
+      ],
+      "description": "Gain a Defense bonus while in Stealth",
+      "parameter": "Defense Bonus",
+      "values": [
+        "1%",
+        "2%",
+        "3%",
+        "5%",
+        "8%"
+      ],
+      "stat": 5,
+      "icon": "a_Signet_Stealth01",
+      "no_add": true
+    },
+    {
+      "name": "Expertise XIV",
+      "tier": [
+        14,
+        3
+      ],
+      "description": "Increases Expertise",
+      "parameter": "Expertise",
+      "values": [
+        "31",
+        "94",
+        "157",
+        "220",
+        "315"
+      ],
+      "stat": 2,
+      "icon": "a_Signet_Expertise03",
+      "no_add": false
+    }
+  ],
+  "skills": [
+    {
+      "name": "ShadowArmor",
+      "description": ""
+    },
+    {
+      "name": "ShadowLegion",
+      "description": ""
+    },
+    {
+      "name": "ShadowStep",
+      "description": ""
+    }
+  ],
+  "stats": [
+    {
+      "icon": "",
+      "parameter": "Attack",
+      "description": "Increases Attack",
+      "name": "Attack",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Defense",
+      "description": "Increases Defense",
+      "name": "Defense",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Expertise",
+      "description": "Increases Expertise",
+      "name": "Expertise",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Health",
+      "description": "Increases Health",
+      "name": "Health",
+      "no_add": false
+    },
+    {
+      "icon": "",
+      "parameter": "Recovery",
+      "description": "Increases Recovery",
+      "name": "Recovery",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Stealth01",
+      "parameter": "Defense Bonus",
+      "description": "Gain a Defense bonus while in Stealth",
+      "name": "Ethereal",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_SpdDmg01",
+      "parameter": "Effect",
+      "description": "Increases Cripple effectiveness",
+      "name": "Bone Breaker",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Stealth02",
+      "parameter": "Critical Chance Bonus",
+      "description": "Gain a Critical Chance bonus while in Stealth",
+      "name": "Opportunist",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_Pounce",
+      "parameter": "Bonus Damage",
+      "description": "Deal extra damage to slowed and immobilized enemies",
+      "name": "Pounce",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_StrDmg02",
+      "parameter": "Duration (seconds)",
+      "description": "Increases Enfeeble and Weaken durations",
+      "name": "Nerve Strike",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_Stealth03",
+      "parameter": "Healing (% Expertise)",
+      "description": "Heal for a percent of your Expertise when entering Stealth",
+      "name": "Shadow Refuge",
+      "no_add": true
+    },
+    {
+      "icon": "a_Signet_ArmorDmg01",
+      "parameter": "Effect",
+      "description": "Increases effectiveness of Armor Bane and Armor Break",
+      "name": "Acid Edge",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_StrDmg01",
+      "parameter": "Effect",
+      "description": "Increases Enfeeble and Weaken effectiveness",
+      "name": "Bind Strength",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_SpdDmg02",
+      "parameter": "Duration (seconds)",
+      "description": "Increases Cripple duration",
+      "name": "Hamstring",
+      "no_add": false
+    },
+    {
+      "icon": "a_Signet_ArmorDmg02",
+      "parameter": "Duration (seconds)",
+      "description": "Increases Armor Bane and Armor Break durations",
+      "name": "Corrosive Strikes",
+      "no_add": false
+    }
+  ]
+}

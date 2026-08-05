@@ -14,6 +14,8 @@
   --accent: #ffc93c;
   --accent2: #5a8bff;
   --card: #232945;
+  --good: #4caf7d;
+  --bad: #d9534f;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -25,131 +27,822 @@ body {
 header {
   background: linear-gradient(135deg, #1c2030, #232945);
   border-bottom: 2px solid var(--border);
-  padding: 18px 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 14px;
 }
 header h1 { font-size: 20px; color: var(--accent); }
 header p { color: var(--muted); font-size: 13px; }
-main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
-.step { margin-bottom: 28px; }
-.step h2 { font-size: 15px; color: var(--accent2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
-.classes, .masters { display: flex; gap: 12px; flex-wrap: wrap; }
-.class-card, .master-card {
+main { max-width: 1280px; margin: 20px auto; padding: 0 16px; }
+.step { margin-bottom: 18px; }
+.step h2 { font-size: 13px; color: var(--accent2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+.cards { display: flex; gap: 10px; flex-wrap: wrap; }
+.card {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 14px 20px;
+  padding: 12px 20px;
   cursor: pointer;
   transition: all .15s;
-  min-width: 140px;
   text-align: center;
+  min-width: 130px;
 }
-.class-card:hover, .master-card:hover { border-color: var(--accent2); }
-.class-card.selected, .master-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.master-card { flex: 1; min-width: 180px; }
-.master-card h3 { font-size: 16px; }
-.master-card small { color: var(--muted); }
-.abilities { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.ability {
-  background: var(--card);
+.card:hover { border-color: var(--accent2); }
+.card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.card h3 { font-size: 15px; }
+.card small { color: var(--muted); }
+
+#app { display: none; margin-top: 4px; }
+.workspace { display: grid; grid-template-columns: 260px 1fr 300px; gap: 14px; align-items: start; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.panel h2 { font-size: 13px; color: var(--accent2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+
+/* Talentstone grid */
+.grid { display: grid; grid-template-columns: repeat(3, 60px); gap: 6px; justify-content: center; }
+.grid-tier { display: contents; }
+.grid-row-label { grid-column: 1 / -1; color: var(--muted); font-size: 11px; margin-top: 6px; }
+.talent-cell {
+  width: 60px; height: 60px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
+  background: var(--card);
+  cursor: pointer;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
 }
-.ability b { display: block; margin-bottom: 4px; }
-.ability span { color: var(--muted); font-size: 12px; }
-.placeholder { color: var(--muted); font-style: italic; }
-.footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+.talent-cell img { width: 46px; height: 46px; border-radius: 6px; display: block; }
+.talent-cell:hover { border-color: var(--accent2); }
+.talent-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.talent-cell.used { opacity: .35; cursor: default; }
+.talent-cell.locked { opacity: .5; cursor: not-allowed; filter: grayscale(.6); }
+.talent-cell.locked::after { content: '🔒'; position: absolute; font-size: 12px; top: 2px; right: 3px; }
+.talent-cell .tl-name {
+  position: absolute; bottom: 1px; left: 0; right: 0;
+  font-size: 8px; line-height: 1; color: #fff; text-align: center;
+  background: rgba(0,0,0,.55); border-radius: 3px; padding: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grid-legend { color: var(--muted); font-size: 11px; margin-top: 8px; text-align: center; }
+
+/* Ring */
+.ring-area { position: relative; width: 620px; height: 620px; margin: 0 auto; }
+.ring-area svg.lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.socket {
+  position: absolute;
+  width: 58px; height: 58px;
+  margin: -29px 0 0 -29px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all .12s;
+  z-index: 2;
+}
+.socket:hover { border-color: var(--accent2); z-index: 5; }
+.socket.open { border-style: dashed; }
+.socket.locked { opacity: .35; cursor: not-allowed; }
+.socket.locked::after { content: '🔒'; position: absolute; font-size: 13px; top: 2px; right: 3px; }
+.socket img { width: 44px; height: 44px; border-radius: 6px; display: block; }
+.socket .sk-cap { position: absolute; font-size: 9px; color: var(--muted); top: 2px; left: 4px; }
+.socket .sk-lvl { position: absolute; font-size: 9px; font-weight: bold; bottom: 2px; right: 4px; color: #fff; background: rgba(0,0,0,.5); border-radius: 3px; padding: 0 3px; }
+.socket.idx { color: var(--muted); font-size: 9px; }
+
+.skill-slot {
+  position: absolute;
+  width: 90px; height: 64px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: default;
+  z-index: 2;
+}
+.skill-slot.locked { opacity: .4; }
+.skill-slot b { font-size: 11px; text-align: center; line-height: 1.1; }
+.skill-slot small { color: var(--muted); font-size: 9px; }
+
+.exp-rail {
+  position: absolute; left: -22px; top: 0; bottom: 0; width: 14px;
+  background: #0d0f16; border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
+}
+.exp-fill {
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  background: linear-gradient(180deg, #7fd35a, #2f9e44);
+  transition: height .2s;
+}
+
+/* Right panel */
+.stat-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(44,51,80,.4);
+  font-size: 12px;
+}
+.stat-row img { width: 28px; height: 28px; border-radius: 4px; }
+.stat-row .sr-name { flex: 1; color: var(--muted); }
+.stat-row .sr-val { font-weight: bold; color: var(--accent2); }
+
+.skill-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.skill-item {
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  font-size: 12px; background: var(--card);
+}
+.skill-item.locked { opacity: .45; }
+.skill-item b { display: block; font-size: 13px; }
+.skill-item small { color: var(--muted); }
+
+/* Bottom bar */
+.points-bar-holder { margin: 16px auto 0; max-width: 900px; }
+.points-row { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.points-label { color: var(--muted); font-size: 13px; min-width: 110px; }
+.points-track {
+  flex: 1; height: 16px; background: #0d0f16; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  position: relative;
+}
+.points-fill { height: 100%; width: 0; background: linear-gradient(90deg, #ffc93c, #ff9f3c); transition: width .2s; }
+.points-count { color: var(--accent); font-weight: bold; min-width: 70px; text-align: right; }
+.buttons { display: flex; gap: 10px; margin-top: 10px; }
+.btn {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 9px 18px; cursor: pointer; font-size: 13px; transition: all .15s;
+}
+.btn:hover { border-color: var(--accent2); }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.btn.primary:hover { background: rgba(255,201,60,.1); }
+
+/* Tooltip */
+.tip {
+  position: fixed; z-index: 1000; display: none;
+  max-width: 380px;
+  background: #10131c; border: 1px solid var(--accent); border-radius: 8px;
+  padding: 10px 12px; font-size: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.6);
+}
+.tip .t-name { font-weight: bold; color: var(--accent); margin-bottom: 4px; }
+.tip .t-desc { color: var(--muted); margin-bottom: 6px; }
+.tip .t-param { color: var(--accent2); font-weight: bold; }
+.tip .t-values { color: #989898; }
+.tip .t-cur { color: var(--accent); font-weight: bold; }
+.tip .t-error { color: var(--bad); margin-top: 4px; }
+
+.footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+@media (max-width: 1150px) {
+  .workspace { grid-template-columns: 1fr; }
+  .ring-area { width: 100%; max-width: 620px; }
+  .ring-area { height: 620px; }
+}
 </style>
 </head>
 <body>
 <header>
   <h1>⚔ Calculadora de Talentos</h1>
-  <p>Selecciona una clase y una disciplina para ver sus habilidades.</p>
+  <p>Planifica tus Talentstones — datos reales del juego.</p>
 </header>
 <main>
   <section class="step">
     <h2>1 · Clase</h2>
-    <div class="classes" id="classes"></div>
+    <div class="cards" id="classes"></div>
   </section>
   <section class="step">
     <h2>2 · Disciplina</h2>
-    <div class="masters" id="masters"><div class="placeholder">Primero elige una clase.</div></div>
+    <div class="cards" id="disciplines"><div class="card" style="cursor:default"><small>Primero elige una clase.</small></div></div>
   </section>
-  <section class="step">
-    <h2>3 · Habilidades</h2>
-    <div class="abilities" id="abilities"><div class="placeholder">Selecciona una disciplina para ver sus 10 habilidades.</div></div>
-  </section>
+
+  <div id="app">
+    <div class="workspace">
+      <div class="panel">
+        <h2>Talentstones</h2>
+        <div class="grid" id="grid"></div>
+        <div class="grid-legend">Tier 1–14 · Haz clic para seleccionar, luego en un socket.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Árbol de Talentos</h2>
+        <div class="ring-area" id="ring"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Resumen</h2>
+        <div id="stats"></div>
+        <h2 style="margin-top:14px">Habilidades</h2>
+        <div class="skill-list" id="skills"></div>
+      </div>
+    </div>
+
+    <div class="points-bar-holder">
+      <div class="points-row">
+        <span class="points-label">Puntos de talento</span>
+        <div class="points-track"><div class="points-fill" id="pointsFill"></div></div>
+        <span class="points-count" id="pointsCount">0 / 90</span>
+      </div>
+      <div class="points-row">
+        <span class="points-label">Nivel requerido</span>
+        <span class="points-count" id="reqLevel" style="color:var(--accent2)">10</span>
+        <span class="points-label" style="min-width:110px; text-align:right">Totem requerido</span>
+        <span class="points-count" id="reqTotem" style="color:var(--accent2)">1</span>
+      </div>
+      <div class="buttons">
+        <button class="btn" id="undoBtn">↩ Deshacer</button>
+        <button class="btn" id="resetBtn">⟲ Reiniciar</button>
+        <button class="btn primary" id="linkBtn">🔗 Enlace a esta build</button>
+      </div>
+    </div>
+  </div>
 </main>
-<div class="footer">Dungeon Blitz Latam — herramienta de referencia. Los nombres de disciplina pueden variar en el juego.</div>
+<div class="tip" id="tip"></div>
+<div class="footer">Dungeon Blitz Latam — calculadora de referencia con datos extraídos del cliente del juego.</div>
+
 <script>
-const DATA = {
-  'Rogue': {
-    'Executioner': { desc: 'Ejecutor — daño asesino a corto alcance', abilities: ['SeverStrike','WitherStrike','DaggerFlurry','VitalStrike','Assassinate','DeathBlowOld','MistWalk','ShadowBlade','SeekingBlades','PoisonDagger'] },
-    'ShadowWalker': { desc: 'Caminante de las Sombras — movilidad y control', abilities: ['CrippleStrike','HeartSeeker','ShadowTendrilDash','WhitheringMist','BlackStorm','DarkChi','ShadowArmor','ShadowLegion','ShadowStep','CorrosiveDagger'] },
-    'Soulthief': { desc: 'Ladrón de Almas — drenaje y duelo', abilities: ['Devour','FatiguingStrike','PainBender','ChaosArmor','PoisonLance','Reaper','SoulShatter','SoulReaver','GhostBlade','HeavyDagger'] }
-  },
-  'Paladin': {
-    'Sentinel': { desc: 'Centinela — tanque y protección', abilities: ['RollingSmash','ShieldFlurry','Juggernaut','SecondWind','Shockwave','Retribution','Defiance','Barrier','SentinelForm','ConcussionBolt'] },
-    'Justicar': { desc: 'Justiciero — ofensiva sagrada', abilities: ['FlameAxe','FuriousAssault','Harm','JusticeFist','LightningStorm','CleavingBlows','LeapStrike','LightningBomb','Berserker','AxeFlurry'] },
-    'Templar': { desc: 'Templario — curación y luz', abilities: ['DivineWord','Subjugate','FountainOfLife','Penance','CelestialLance','Verdict','Sanctum','CleansingLight','LeoneanAura','DivineBolt'] }
-  },
-  'Mage': {
-    'Frostwarden': { desc: 'Guardián de Escarcha — control de hielo', abilities: ['FrostBlast','FrozenWard','FrigidComet','BitterBlade','Avalanche','GlacialSpear','PermafrostClone','PolarSentry','HailstoneEmbrace','FrostBolt'] },
-    'Flameseer': { desc: 'Vidente de Fuego — daño ardiente', abilities: ['FlameSpout','IridescentBurst','FireStorm','FlameStrike','MoltenFist','FireBrand','WildFire','Pyromania','SummonDragonSoul','CrimsonShot'] },
-    'Necromancer': { desc: 'Nigromante — invocación y maldiciones', abilities: ['Lifethirst','Desecrate','Infestation','SpectralGrasp','BansheeWail','DeathMark','SummonGhoul','SummonRangedGhoul','PlagueBattalion','LichShot'] }
-  }
-};
-const classesEl = document.getElementById('classes');
-const mastersEl = document.getElementById('masters');
-const abilitiesEl = document.getElementById('abilities');
-let selectedClass = null;
-let selectedMaster = null;
+'use strict';
+const $ = (sel) => document.querySelector(sel);
+const TIP = $('#tip');
+const ENCODE = '123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-Object.keys(DATA).forEach(cls => {
-  const el = document.createElement('div');
-  el.className = 'class-card';
-  el.textContent = cls;
-  el.onclick = () => {
-    selectedClass = cls;
-    selectedMaster = null;
-    document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    renderMasters();
-    renderAbilities();
-  };
-  classesEl.appendChild(el);
-});
+let TREE = null;          // data/tree.json
+let DATA = null;          // per-discipline data
+let discId = -1;
+let selectedTalent = null;  // index into DATA.talents (0..41)
+let socketed = [];          // 27 entries: {talentId, tier, tierPos, level} | null
+let points = 0;
+let undo = [];
 
-function renderMasters() {
-  if (!selectedClass) { mastersEl.innerHTML = '<div class="placeholder">Primero elige una clase.</div>'; return; }
-  mastersEl.innerHTML = '';
-  Object.entries(DATA[selectedClass]).forEach(([name, info]) => {
+function formatStatValue(v) {
+  const s = String(v).toFixed ? Number(v).toFixed(2) : String(v);
+  return s.replace(/\.?0+$/, '').replace(/\.$/, '');
+}
+function parseVal(str) { return parseFloat(String(str).replace('%', '')); }
+
+function fetchJSON(url) { return fetch(url).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+
+async function init() {
+  TREE = await fetchJSON('data/tree.json');
+  renderClasses();
+  if (location.hash && location.hash.length > 1) applyHash(location.hash);
+  window.addEventListener('hashchange', () => { if (location.hash) applyHash(location.hash); });
+}
+
+function renderClasses() {
+  const wrap = $('#classes');
+  wrap.innerHTML = '';
+  TREE.classes.forEach((cls, ci) => {
     const el = document.createElement('div');
-    el.className = 'master-card';
-    el.innerHTML = `<h3>${name}</h3><small>${info.desc}</small>`;
+    el.className = 'card';
+    el.innerHTML = '<h3>' + cls + '</h3>';
     el.onclick = () => {
-      selectedMaster = name;
-      document.querySelectorAll('.master-card').forEach(m => m.classList.remove('selected'));
+      document.querySelectorAll('#classes .card').forEach((c) => c.classList.remove('selected'));
       el.classList.add('selected');
-      renderAbilities();
+      renderDisciplines(ci);
     };
-    mastersEl.appendChild(el);
+    wrap.appendChild(el);
   });
 }
 
-function renderAbilities() {
-  if (!selectedClass || !selectedMaster) { abilitiesEl.innerHTML = '<div class="placeholder">Selecciona una disciplina para ver sus 10 habilidades.</div>'; return; }
-  abilitiesEl.innerHTML = '';
-  DATA[selectedClass][selectedMaster].abilities.forEach((ab, i) => {
+function renderDisciplines(classId) {
+  const wrap = $('#disciplines');
+  wrap.innerHTML = '';
+  const names = TREE.disciplines.slice(classId * 3, classId * 3 + 3);
+  const classOf = TREE.classes[classId];
+  names.forEach((name, i) => {
+    const idx = classId * 3 + i;
     const el = document.createElement('div');
-    el.className = 'ability';
-    el.innerHTML = `<b>${i + 1}. ${ab}</b><span>Rank ${i + 1}</span>`;
-    abilitiesEl.appendChild(el);
+    el.className = 'card';
+    el.innerHTML = '<h3>' + name + '</h3><small>' + classOf + '</small>';
+    el.onclick = () => {
+      document.querySelectorAll('#disciplines .card').forEach((c) => c.classList.remove('selected'));
+      el.classList.add('selected');
+      switchDiscipline(idx);
+    };
+    wrap.appendChild(el);
   });
 }
+
+async function switchDiscipline(id) {
+  discId = id;
+  selectedTalent = null;
+  socketed = new Array(TREE.talentSlots.length).fill(null);
+  points = 0;
+  undo = [];
+  const name = TREE.disciplines[id].toLowerCase();
+  DATA = await fetchJSON('data/' + name + '.json');
+  $('#app').style.display = 'block';
+  document.querySelectorAll('#disciplines .card').forEach((c) => c.classList.remove('selected'));
+  renderGrid();
+  renderSockets();
+  updateBuildInfo();
+  try {
+    const encoded = encodeBuild();
+    if (location.hash !== encoded) history.replaceState(null, '', encoded);
+  } catch (e) { /* ignore */ }
+}
+
+function gridLocked(tier) {
+  // tier is 1-based; unlock requires floor(points/5) >= tier-1
+  return Math.floor(points / 5) < tier - 1;
+}
+
+function renderGrid() {
+  const grid = $('#grid');
+  grid.innerHTML = '';
+  for (let tier = 1; tier <= 14; tier++) {
+    for (let pos = 1; pos <= 3; pos++) {
+      const tid = (tier - 1) * 3 + (pos - 1);
+      const t = DATA.talents[tid];
+      const cell = document.createElement('div');
+      cell.className = 'talent-cell';
+      cell.dataset.tid = tid;
+      const img = document.createElement('img');
+      img.src = t.icon ? 'icons/' + t.icon + '.png' : '';
+      img.alt = t.name;
+      const lbl = document.createElement('div');
+      lbl.className = 'tl-name';
+      lbl.textContent = t.name;
+      cell.appendChild(img);
+      cell.appendChild(lbl);
+      cell.onclick = (e) => {
+        e.stopPropagation();
+        if (cell.classList.contains('used') || cell.classList.contains('locked')) return;
+        selectedTalent = tid;
+        refreshGridClasses();
+      };
+      cell.onmouseenter = (e) => showTip(e, talentTipHtml(t, 0));
+      cell.onmouseleave = hideTip;
+      grid.appendChild(cell);
+    }
+  }
+  refreshGridClasses();
+}
+
+function refreshGridClasses() {
+  document.querySelectorAll('#grid .talent-cell').forEach((cell) => {
+    const tid = Number(cell.dataset.tid);
+    const t = DATA.talents[tid];
+    cell.classList.toggle('selected', selectedTalent === tid);
+    cell.classList.toggle('used', socketed.some((s) => s && s.talentId === tid));
+    cell.classList.toggle('locked', gridLocked(t.tier[0]));
+  });
+}
+
+function renderSockets() {
+  const ring = $('#ring');
+  ring.innerHTML = '';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'lines');
+  svg.setAttribute('viewBox', '0 0 620 620');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  const lineEls = [];
+  TREE.talentSlots.forEach((slot, i) => {
+    slot.connections.forEach((j) => {
+      if (j > i) {
+        const a = TREE.talentSlots[i].pos;
+        const b = TREE.talentSlots[j].pos;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', a[0]); line.setAttribute('y1', a[1]);
+        line.setAttribute('x2', b[0]); line.setAttribute('y2', b[1]);
+        line.setAttribute('stroke', '#3a4263');
+        line.setAttribute('stroke-width', '3');
+        lineEls.push(line);
+        svg.appendChild(line);
+      }
+    });
+  });
+  ring.appendChild(svg);
+
+  // exp rail
+  const rail = document.createElement('div');
+  rail.className = 'exp-rail';
+  const fill = document.createElement('div');
+  fill.className = 'exp-fill';
+  fill.id = 'expFill';
+  fill.style.height = '0%';
+  rail.appendChild(fill);
+  ring.appendChild(rail);
+
+  const socketsEl = document.createElement('div');
+  socketsEl.style.position = 'absolute'; socketsEl.style.inset = '0';
+  TREE.talentSlots.forEach((slot, i) => {
+    const el = document.createElement('div');
+    el.className = 'socket';
+    el.id = 'socket_' + i;
+    el.style.left = slot.pos[0] + 'px';
+    el.style.top = slot.pos[1] + 'px';
+    el.dataset.slot = i;
+    const cap = document.createElement('div');
+    cap.className = 'sk-cap';
+    cap.textContent = 'x' + slot.capacity;
+    el.appendChild(cap);
+    el.onclick = () => onSocketClick(i, el);
+    el.onmouseenter = (e) => onSocketHover(e, i);
+    el.onmouseleave = hideTip;
+    socketsEl.appendChild(el);
+    ring.appendChild(el);
+  });
+
+  // skill slots
+  TREE.skillSlots.forEach((sk, i) => {
+    const el = document.createElement('div');
+    el.className = 'skill-slot';
+    el.id = 'skill_' + i;
+    el.style.left = sk.pos[0] + 'px';
+    el.style.top = sk.pos[1] + 'px';
+    el.dataset.skill = i;
+    const b = document.createElement('b');
+    b.textContent = DATA.skills[i] ? DATA.skills[i].name : '—';
+    const sm = document.createElement('small');
+    sm.textContent = i === 0 ? 'Base' : (i === 1 ? '20 pts + socket' : '40 pts + socket');
+    el.appendChild(b);
+    el.appendChild(sm);
+    el.onmouseenter = (e) => showTip(e, skillTipHtml(i));
+    el.onmouseleave = hideTip;
+    ring.appendChild(el);
+  });
+
+  refreshSockets();
+}
+
+function socketIsSkillPrereq(slotId) {
+  return TREE.skillSlots.some((sk) => sk.connection === slotId);
+}
+
+function onSocketClick(slotId, el) {
+  const slot = TREE.talentSlots[slotId];
+  const cur = socketed[slotId];
+  if (el.classList.contains('locked')) return;
+  if (!cur) {
+    if (selectedTalent === null) {
+      flash('Selecciona antes un Talentstone de la izquierda.');
+      return;
+    }
+    const t = DATA.talents[selectedTalent];
+    if (gridLocked(t.tier[0])) {
+      flash('Necesitas más puntos para usar ese Talentstone.');
+      return;
+    }
+    if (socketed.some((s) => s && s.talentId === selectedTalent)) {
+      flash('Ese Talentstone ya está encajado.');
+      return;
+    }
+    socketStone(slotId, t.tier[0], t.tier[1], 1);
+  } else if (cur.level < slot.capacity) {
+    addPoint(slotId);
+  }
+}
+
+function socketStone(slotId, tier, tierPos, level) {
+  const talentId = (tier - 1) * 3 + (tierPos - 1);
+  socketed[slotId] = { talentId, tier, tierPos, level };
+  points += level;
+  for (let l = 0; l < level; l++) undo.push({ kind: 'socket', slotId });
+  selectedTalent = null;
+  refreshSockets();
+  refreshGridClasses();
+  updateBuildInfo();
+}
+
+function addPoint(slotId) {
+  const cur = socketed[slotId];
+  cur.level++;
+  points++;
+  undo.push({ kind: 'add', slotId });
+  refreshSockets();
+  updateBuildInfo();
+}
+
+function undoAction() {
+  const last = undo.pop();
+  if (!last) return;
+  if (last.kind === 'add') {
+    const cur = socketed[last.slotId];
+    cur.level--;
+    points--;
+    if (cur.level === 0) socketed[last.slotId] = null;
+  } else {
+    const cur = socketed[last.slotId];
+    if (cur.level > 1) {
+      cur.level--;
+      points--;
+      undo.push({ kind: 'add', slotId: last.slotId });
+    } else {
+      socketed[last.slotId] = null;
+      points--;
+    }
+  }
+  refreshSockets();
+  refreshGridClasses();
+  updateBuildInfo();
+}
+
+function resetAll() {
+  selectedTalent = null;
+  socketed = new Array(TREE.talentSlots.length).fill(null);
+  points = 0;
+  undo = [];
+  refreshSockets();
+  refreshGridClasses();
+  updateBuildInfo();
+}
+
+function socketLocked(slotId) {
+  const slot = TREE.talentSlots[slotId];
+  if (socketed[slotId]) return false;
+  // skill socket lock: sockets beyond the first locked skill's prereq stay locked
+  const skillLock = skillSocketLock();
+  if (skillLock !== null && slotId > skillLock) return true;
+  // a socket is open if it's the first two or any unlocked-connection socket
+  if (slotId === 0 || slotId === 1) return false;
+  for (let i = 0; i < socketed.length; i++) {
+    if (!socketed[i]) continue;
+    const s = TREE.talentSlots[i];
+    if (s.connections.includes(slotId)) {
+      if (skillLock === null || slotId <= skillLock) return false;
+    }
+  }
+  return true;
+}
+
+function skillSocketLock() {
+  for (let skillId = 1; skillId < TREE.skillSlots.length; skillId++) {
+    const sk = TREE.skillSlots[skillId];
+    const req = Math.max(0, sk.pointsRequired - points);
+    if (req > 0 || (sk.connection !== -1 && !socketed[sk.connection])) {
+      return sk.connection;
+    }
+  }
+  return null;
+}
+
+function skillUnlocked(skillId) {
+  const sk = TREE.skillSlots[skillId];
+  if (skillId === 0) return true;
+  if (points < sk.pointsRequired) return false;
+  if (sk.connection !== -1 && !socketed[sk.connection]) return false;
+  return true;
+}
+
+function refreshSockets() {
+  document.querySelectorAll('#ring .socket').forEach((el) => {
+    const slotId = Number(el.dataset.slot);
+    const cur = socketed[slotId];
+    const slot = TREE.talentSlots[slotId];
+    el.classList.toggle('locked', socketLocked(slotId));
+    el.classList.toggle('open', !cur);
+    el.querySelectorAll('img').forEach((im) => im.remove());
+    const oldLvl = el.querySelector('.sk-lvl');
+    if (oldLvl) oldLvl.remove();
+    if (cur) {
+      const t = DATA.talents[cur.talentId];
+      const img = document.createElement('img');
+      img.src = t.icon ? 'icons/' + t.icon + '.png' : '';
+      img.alt = t.name;
+      el.appendChild(img);
+      const lvl = document.createElement('div');
+      lvl.className = 'sk-lvl';
+      lvl.textContent = cur.level + '/' + slot.capacity;
+      el.appendChild(lvl);
+    }
+  });
+  document.querySelectorAll('#ring .skill-slot').forEach((el) => {
+    const skillId = Number(el.dataset.skill);
+    el.classList.toggle('locked', !skillUnlocked(skillId));
+  });
+}
+
+function updateBuildInfo() {
+  const currentExp = Math.min(100, (points / 70) * 100);
+  const fill = $('#expFill');
+  if (fill) fill.style.height = currentExp + '%';
+  $('#pointsFill').style.width = Math.min(100, (points / 90) * 100) + '%';
+  $('#pointsCount').textContent = points + ' / 90';
+  $('#reqLevel').textContent = Math.max(10, Math.min(50, points + 9));
+  $('#reqTotem').textContent = Math.max(1, Math.ceil((points - 40) / 5));
+  renderStats();
+  const link = $('#linkBtn');
+  if (link) {
+    try { link.onclick = () => { location.hash = encodeBuild(); }; }
+    catch (e) { /* ignore */ }
+  }
+}
+
+function renderStats() {
+  const wrap = $('#stats');
+  wrap.innerHTML = '';
+  DATA.stats.forEach((stat, si) => {
+    const isMulti = Array.isArray(stat.parameter);
+    let label, valText;
+    if (!isMulti) {
+      let total = 0;
+      let isPercent = false;
+      for (const s of socketed) {
+        if (!s) continue;
+        const t = DATA.talents[s.talentId];
+        if (t.stat !== si) continue;
+        const v = t.values[s.level - 1];
+        if (v && String(v).indexOf('%') !== -1) isPercent = true;
+        total += parseVal(v);
+      }
+      label = stat.parameter;
+      valText = (total === 0 && !isPercent ? '0' : (stat.no_add ? '' : '+') + formatStatValue(total) + (isPercent ? '%' : ''));
+    } else {
+      const parts = [];
+      for (let g = 0; g < stat.parameter.length; g++) {
+        let total = 0;
+        let isPercent = false;
+        for (const s of socketed) {
+          if (!s) continue;
+          const t = DATA.talents[s.talentId];
+          if (t.stat !== si) continue;
+          const v = t.values[g][s.level - 1];
+          if (v && String(v).indexOf('%') !== -1) isPercent = true;
+          total += parseVal(v);
+        }
+        parts.push((total === 0 && !isPercent ? '0' : (stat.no_add ? '' : '+') + formatStatValue(total) + (isPercent ? '%' : '')));
+      }
+      label = stat.parameter.join(' / ');
+      valText = parts.join(' / ');
+    }
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    const img = document.createElement('img');
+    img.src = stat.icon ? 'icons/' + stat.icon + '.png' : '';
+    img.alt = stat.name;
+    const nm = document.createElement('span');
+    nm.className = 'sr-name';
+    nm.textContent = label;
+    const val = document.createElement('span');
+    val.className = 'sr-val';
+    val.textContent = valText;
+    row.appendChild(img);
+    row.appendChild(nm);
+    row.appendChild(val);
+    wrap.appendChild(row);
+  });
+  renderSkills();
+}
+
+function renderSkills() {
+  const wrap = $('#skills');
+  wrap.innerHTML = '';
+  DATA.skills.forEach((sk, i) => {
+    const item = document.createElement('div');
+    item.className = 'skill-item' + (skillUnlocked(i) ? '' : ' locked');
+    const b = document.createElement('b');
+    b.textContent = sk.name;
+    const sm = document.createElement('small');
+    sm.textContent = i === 0 ? 'Disponible' : (i === 1 ? 'Requiere 20 puntos' : 'Requiere 40 puntos');
+    item.appendChild(b);
+    item.appendChild(sm);
+    wrap.appendChild(item);
+  });
+}
+
+/* ----- tooltips ----- */
+let tipTimer = null;
+function showTip(e, html) {
+  clearTimeout(tipTimer);
+  TIP.innerHTML = html;
+  TIP.style.display = 'block';
+  const pad = 14;
+  const x = Math.min(e.clientX + pad, window.innerWidth - TIP.offsetWidth - 8);
+  const y = Math.min(e.clientY - 8, window.innerHeight - TIP.offsetHeight - 8);
+  TIP.style.left = Math.max(8, x) + 'px';
+  TIP.style.top = Math.max(8, y) + 'px';
+}
+function hideTip() {
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => { TIP.style.display = 'none'; }, 60);
+}
+function valuesHtml(t, level) {
+  const prefix = t.no_add ? '' : '+';
+  const isMulti = Array.isArray(t.values[0]);
+  let html = '';
+  if (isMulti) {
+    for (let g = 0; g < t.values.length; g++) {
+      html += '<div class="t-param">' + prefix + (t.parameter[g] || t.name) + ':</div><div class="t-values">';
+      t.values[g].forEach((v, i) => {
+        const shown = prefix + v;
+        if (i === level) html += ' <span class="t-cur">[ ' + shown + ' ]</span>';
+        else html += ' ' + shown;
+      });
+      html += '</div>';
+    }
+    return html;
+  }
+  html += '<div class="t-param">' + prefix + (t.parameter || t.name) + ':</div><div class="t-values">';
+  t.values.forEach((v, i) => {
+    const shown = prefix + v;
+    if (i === level) html += ' <span class="t-cur">[ ' + shown + ' ]</span>';
+    else html += ' ' + shown;
+  });
+  return html + '</div>';
+}
+function talentTipHtml(t, level) {
+  return '<div class="t-name">' + t.name + '</div>' +
+         '<div class="t-desc">' + (t.description || '') + '</div>' +
+         valuesHtml(t, level);
+}
+function skillTipHtml(skillId) {
+  const sk = DATA.skills[skillId];
+  if (!sk) return '';
+  let html = '<div class="t-name">' + sk.name + '</div>';
+  if (!skillUnlocked(skillId)) {
+    const req = TREE.skillSlots[skillId].pointsRequired;
+    if (points < req) html += '<div class="t-error">Requiere ' + (req - points) + ' puntos más.</div>';
+    else html += '<div class="t-error">Requiere encajar un socket conector.</div>';
+  }
+  return html;
+}
+function onSocketHover(e, slotId) {
+  const cur = socketed[slotId];
+  const slot = TREE.talentSlots[slotId];
+  if (cur) {
+    showTip(e, talentTipHtml(DATA.talents[cur.talentId], cur.level - 1));
+  } else if (socketLocked(slotId)) {
+    showTip(e, '<div class="t-name">Socket bloqueado</div><div class="t-error">Requiere llenar un socket conector.</div>');
+  } else {
+    showTip(e, '<div class="t-name">Socket vacío</div><div class="t-desc">Capacidad: ' + slot.capacity + ' puntos. Selecciona un Talentstone para encajarlo.</div>');
+  }
+}
+
+let flashTimer = null;
+function flash(msg) {
+  clearTimeout(flashTimer);
+  TIP.innerHTML = '<div class="t-name" style="color:var(--bad)">' + msg + '</div>';
+  TIP.style.display = 'block';
+  TIP.style.left = '50%';
+  TIP.style.top = '20px';
+  TIP.style.transform = 'translateX(-50%)';
+  flashTimer = setTimeout(() => { TIP.style.display = 'none'; }, 1800);
+}
+
+/* ----- build link (hash) ----- */
+function encodeBuild() {
+  let s = '#' + discId;
+  for (let i = 0; i < TREE.talentSlots.length; i++) {
+    const cur = socketed[i];
+    if (cur) s += '' + cur.level + ENCODE.charAt(cur.talentId);
+    else s += '0';
+  }
+  for (let i = s.length - 1; i > 1; i--) {
+    if (s.charAt(i) !== '0') break;
+    s = s.slice(0, i);
+  }
+  return s;
+}
+function applyHash(hash) {
+  const body = hash.charAt(1);
+  const id = parseInt(body, 10);
+  if (isNaN(id) || id < 0 || id >= TREE.disciplines.length) return;
+  const slots = [];
+  let slotId = 0;
+  for (let i = 2; i < hash.length; i++) {
+    const level = parseInt(hash.charAt(i), 10);
+    if (level) {
+      i++;
+      const talentId = ENCODE.indexOf(hash.charAt(i));
+      if (talentId >= 0) {
+        const tier = Math.floor(talentId / 3) + 1;
+        const tierPos = (talentId % 3) + 1;
+        slots.push({ slotId, level, talentId, tier, tierPos });
+      }
+    }
+    slotId++;
+  }
+  loadBuild(id, slots);
+}
+async function loadBuild(id, slots) {
+  if (!TREE) await init();
+  if (DATA === null || discId !== id) {
+    await switchDiscipline(id);
+  } else {
+    socketed = new Array(TREE.talentSlots.length).fill(null);
+    points = 0;
+    undo = [];
+    selectedTalent = null;
+  }
+  for (const s of slots) {
+    if (s.slotId >= 0 && s.slotId < socketed.length && s.talentId >= 0 && s.talentId < 42) {
+      socketed[s.slotId] = { talentId: s.talentId, tier: s.tier, tierPos: s.tierPos, level: s.level };
+      points += s.level;
+      for (let l = 0; l < s.level; l++) undo.push({ kind: 'socket', slotId: s.slotId });
+    }
+  }
+  refreshSockets();
+  refreshGridClasses();
+  updateBuildInfo();
+  document.querySelectorAll('#classes .card').forEach((c) => c.classList.remove('selected'));
+  document.querySelectorAll('#disciplines .card').forEach((c) => c.classList.remove('selected'));
+}
+
+$('#undoBtn').addEventListener('click', undoAction);
+$('#resetBtn').addEventListener('click', resetAll);
+
+init();
 </script>
 </body>
 </html>

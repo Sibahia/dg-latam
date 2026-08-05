@@ -1,0 +1,379 @@
+{
+  "classes": [
+    "Mage",
+    "Rogue",
+    "Paladin"
+  ],
+  "disciplines": [
+    "FrostWarden",
+    "Flameseer",
+    "Necromancer",
+    "Executioner",
+    "ShadowWalker",
+    "Soulthief",
+    "Sentinel",
+    "Justicar",
+    "Templar"
+  ],
+  "maxPoints": 90,
+  "talentSlots": [
+    {
+      "id": 0,
+      "pos": [
+        44,
+        342
+      ],
+      "capacity": 5,
+      "connections": [
+        2
+      ]
+    },
+    {
+      "id": 1,
+      "pos": [
+        77,
+        304
+      ],
+      "capacity": 2,
+      "connections": [
+        3
+      ]
+    },
+    {
+      "id": 2,
+      "pos": [
+        43,
+        259
+      ],
+      "capacity": 3,
+      "connections": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": 3,
+      "pos": [
+        89,
+        235
+      ],
+      "capacity": 5,
+      "connections": [
+        1,
+        5
+      ]
+    },
+    {
+      "id": 4,
+      "pos": [
+        72,
+        182
+      ],
+      "capacity": 5,
+      "connections": [
+        2,
+        5
+      ]
+    },
+    {
+      "id": 5,
+      "pos": [
+        130,
+        157
+      ],
+      "capacity": 3,
+      "connections": [
+        3,
+        4,
+        6,
+        7
+      ]
+    },
+    {
+      "id": 6,
+      "pos": [
+        145,
+        94
+      ],
+      "capacity": 2,
+      "connections": [
+        5,
+        8
+      ]
+    },
+    {
+      "id": 7,
+      "pos": [
+        201,
+        102
+      ],
+      "capacity": 3,
+      "connections": [
+        5,
+        8
+      ]
+    },
+    {
+      "id": 8,
+      "pos": [
+        234,
+        50
+      ],
+      "capacity": 2,
+      "connections": [
+        6,
+        7,
+        9,
+        10
+      ]
+    },
+    {
+      "id": 9,
+      "pos": [
+        372,
+        52
+      ],
+      "capacity": 5,
+      "connections": [
+        8,
+        11
+      ]
+    },
+    {
+      "id": 10,
+      "pos": [
+        394,
+        97
+      ],
+      "capacity": 2,
+      "connections": [
+        8,
+        12
+      ]
+    },
+    {
+      "id": 11,
+      "pos": [
+        446,
+        84
+      ],
+      "capacity": 3,
+      "connections": [
+        9,
+        13
+      ]
+    },
+    {
+      "id": 12,
+      "pos": [
+        447,
+        136
+      ],
+      "capacity": 5,
+      "connections": [
+        10,
+        14
+      ]
+    },
+    {
+      "id": 13,
+      "pos": [
+        500,
+        138
+      ],
+      "capacity": 5,
+      "connections": [
+        11,
+        14
+      ]
+    },
+    {
+      "id": 14,
+      "pos": [
+        505,
+        205
+      ],
+      "capacity": 3,
+      "connections": [
+        12,
+        13,
+        15,
+        16
+      ]
+    },
+    {
+      "id": 15,
+      "pos": [
+        558,
+        245
+      ],
+      "capacity": 2,
+      "connections": [
+        14,
+        17
+      ]
+    },
+    {
+      "id": 16,
+      "pos": [
+        527,
+        291
+      ],
+      "capacity": 3,
+      "connections": [
+        14,
+        17
+      ]
+    },
+    {
+      "id": 17,
+      "pos": [
+        559,
+        341
+      ],
+      "capacity": 2,
+      "connections": [
+        15,
+        16,
+        18,
+        19
+      ]
+    },
+    {
+      "id": 18,
+      "pos": [
+        481,
+        493
+      ],
+      "capacity": 5,
+      "connections": [
+        17,
+        20
+      ]
+    },
+    {
+      "id": 19,
+      "pos": [
+        425,
+        490
+      ],
+      "capacity": 2,
+      "connections": [
+        17,
+        21
+      ]
+    },
+    {
+      "id": 20,
+      "pos": [
+        406,
+        542
+      ],
+      "capacity": 3,
+      "connections": [
+        18,
+        22
+      ]
+    },
+    {
+      "id": 21,
+      "pos": [
+        361,
+        518
+      ],
+      "capacity": 5,
+      "connections": [
+        19,
+        23
+      ]
+    },
+    {
+      "id": 22,
+      "pos": [
+        327,
+        556
+      ],
+      "capacity": 5,
+      "connections": [
+        20,
+        23
+      ]
+    },
+    {
+      "id": 23,
+      "pos": [
+        271,
+        529
+      ],
+      "capacity": 3,
+      "connections": [
+        21,
+        22,
+        24,
+        25
+      ]
+    },
+    {
+      "id": 24,
+      "pos": [
+        211,
+        549
+      ],
+      "capacity": 2,
+      "connections": [
+        23,
+        26
+      ]
+    },
+    {
+      "id": 25,
+      "pos": [
+        189,
+        498
+      ],
+      "capacity": 3,
+      "connections": [
+        23,
+        26
+      ]
+    },
+    {
+      "id": 26,
+      "pos": [
+        127,
+        495
+      ],
+      "capacity": 2,
+      "connections": [
+        24,
+        25
+      ]
+    }
+  ],
+  "skillSlots": [
+    {
+      "pos": [
+        86,
+        405
+      ],
+      "pointsRequired": 0,
+      "connection": -1
+    },
+    {
+      "pos": [
+        305,
+        61
+      ],
+      "pointsRequired": 20,
+      "connection": 8
+    },
+    {
+      "pos": [
+        523,
+        405
+      ],
+      "pointsRequired": 40,
+      "connection": 18
+    }
+  ]
+}

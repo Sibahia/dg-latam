@@ -138,7 +138,10 @@ function bossDeathReport(): any {
         team: 2,
         entState: 6,
         hp: 0,
-        dead: true
+        dead: true,
+        // The real combat flow only routes the terminal required-boss destroy when
+        // the kill is backed by player damage / a verified defeat.
+        playerDamageContributed: true
     };
 }
 

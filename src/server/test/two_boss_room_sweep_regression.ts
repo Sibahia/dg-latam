@@ -32,7 +32,10 @@ function makeBoss(id: number, name: string): any {
         dead: false,
         destroyed: false,
         entState: EntityState.ACTIVE,
-        lifeNonce: 1
+        lifeNonce: 1,
+        // Real bosses carry damage once the player engages them; the completion
+        // gate requires it before a kill registers.
+        playerDamageContributed: true
     };
 }
 

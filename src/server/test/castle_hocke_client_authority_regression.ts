@@ -200,6 +200,8 @@ async function main(): Promise<void> {
     canonicalBoss.hp = 0;
     canonicalBoss.dead = true;
     canonicalBoss.destroyed = true;
+    // The real combat flow stamps the client-reported defeat on the owned boss.
+    canonicalBoss.clientDefeatVerified = true;
     DungeonCompletionSystem.noteEntityDefeated(levelScope, canonicalBoss);
     assert.equal(
         DungeonCompletionSystem.evaluate(levelScope).reason,

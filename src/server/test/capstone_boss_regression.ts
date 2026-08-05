@@ -59,7 +59,10 @@ function createDead(id: number, name: string): any {
         maxHp: BOSS_MAX_HP,
         dead: true,
         destroyed: true,
-        entState: EntityState.DEAD
+        entState: EntityState.DEAD,
+        // Real bosses carry damage once the player engages them; the completion
+        // gate requires it before a kill registers.
+        playerDamageContributed: true
     };
 }
 
