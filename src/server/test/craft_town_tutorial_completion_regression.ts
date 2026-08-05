@@ -222,6 +222,29 @@ async function testKeepBossDeathPropagatesCompletionToParty(): Promise<void> {
     assert.equal(Number(party.character.magicForge?.stats_by_building?.['12'] ?? 0), 0);
 }
 
+async function testKeepResumedSoloOwnerWithRotatedTokenPersists(): Promise<void> {
+    // A reconnect into the existing keep instance allocates a NEW token while the
+    // levelInstanceId stays the ORIGINAL numeric instance id (token mismatch).
+    const client = createFakeClient('KeepResumer', 7201);
+    client.levelInstanceId = '9999';
+    seedKeepStateWithAliveHelper();
+    GlobalState.sessionsByToken.set(client.token, client as never);
+
+    await MissionHandler.handleForcedDungeonBossCompletion(client as never, bossDeathReport());
+    MissionHandler.noteDungeonCutsceneStart(client as never, 7);
+    MissionHandler.noteDungeonCutsceneEnd(client as never, 7);
+    await settleScheduledCompletion(client);
+
+    assert.equal(Number(client.character.questTrackerState ?? 0), 100, 'resumed owner quest tracker should reach 100');
+    assert.equal(
+        Number(client.character.missions[String(MissionID.ClearYourHouse)]?.state ?? 0),
+        3,
+        'resumed solo owner must persist ClearYourHouse as complete despite the token mismatch'
+    );
+    assert.equal(Number(client.character.magicForge?.stats_by_building?.['12'] ?? 0), 5, 'resumed owner keep should be rebuilt');
+    assert.equal(client.sentPackets.some((packet) => packet.id === 0x2E), true, 'resumed owner should get the Home door target');
+}
+
 async function main(): Promise<void> {
     ensureDataLoaded();
     const levelEntities = new Map(GlobalState.levelEntities);
@@ -241,6 +264,12 @@ async function main(): Promise<void> {
         GlobalState.sessionsByToken.clear();
         GlobalState.dungeonCompletions.clear();
         await testKeepBossDeathPropagatesCompletionToParty();
+
+        GlobalState.levelEntities.clear();
+        GlobalState.levelQuestProgress.clear();
+        GlobalState.sessionsByToken.clear();
+        GlobalState.dungeonCompletions.clear();
+        await testKeepResumedSoloOwnerWithRotatedTokenPersists();
     } finally {
         GlobalState.levelEntities = levelEntities;
         GlobalState.levelQuestProgress = levelQuestProgress;

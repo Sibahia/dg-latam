@@ -2117,9 +2117,14 @@ export class MissionHandler {
         }
 
         const instanceOwnerToken = Math.max(0, Math.round(Number(client.levelInstanceId ?? 0) || 0));
-        if (instanceOwnerToken > 0) {
-            return client.token === instanceOwnerToken;
+        if (instanceOwnerToken > 0 && client.token === instanceOwnerToken) {
+            return true;
         }
+        // A numeric instance id that does not match this session's token is a
+        // reconnect/resume into an existing instance under a fresh token (or a
+        // party joiner). Fall through to the sync-anchor scan so a solo resumed
+        // owner is still recognised as the scope owner; a genuine joiner loses to
+        // the earliest anchor (the real owner).
 
         let ownerToken = 0;
         let earliestAnchorAt = Number.POSITIVE_INFINITY;

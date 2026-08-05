@@ -46,6 +46,10 @@ export class ForgeHandler {
     private static readonly RESPEC_STONE_DURATION_SECONDS = 180;
     private static readonly EXTENDED_RESPEC_STONE_DURATION_SECONDS = 7200;
     private static readonly CHARM_REMOVER_DURATION_SECONDS = 10800;
+    // Upper bound for a forge ReadyTime (seconds). A persisted/save value above
+    // now + this is corruption (e.g. a huge epoch) and would otherwise render an
+    // absurd countdown on the client and arm a near-forever timer.
+    private static readonly MAX_FORGE_READY_TIME_SECONDS = 10800;
     private static readonly FREE_SPEEDUP_THRESHOLD_SECONDS = SpeedupPricing.FREE_THRESHOLD_SECONDS;
     private static readonly FREE_SPEEDUP_CLOCK_GRACE_SECONDS = SpeedupPricing.CLOCK_GRACE_SECONDS;
     private static readonly FREE_SPEEDUP_REASON_TUTORIAL_CHARM: FreeSpeedupReason = 'tutorial_charm';
@@ -552,6 +556,20 @@ export class ForgeHandler {
         return true;
     }
 
+    private static clampCorruptedForgeReadyTime(forgeState: any): boolean {
+        const now = ForgeHandler.getNowSeconds();
+        const readyTime = Number(forgeState.ReadyTime ?? 0);
+        if (readyTime <= 0) {
+            return false;
+        }
+        const maxAllowed = now + ForgeHandler.MAX_FORGE_READY_TIME_SECONDS;
+        if (readyTime <= maxAllowed) {
+            return false;
+        }
+        forgeState.ReadyTime = maxAllowed;
+        return true;
+    }
+
     static async syncCompletionState(client: Client): Promise<void> {
         if (!client.character) {
             return;
@@ -562,9 +580,10 @@ export class ForgeHandler {
         const initialForgeState = ForgeHandler.ensureForgeState(client.character);
         const didForceRespecDuration = ForgeHandler.enforceActiveRespecStoneDuration(client, initialForgeState);
         const didForceCharmRemoverDuration = ForgeHandler.enforceActiveCharmRemoverDuration(initialForgeState);
+        const didClampCorruptedReadyTime = ForgeHandler.clampCorruptedForgeReadyTime(initialForgeState);
 
         const didFinalizeExpiredForge = ForgeHandler.finalizeCompletedForgeIfNeeded(client.character);
-        if (didForceRespecDuration || didForceCharmRemoverDuration || didFinalizeExpiredForge) {
+        if (didForceRespecDuration || didForceCharmRemoverDuration || didClampCorruptedReadyTime || didFinalizeExpiredForge) {
             await ForgeHandler.saveCharacter(client);
         }
 
