@@ -62,6 +62,27 @@ function main(): void {
         'a live client-authority boss must not be ignored'
     );
 
+    // Auto-complete regression: a dead clientSpawned boss copy with NO evidence
+    // (scripted dead duplicate) must NOT satisfy completion on evaluate().
+    const { GlobalState } = require('../core/GlobalState');
+    const { DungeonCompletionSystem } = require('../core/DungeonCompletionSystem');
+    const { getLevelScopeKey } = require('../core/LevelScope');
+    const emptyScope = getLevelScopeKey('SRN_Mission2', 'auto-complete-reg');
+    GlobalState.levelEntities.set(emptyScope, new Map([[7001, boss(0, { dead: true, destroyed: true, clientSpawned: true })]]));
+    assert.equal(
+        DungeonCompletionSystem.evaluate(emptyScope).objectivesMet,
+        false,
+        'a scripted dead clientSpawned boss copy must not auto-complete the dungeon'
+    );
+    // A dead copy backed by real player damage (legit kill) completes.
+    GlobalState.levelEntities.set(emptyScope, new Map([[7002, boss(0, { dead: true, destroyed: true, clientSpawned: true, damage: true })]]));
+    assert.equal(
+        DungeonCompletionSystem.evaluate(emptyScope).objectivesMet,
+        true,
+        'a dead boss copy with player damage must complete the dungeon'
+    );
+    GlobalState.levelEntities.delete(emptyScope);
+
     console.log('unified_boss_acceptance_regression: ok');
 }
 

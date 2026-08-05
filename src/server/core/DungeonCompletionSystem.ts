@@ -38,12 +38,10 @@ function isVerifiedBossDefeat(levelName: string, entity: any): boolean {
     const condition = DungeonCompletionConditions.get(levelName);
     const isClientAuthorityLevel = Boolean(condition?.clientAuthorityBosses?.length);
     if (Boolean(entity?.clientSpawned)) {
-        // Client-owned boss on a client-authority level: the client's defeat
-        // signal is authoritative even when the server never recorded damage.
-        if (isClientAuthorityLevel) {
-            return true;
-        }
-        return Boolean(entity?.clientDefeatVerified);
+        // A client-owned boss only counts once the kill is verified by real
+        // damage or the client's defeat signal. A scripted/dead-at-start copy
+        // carries neither and must not satisfy completion (auto-complete on entry).
+        return Boolean(entity?.clientDefeatVerified || entity?.playerDamageContributed);
     }
     if (Boolean(entity?.hybridCanonicalHostile)) {
         return Boolean(entity?.clientDefeatVerified);

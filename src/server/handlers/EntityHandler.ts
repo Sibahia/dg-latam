@@ -4003,7 +4003,22 @@ export class EntityHandler {
         // relay/broadcast, and required bosses are the only ones completion needs.
         const privateDungeonHostile = EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, props, getClientLevelScope(client));
         const isRequiredBoss = DungeonCompletionConditions.isRequiredBoss(levelName, props, getClientLevelScope(client));
-        if (levelMap && (!privateDungeonHostile || isRequiredBoss)) {
+        // A second cue of an already-tracked required boss (same owner) must not
+        // overwrite the canonical with a raw clientSpawned copy, or a scripted
+        // dead duplicate could satisfy completion on the next evaluate().
+        const alreadyTrackedRequiredBoss = Boolean(
+            isRequiredBoss &&
+            props?.clientSpawned &&
+            levelMap &&
+            [...levelMap.values()].some((existing) =>
+                existing &&
+                !existing.isPlayer &&
+                Math.max(0, Math.round(Number(existing.ownerToken ?? 0))) === Math.max(0, Math.round(Number(props.ownerToken ?? 0))) &&
+                DungeonCompletionConditions.getCanonicalBossName(levelName, existing, getClientLevelScope(client)) ===
+                    DungeonCompletionConditions.getCanonicalBossName(levelName, props, getClientLevelScope(client))
+            )
+        );
+        if (levelMap && (!privateDungeonHostile || isRequiredBoss) && !alreadyTrackedRequiredBoss) {
             levelMap.set(entityId, props);
         }
 

@@ -96,7 +96,7 @@ function testEveryBossGroupHasAnAuthoredPacketIdentity(): void {
             );
         }
     }
-    assert.equal(bossLevelCount, 127, 'boss-mode catalog coverage changed without updating the authored audit');
+    assert.equal(bossLevelCount, 133, 'boss-mode catalog coverage changed without updating the authored audit');
 }
 
 function deadBoss(id: number, name: string): any {

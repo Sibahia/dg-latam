@@ -99,7 +99,7 @@
     "JC_Mission6": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["PortalMaster"]],"clientAuthorityBosses":["PortalMaster"]},
     "JC_Mission6Hard": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["PortalMasterHard"]],"bossAliases":{"PortalMaster":"PortalMasterHard"},"clientAuthorityBosses":["PortalMasterHard"]},
     "JC_Mission7": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["EmperorMarker"]],"bossAliases":{"Emperor":"EmperorMarker"},"clientAuthorityBosses":["EmperorMarker"]},
-    "JC_Mission7Hard": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["EmperorMarkerHard"]],"bossAliases":{"Emperor":"EmperorMarkerHard","EmperorMarker":"EmperorMarkerHard"},"clientAuthorityBosses":["EmperorMarkerHard"]},
+    "JC_Mission7Hard": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["EmperorMarkerHard"]],"bossAliases":{"Emperor":"EmperorMarkerHard","EmperorMarker":"EmperorMarkerHard","EmperorHard":"EmperorMarkerHard"},"clientAuthorityBosses":["EmperorMarkerHard"]},
     "JC_Mission8": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["GuardCaptain"]],"clientAuthorityBosses":["GuardCaptain"]},
     "JC_Mission8Hard": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["GuardCaptainHard"]],"bossAliases":{"GuardCaptain":"GuardCaptainHard"},"clientAuthorityBosses":["GuardCaptainHard"]},
     "JC_Mission9": {"mode":"bosses","partyHostileSync":"bosses-only","bossGroups":[["RisenBandit"],["RisenBandit2"]],"cutscene":{"requiredAfterObjectives":true},"requireBossesCurrentlyDefeated":true,"acceptRoomBossClearSignal":true,"clientAuthorityBosses":["RisenBandit","RisenBandit2"]},
