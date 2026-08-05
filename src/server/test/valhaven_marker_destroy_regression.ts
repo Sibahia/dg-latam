@@ -136,9 +136,7 @@ async function verifyDestroyCommitsCompletion(levelName: string, bossNames: stri
     GlobalState.partyByMember.set(client.character.name.toLowerCase(), 8811);
     GlobalState.partyByMember.set(partner.character.name.toLowerCase(), 8811);
     GlobalState.partyGroups.set(8811, { id: 8811, leader: client.character.name, members: [client.character.name, partner.character.name], locked: false });
-    GlobalState.sessionsByToken.set(client.token, client as never);
     GlobalState.sessionsByToken.set(partner.token, partner as never);
-
 
     const spawnedBosses: any[] = [];
     for (const [index, bossName] of bossNames.entries()) {
