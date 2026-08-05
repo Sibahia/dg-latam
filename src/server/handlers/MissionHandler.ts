@@ -3941,6 +3941,23 @@ export class MissionHandler {
 
         const { EntityHandler } = require('./EntityHandler') as typeof import('./EntityHandler');
 
+        // A terminal required-boss copy on a NON server-authority level is a
+        // scripted/dead-at-start placeholder unless the player dealt real damage.
+        // (Server-authority levels own their kills, so their terminal state is
+        // already authoritative.) Checked BEFORE the client-authority exemption so
+        // a scripted dead copy is rejected even when the level declares its boss
+        // client-authority (auto-derived). This stops Dread Goblin Hideout /
+        // Attack of Opportunity / Ring of Fire from completing at encounter start.
+        const isTerminalCopy = Boolean(
+            (Number.isFinite(Number(entity?.hp)) && Number(entity.hp) <= 0) ||
+            entity?.dead ||
+            entity?.destroyed ||
+            MissionHandler.isDefeatedEntityStateValue(Number(entity?.entState ?? EntityState.ACTIVE))
+        );
+        if (isTerminalCopy && !EntityHandler.usesServerAuthorityHostiles(levelName)) {
+            return !Boolean(entity?.playerDamageContributed);
+        }
+
         // These levels deliberately leave their authored boss on the Flash client.
         // A terminal state/destroy packet is the authority signal even when the
         // server's cached HP snapshot did not receive the final delta first.
@@ -3952,20 +3969,7 @@ export class MissionHandler {
             return false;
         }
 
-        // A terminal required-boss copy on a NON server-authority level is a
-        // scripted/dead-at-start placeholder unless the player dealt real damage.
-        // (Server-authority levels own their kills, so their terminal state is
-        // already authoritative.) This is what stops Dread Goblin Hideout /
-        // Attack of Opportunity / Ring of Fire from completing at encounter start.
-        const isTerminalCopy = Boolean(
-            (Number.isFinite(Number(entity?.hp)) && Number(entity.hp) <= 0) ||
-            entity?.dead ||
-            entity?.destroyed ||
-            MissionHandler.isDefeatedEntityStateValue(Number(entity?.entState ?? EntityState.ACTIVE))
-        );
-        if (isTerminalCopy && !EntityHandler.usesServerAuthorityHostiles(levelName)) {
-            return !Boolean(entity?.playerDamageContributed);
-        }        const hp = Number(entity?.hp ?? NaN);
+        const hp = Number(entity?.hp ?? NaN);
         if (Number.isFinite(hp)) {
             if (hp <= 0) {
                 return false;

@@ -2967,7 +2967,7 @@ export class CombatHandler {
         }
     }
 
-    private static finalizeHostileDeath(
+    static finalizeHostileDeath(
         anchor: Client,
         levelScope: string,
         entityId: number,

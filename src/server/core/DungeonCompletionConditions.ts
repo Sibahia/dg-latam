@@ -16,6 +16,30 @@ type RawCatalog = {
 };
 
 const catalog = rawConditions as RawCatalog;
+// Normalize the catalog so every boss-mode dungeon treats its authored bosses as
+// client-authority. This removes the arbitrary per-mission `clientAuthorityBosses`
+// flag inconsistency that made some missions reject their boss kills (a mission
+// without the flag never satisfied the client-authority exemption in
+// shouldIgnoreUnverifiedDungeonBossDefeat). The flag now only documents intent;
+// server-authority levels (JC_Mini1Hard, JC_Mini2, TutorialDungeon) are unaffected
+// because their bosses are not clientSpawned/hybrid, so isClientAuthorityBoss
+// still returns false for them.
+(function normalizeClientAuthorityBosses(): void {
+    const levels = catalog.levels;
+    if (!levels) {
+        return;
+    }
+    for (const condition of Object.values(levels)) {
+        if (
+            condition?.mode === 'bosses' &&
+            Array.isArray(condition.bossGroups) &&
+            condition.bossGroups.length &&
+            !condition.clientAuthorityBosses?.length
+        ) {
+            condition.clientAuthorityBosses = Array.from(new Set(condition.bossGroups.flat()));
+        }
+    }
+})();
 const VALID_MODES = new Set<DungeonCompletionMode>(['bosses', 'objectives', 'full-clear', 'client-signal', 'disabled']);
 const VALID_PARTY_HOSTILE_SYNC_POLICIES = new Set(['all', 'bosses-only', 'none']);
 

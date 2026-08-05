@@ -5992,6 +5992,30 @@ export class LevelHandler {
             Number.isFinite(canonicalHp) &&
             canonicalHp > 0
         ) {
+            if (
+                EntityHandler.usesServerAuthorityHostiles(currentLevel) &&
+                EntityHandler.isServerAuthorityHostileEntity(currentLevel, canonicalEntity) &&
+                canonicalEntity &&
+                typeof canonicalEntity === 'object'
+            ) {
+                // The client resolved the kill and reports the dead-state for a
+                // server-authority sync hostile whose canonical HP never reached 0
+                // through the damage-accounting relay (AoE / HP-report kills).
+                // Trust it and commit the death so server-side loot is granted
+                // (East Wing mobs/boss, Goblin Kidnappers boss).
+                canonicalEntity.hp = 0;
+                canonicalEntity.dead = true;
+                canonicalEntity.destroyed = true;
+                canonicalEntity.entState = EntityState.DEAD;
+                const { CombatHandler } = require('./CombatHandler') as typeof import('./CombatHandler');
+                CombatHandler.finalizeHostileDeath(client, getClientLevelScope(client), entityId, canonicalEntity, {
+                    includeAnchor: true,
+                    sendHpCorrection: false,
+                    destroyLocal: true,
+                    reason: 'client_dead_state_server_authority_finalize'
+                });
+                return;
+            }
             if (canonicalEntity && typeof canonicalEntity === 'object') {
                 canonicalEntity.dead = false;
                 if (Number(canonicalEntity.entState ?? EntityState.ACTIVE) === EntityState.DEAD) {

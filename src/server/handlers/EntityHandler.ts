@@ -2243,7 +2243,10 @@ export class EntityHandler {
             !levelMap ||
             !LevelConfig.isDungeonLevel(levelName) ||
             EntityHandler.usesServerAuthorityHostiles(levelName) ||
-            EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity, getClientLevelScope(client)) ||
+            (
+                EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, entity, getClientLevelScope(client)) &&
+                !DungeonCompletionConditions.isRequiredBoss(levelName, entity, getClientLevelScope(client))
+            ) ||
             !entity ||
             entity.isPlayer ||
             Number(entity.team ?? 0) !== EntityTeam.ENEMY
@@ -3992,10 +3995,15 @@ export class EntityHandler {
         noteDungeonRunEntitySeen(client, entityId, props);
         EntityHandler.rememberEntityKnown(client, levelName, props);
 
-        // Client-private dungeon hostiles remain local to their authored client.
-        // They must never become canonical server state when a party is created.
+        // Client-private dungeon hostiles are NOT broadcast to other players, but a
+        // solo player's REQUIRED BOSS still becomes canonical server state so the
+        // completion/loot machinery (recoverDefeatedObjectivesFromScope,
+        // maybeRecordNpcContribution) can track its damage and kill. Other private
+        // hostiles (side enemies) stay client-local; privacy only affects
+        // relay/broadcast, and required bosses are the only ones completion needs.
         const privateDungeonHostile = EntityHandler.isPrivateClientSpawnDungeonHostile(levelName, props, getClientLevelScope(client));
-        if (levelMap && !privateDungeonHostile) {
+        const isRequiredBoss = DungeonCompletionConditions.isRequiredBoss(levelName, props, getClientLevelScope(client));
+        if (levelMap && (!privateDungeonHostile || isRequiredBoss)) {
             levelMap.set(entityId, props);
         }
 
