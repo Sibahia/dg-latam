@@ -1,0 +1,787 @@
+
+body {
+	background-color: black;
+	color: #ede1bb;
+	text-shadow: 1px 1px 2px #2d3427;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 13px;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: none;
+}
+
+a, a:visited, a:hover {
+	//color: #00cbfe;
+	color: #ede1bb;
+}
+
+.content-header {
+	width: 1006px;
+	height: 92px;
+
+	background-image : url(images/bg-content-header.png);
+
+	background-repeat : no-repeat;
+
+	padding: 18px 0px 0px 0px;
+
+	margin: 20px auto 0px auto;
+}
+
+.content-body {
+	width: 1006px;
+	height: 679px;
+
+	background-image : url(images/bg-content-body.png);
+
+	background-repeat : repeat-y;
+
+	margin: 0px auto;
+}
+
+.content-footer {
+	width: 1006px;
+	height: 59px;
+
+	background-image : url(images/bg-content-footer.png);
+
+	background-repeat : no-repeat;
+
+	padding-top: 3px;
+
+	margin: 0px auto 20px auto;
+}
+
+.bg-panel {
+	background-color: #5b6a53;
+	border-radius: 16px;
+}
+
+.header {
+	width: 612px;
+	height: 84px;
+
+	background-image : url(images/bg-disciplines.png);
+
+	background-repeat : no-repeat;
+
+	margin: 0px auto;
+}
+
+.footer {
+	width: 967px;
+	height: 37px;
+	text-align: right;
+	//font-weight: bold;
+
+	background-image : url(images/bg-footer.png);
+
+	background-repeat : no-repeat;
+
+	margin: 0px auto;
+}
+
+.footer-inner {
+	padding: 5px;
+}
+
+.buttons {
+	float: left;
+	height: 27px;
+
+	text-align: center;
+
+	cursor: pointer;
+
+	background-image : url(images/bg-buttons.png);
+
+	background-repeat : no-repeat;
+}
+
+.buttons.bt1 {
+	width: 84px;
+	background-position: -145px 0px;
+}
+.buttons.bt1.hover {
+	background-position: -145px -27px;
+}
+.buttons.bt2 {
+	width: 145px;
+	background-position: 0px 0px;
+}
+.buttons.bt2.hover {
+	background-position: 0px -27px;
+}
+
+.button-inner {
+	margin-top: 5px;
+}
+
+.footer-buttons-left {
+	float: left;
+}
+.footer-buttons-right {
+	float: right;
+}
+
+
+.content {
+	width: 964px;
+	margin: 20px auto;
+	padding: 16px;
+}
+
+.panel-left {
+	float: left;
+
+	width: 176px;
+	height: 673px;
+
+	margin-left: 20px;
+
+	background-image: url(images/bg-panel.png);
+
+	background-repeat: no-repeat;
+}
+
+.panel-right {
+	float: right;
+
+	width: 176px;
+	height: 673px;
+
+	margin-right: 20px;
+
+	background-image: url(images/bg-panel.png);
+
+	background-repeat: no-repeat;
+}
+
+.talent-tree-wrap {
+	position: relative;
+
+	width: 608px;
+	height: 608px;
+
+	margin: 0px auto;
+
+	text-shadow: none;
+}
+
+.tree-panel-left {
+	padding: 11px;
+}
+
+.tree-panel-right {
+	padding: 11px;
+}
+
+.dsc-nav {
+	padding: 8px;
+	text-align: center;
+	width: 594px;
+}
+
+.dsc-select {
+	width: 66px;
+	height: 66px;
+
+	cursor: pointer;
+
+	float: left;
+
+	position: relative;
+
+	background-image : url(images/discipline-select.png);
+
+	background-repeat : no-repeat;
+}
+
+.dsc-select.locked {
+	cursor: default;
+}
+
+.dsc-select.dsc1 { background-position: 0px 0px; }
+.dsc-select.dsc1.hover { background-position: 0px -66px; }
+.dsc-select.dsc1.selected { background-position: 0px -132px; }
+.dsc-select.dsc2 { background-position: -66px 0px; }
+.dsc-select.dsc2.hover { background-position: -66px -66px; }
+.dsc-select.dsc2.selected { background-position: -66px -132px; }
+.dsc-select.dsc3 { background-position: -132px 0px; }
+.dsc-select.dsc3.hover { background-position: -132px -66px; }
+.dsc-select.dsc3.selected { background-position: -132px -132px; }
+.dsc-select.dsc4 { background-position: -198px 0px; }
+.dsc-select.dsc4.hover { background-position: -198px -66px; }
+.dsc-select.dsc4.selected { background-position: -198px -132px; }
+.dsc-select.dsc5 { background-position: -264px 0px; }
+.dsc-select.dsc5.hover { background-position: -264px -66px; }
+.dsc-select.dsc5.selected { background-position: -264px -132px; }
+.dsc-select.dsc6 { background-position: -330px 0px; }
+.dsc-select.dsc6.hover { background-position: -330px -66px; }
+.dsc-select.dsc6.selected { background-position: -330px -132px; }
+.dsc-select.dsc7 { background-position: -396px 0px; }
+.dsc-select.dsc7.hover { background-position: -396px -66px; }
+.dsc-select.dsc7.selected { background-position: -396px -132px; }
+.dsc-select.dsc8 { background-position: -462px 0px; }
+.dsc-select.dsc8.hover { background-position: -462px -66px; }
+.dsc-select.dsc8.selected { background-position: -462px -132px; }
+.dsc-select.dsc9 { background-position: -528px 0px; }
+.dsc-select.dsc9.hover { background-position: -528px -66px; }
+.dsc-select.dsc9.selected { background-position: -528px -132px; }
+
+.dsc-tip {
+	position: absolute;
+	padding: 5px;
+	left: -999em;
+	display: none;
+	margin: 70px 0 0 -25px;
+
+	text-align: center;
+	font-weight: bold;
+
+	width: 100px;
+	height: auto;
+
+	border: 2px solid rgba(207, 181, 37, 1);
+	border-radius: 8px;
+	box-shadow: 0px 0px 4px black;
+
+	background: url(images/talent-tip.png) repeat;
+
+}
+
+.dsc-tip.visible {
+	left: auto; z-index: 1000;
+}
+
+.loading-holder {
+	position: relative;
+	width: 100px;
+
+	margin: 0px auto;
+}
+
+.loading {
+	position: absolute;
+	left: 0px;
+	top: 300px;
+
+	padding: 10px;
+
+	z-index: 1000;
+
+	width: 100px;
+	height: auto;
+	display: none;
+
+	text-align: center;
+	font-weight: bold;
+
+	border: 2px solid rgba(207, 181, 37, 1);
+	border-radius: 8px;
+	box-shadow: 0px 0px 4px black;
+
+	background: url(images/talent-tip.png) repeat;
+
+}
+
+.talent-points-holder {
+	width: 477px;
+	height: 37px;
+
+	background-image : url(images/bg-talent-points.png);
+
+	background-repeat : no-repeat;
+
+	margin: 10px auto 0px auto;
+}
+
+.talent-points-wrap {
+	padding: 10px 0px;
+	margin: 0px auto;
+	width: 451px;
+}
+
+.talent-points {
+	float: left;
+
+	width: 451px;
+	height: 16px;
+
+	//cursor: pointer;
+
+	background: url(images/talent-point.png) repeat-x;
+
+	background-position: 0px -32px;
+}
+
+.talent-points-inactive {
+	float: left;
+
+	width: 0px;
+	height: 16px;
+
+	background: url(images/talent-point.png) repeat-x;
+
+	background-position: 0px -16px;
+}
+
+.talent-points-trained {
+	float: left;
+
+	width: 0px;
+	height: 16px;
+
+	background: url(images/talent-point.png) repeat-x;
+
+	background-position: 0px 0px;
+}
+
+.tree-content {
+	position: relative;
+	display: none;
+
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+.talent-select-wrap {
+	float: right;
+}
+
+.discipline {
+	position: absolute;
+
+	left: 113px;
+	top: 113px;
+
+	width: 382px;
+	height: 382px;
+
+	background-repeat : no-repeat;
+}
+
+.discipline.frostbringer
+{
+	background-image : url(images/disciplines/frostbringer.jpg);
+}
+
+.discipline.flameseer
+{
+	background-image : url(images/disciplines/flameseer.jpg);
+}
+
+.discipline.necromancer
+{
+	background-image : url(images/disciplines/necromancer.jpg);
+}
+
+.discipline.viperblade
+{
+	background-image : url(images/disciplines/viperblade.jpg);
+}
+
+.discipline.shadowstalker
+{
+	background-image : url(images/disciplines/shadowstalker.jpg);
+}
+
+.discipline.soulthief
+{
+	background-image : url(images/disciplines/soulthief.jpg);
+}
+
+.discipline.sentinel
+{
+	background-image : url(images/disciplines/sentinel.jpg);
+}
+
+.discipline.justicar
+{
+	background-image : url(images/disciplines/justicar.jpg);
+}
+
+.discipline.templar
+{
+	background-image : url(images/disciplines/templar.jpg);
+}
+
+.talent-tree {
+	width: 608px;
+	height: 608px;
+	position: relative;
+
+	z-index: 50;
+
+	background-image : url(images/talent-tree-v5.png);
+
+	background-repeat : no-repeat;
+}
+
+.talent-exp-holder {
+	position: relative;
+
+	float: left;
+
+	top: 2px;
+	left: 2px;
+
+	width: 12px;
+	height: 642px;
+
+	border: 1px solid #b5c4ac;
+	//box-shadow: 0px 0px 2px #31382c;
+	box-shadow: 0px 0px 2px #22261e;
+
+	border-radius: 5px;
+	background-color: #31382c;
+}
+
+.talent-exp {
+	position: absolute;
+
+	//margin: 2px;
+
+	left: 0px;
+	bottom: 0px;
+
+	width: 12px;
+	height: 0px;
+
+	background-image : url(images/talent-exp.png);
+
+	background-repeat : repeat-y;
+
+	border-radius: 5px;
+}
+
+.talent-mask {
+	position: absolute;
+
+	display: none;
+
+	top: 0px;
+	left: 0px;
+
+	z-index: 100;
+
+	width: 44px;
+	height: 44px;
+
+	background-image : url(images/talent-mask-v3.png);
+
+	background-repeat : repeat;
+}
+
+.talent-tier {
+	width: 132px;
+	height: 44px;
+
+	margin: 2px;
+}
+
+.talent-tier-slot {
+	position: relative;
+
+	float: left;
+	width: 44px;
+	height: 44px;
+}
+
+.talent-tier-bg {
+	position: absolute;
+
+	width: 44px;
+	height: 44px;
+
+	left: 0px;
+	top: 0px;
+
+	background-image: url(images/slot.png);
+
+	background-repeat: no-repeat;
+}
+
+.talent-tier-bg.highlited {
+	background-position: 0px -44px;
+}
+
+.talent-wrap-tree {
+	position: absolute;
+
+	height: 48px;
+	width: 48px;
+}
+
+.talent-wrap-tree.hover {
+	background-image : url(images/selects-tree-v2.png);
+
+	background-repeat : no-repeat;
+
+	background-position : 0px -48px;
+}
+
+
+.talent-wrap {
+	position: absolute;
+
+	height: 44px;
+	width: 44px;
+}
+
+.talent-wrap.socketed {
+}
+
+.talent-wrap.hover {
+	background-image : url(images/selects-v2.png);
+
+	background-repeat : no-repeat;
+
+	background-position : 0px -44px;
+}
+
+.talent-wrap.selected {
+	background-image : url(images/selects.png);
+
+	background-repeat : no-repeat;
+
+	background-position : 0px -88px;
+}
+
+.talent-slot {
+	position: absolute;
+	z-index: 100;
+
+	top: 6px;
+	left: 6px;
+
+	height: 36px;
+	width: 36px;
+}
+
+.talent-slot.closed {
+	background-image : url(images/talent-slot-closed.png);
+
+	background-repeat : no-repeat;
+}
+
+.talent-slot-label {
+	cursor: default;
+	position: relative;
+
+	margin-top: 6px;
+
+	width: 36px;
+	height: 25px;
+
+	font-size: 20px;
+	font-weight: bold;
+	text-align: center;
+
+	text-shadow: 1px 1px 1px #bfcab9, -1px -1px 1px #bfcab9;
+
+	color: #5d6d54;
+}
+
+.talent-slot-label.unlocked {
+	color: #ede1bb;
+
+	text-shadow: none;
+}
+
+.talent-slot-level {
+	cursor: default;
+	position: absolute;
+	top: 33px;
+	left: 8px;
+
+	padding: 1px;
+
+	width:18px;
+	height: 15px;
+
+	text-align: center;
+	font-size: 13px;
+	font-weight: bold;
+
+	border-radius: 4px;
+
+	background: black;
+	display:none;
+}
+
+.talent {
+	position: relative;
+	top: 4px;
+	left: 4px;
+
+	height: 36px;
+	width: 36px;
+
+	background-image : url(images/talents.png);
+
+	background-repeat : no-repeat;
+
+	background-position : 0px 0px;
+}
+
+.build-stat {
+	position: relative;
+
+	margin: 2px;
+
+	height: 41px;
+}
+
+.build-stat-icon-holder {
+	position: absolute;
+
+	z-index: 10;
+
+	width: 44px;
+	height: 44px;
+
+	background-image: url(images/slot.png);
+
+	background-repeat: no-repeat;
+}
+
+.build-stat-icon {
+	position: absolute;
+
+	top: 4px;
+	left: 4px;
+}
+
+.build-stat-value-holder {
+	float: right;
+
+	margin-top: 4px;
+
+	width: 107px;
+	height: 33px;
+
+	text-align: right;
+
+	background-image: url(images/bg-stat-value.png);
+
+	background-repeat: no-repeat;
+}
+
+.build-stat-value {
+	font-size: 16px;
+	font-weight: bold;
+
+	margin: 7px 12px 0px 0px;
+}
+
+.talent.stat {
+	top: 0px;
+	left: 0px;
+}
+
+.stat-value {
+	font-size: 16px;
+	font-weight: bold;
+	color: #00cbfe;
+}
+
+.talent.socket {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	display: none;
+}
+
+.talent-tree-tip {
+	position: absolute;
+	padding: 10px;
+	display: none;
+	z-index: 1000;
+	//margin: -10px 0 0 45px;
+	max-width: 400px;
+	width: auto;
+	height: auto;
+	border: 2px solid rgba(207, 181, 37, 1);
+	border-radius: 8px;
+	box-shadow: 0px 0px 4px black;
+
+	background: url(images/talent-tip.png) repeat;
+
+}
+
+.talent-tree-tip.hidden {
+	left: -999em;
+	display: none;
+}
+
+.tip-name {
+	font-weight: bold;
+}
+
+.tip-description {
+	margin-top: 5px;
+}
+
+.tip-stats {
+	margin-top: 5px;
+}
+
+.tip-parameter {
+	color: #00cbfe;
+	font-weight: bold;
+}
+
+.tip-values {
+	color: #989898;
+}
+
+.tip-error {
+	margin-top: 5px;
+
+	color: #d92440;
+}
+
+.skill-slot {
+	position: absolute;
+
+	width: 65px;
+	height: 65px;
+}
+
+.skill {
+	position: absolute;
+
+	width: 65px;
+	height: 65px;
+
+	background-image : url(images/master-skills.png);
+	background-repeat : no-repeat;
+
+	background-position : 0px 0px;
+}
+
+.skill-lock {
+	position: absolute;
+
+	width: 36px;
+	height: 50px;
+
+	top: 6px;
+	left: 14px;
+
+	background-image : url(images/skill-lock.png);
+
+	background-repeat : no-repeat;
+
+	background-position : 0px 0px;
+}

@@ -509,9 +509,17 @@ try {
             res.sendFile(path.join(this.contentDir, 'index.html'));
         });
 
-        // Public Talents calculator (no auth required).
-        this.app.get(['/calculadora', '/calculadora/'], (_req, res) => {
-            res.sendFile(path.join(this.contentDir, 'calculadora', 'index.html'));
+        // Public Talents calculator (no auth required). Without the trailing
+        // slash the browser resolves relative asset URLs (data/, images/, js/)
+        // against the site root, so /calculadora must redirect to /calculadora/.
+        // In non-strict routing a bare '/calculadora' route also matches
+        // '/calculadora/', so serve that case directly to avoid a redirect loop.
+        this.app.get('/calculadora', (req, res) => {
+            if (req.path.endsWith('/')) {
+                res.sendFile(path.join(this.contentDir, 'calculadora', 'index.html'));
+                return;
+            }
+            res.redirect(301, '/calculadora/');
         });
 
         this.app.get('/lostpw', (req, res) => {
