@@ -45,7 +45,7 @@ function getOffset(el) {
 function showTalent(el, icon) {
     if (!el || !icon) return;
     el.style.backgroundImage = 'url(icons/' + icon + '.png)';
-    el.style.backgroundSize = 'contain';
+    el.style.backgroundSize = '44px';
     el.style.backgroundPosition = 'center';
 }
 
