@@ -281,7 +281,7 @@ function socketStone(slot_id, tier, tier_pos, level) {
     talent_el.style.display = '';
     document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').textContent =
         level + '/' + DBCalc.talent_slots[slot_id].capacity;
-    document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').style.display = '';
+    document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').style.display = 'block';
     var wrap = document.getElementById('talent_wrap_' + tier + '_' + tier_pos);
     wrap.classList.remove('selected');
     wrap.classList.add('socketed');
@@ -304,7 +304,7 @@ function talentTreeUndo() {
     if (DBCalc.socketed_stones[slot_id].talent_level >= 0) {
         document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').textContent =
             (DBCalc.socketed_stones[slot_id].talent_level + 1) + '/' + DBCalc.talent_slots[slot_id].capacity;
-        document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').style.display = '';
+        document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').style.display = 'block';
         document.querySelector('.talent-tree-tip').innerHTML = talentTreeTip(slot_id);
         updateSocketsLock();
     } else {
@@ -356,7 +356,7 @@ function updateBuildInfo() {
                 w.querySelector('.talent-mask').style.display = 'none';
             } else {
                 w.classList.add('locked');
-                w.querySelector('.talent-mask').style.display = '';
+                w.querySelector('.talent-mask').style.display = 'block';
             }
         }
     }
@@ -430,7 +430,7 @@ function switchDiscipline(discipline_id, slots) {
     DBCalc.currentClass = DBCalc.classes[DBCalc.currentClassID];
     DBCalc.currentDiscipline = DBCalc.disciplines[DBCalc.currentDisciplineID];
     if (current_discipline !== DBCalc.currentDisciplineID) {
-        document.querySelector('.loading').style.display = '';
+        document.querySelector('.loading').style.display = 'block';
         fetchJSON('data/' + DBCalc.currentDiscipline.toLowerCase() + '.json').then(function (data) {
             document.querySelector('.loading').style.display = 'none';
             DBCalc.talents = data.talents || [];
@@ -462,7 +462,7 @@ function showTalents(fade_out, fade_in, slots) {
             updateSocketsLock();
             DBCalc.undo = [];
         }
-        treeContent.style.display = '';
+        treeContent.style.display = 'block';
         treeContent.style.opacity = '1';
         window.setTimeout(function () { treeContent.style.opacity = '1'; }, fade_in);
     }, fade_out);
@@ -477,7 +477,7 @@ function showMainTooltip(opts) {
     var tip = document.querySelector('.talent-tree-tip');
     tip.innerHTML = opts.html;
     tip.classList.remove('hidden');
-    tip.style.display = '';
+    tip.style.display = 'block';
     tip.style.top = (opts.offset.top - 16) + 'px';
     tip.style.left = (opts.offset.left + opts.width + 8) + 'px';
 }
@@ -690,7 +690,7 @@ function setTalentTreeHandlers() {
                     updateBuildInfo();
                     document.getElementById('tree_slot_' + id).querySelector('.talent-slot-level').textContent =
                         (DBCalc.socketed_stones[id].talent_level + 1) + '/' + DBCalc.talent_slots[id].capacity;
-                    document.getElementById('tree_slot_' + id).querySelector('.talent-slot-level').style.display = '';
+                    document.getElementById('tree_slot_' + id).querySelector('.talent-slot-level').style.display = 'block';
                     document.querySelector('.talent-tree-tip').innerHTML = talentTreeTip(id);
                     unlockSkillSlotConnections();
                 }
@@ -755,7 +755,7 @@ function setDisciplineNavHandlers() {
             if (!this.classList.contains('selected') && !this.classList.contains('locked')) this.classList.add('hover');
             var tip = this.querySelector('.dsc-tip');
             tip.classList.add('visible');
-            tip.style.display = '';
+            tip.style.display = 'block';
         });
         sel.addEventListener('mouseleave', function () {
             this.classList.remove('hover');
@@ -827,7 +827,7 @@ function init() {
     }).catch(function (err) {
         var tip = document.querySelector('.talent-tree-tip');
         tip.innerHTML = '<div class="tip-name">Failed to load calculator data</div><div class="tip-error">' + err.message + '</div>';
-        tip.style.display = '';
+        tip.style.display = 'block';
     });
 }
 
