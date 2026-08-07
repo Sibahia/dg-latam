@@ -280,8 +280,11 @@ function testStandingMemberStillSuppliesTheArrivalPosition(): void {
         isPlayer: true,
         x: 400,
         y: 500,
+        // A confirmed sample: the anchor's own client reported standing here (a standing
+        // self full update), which is the only position a body may be placed on.
         groundedX: 400,
-        groundedY: 500
+        groundedY: 500,
+        groundedAbsolute: true
     });
 
     GlobalState.sessionsByToken.set(loading.token, loading as never);

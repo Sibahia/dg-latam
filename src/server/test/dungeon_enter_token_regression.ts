@@ -124,7 +124,11 @@ function testDungeonJoinerEnterWorldUsesOwnTransferToken(): void {
         id: rogue.clientEntID,
         isPlayer: true,
         x: 3400,
-        y: 1200
+        y: 1200,
+        // A confirmed sample: the anchor's own client reported standing here.
+        groundedX: 3400,
+        groundedY: 1200,
+        groundedAbsolute: true
     });
 
     GlobalState.sessionsByToken.set(rogue.token, rogue as never);
@@ -169,7 +173,11 @@ function testPartyDungeonTransferKeepsAnchorSpawnCoordinates(): void {
         id: rogue.clientEntID,
         isPlayer: true,
         x: 3400,
-        y: 1200
+        y: 1200,
+        // A confirmed sample: the anchor's own client reported standing here.
+        groundedX: 3400,
+        groundedY: 1200,
+        groundedAbsolute: true
     });
     mage.currentLevel = 'CemeteryHillHard';
     mage.character.CurrentLevel = { name: 'CemeteryHillHard', x: 1800, y: 950 };
@@ -444,7 +452,11 @@ function testClosedPartySessionsDoNotProvideDungeonAnchorCoordinates(): void {
         id: live.clientEntID,
         isPlayer: true,
         x: 400,
-        y: 500
+        y: 500,
+        // A confirmed sample: the anchor's own client reported standing here.
+        groundedX: 400,
+        groundedY: 500,
+        groundedAbsolute: true
     });
 
     GlobalState.sessionsByToken.set(closed.token, closed as never);
@@ -606,3 +618,4 @@ function main(): void {
 }
 
 void main();
+

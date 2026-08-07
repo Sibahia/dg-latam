@@ -243,11 +243,13 @@ function testEveryRegionReachesAGroundedEntryPoint(): void {
 
 // Losing connection inside a dungeon must put the player back exactly where they last stood in
 // the region, not on a coordinate the server reconstructed for them. Dungeons never write
-// CurrentLevel, so that position is still on the character the whole time they are inside.
+// CurrentLevel, so that position lives on the character's GroundedSpawns table (a standing self
+// full update) for the whole time they are inside.
 function testDungeonReturnKeepsTheLastPositionStoodOnInTheRegion(): void {
     const char: any = {
         name: 'Faller',
-        CurrentLevel: { name: 'JadeCityHard', x: 8_400, y: 1_058 }
+        CurrentLevel: { name: 'JadeCityHard', x: 8_400, y: 1_058 },
+        GroundedSpawns: { JadeCityHard: { x: 8_400, y: 1_058 } }
     };
 
     // An entry point that lost the floor -- the symptom being defended against.
@@ -258,16 +260,26 @@ function testDungeonReturnKeepsTheLastPositionStoodOnInTheRegion(): void {
     assert.equal(returned!.x, 8_400);
     assert.equal(returned!.y, 1_058, 'the position the player last stood on wins over the entry point');
 
-    // Home works the same way: the region record lives in PreviousLevel while CraftTown is
-    // current, and getSavedCoordinatesForLevel reads both.
+    // Home works the same way: the region record lives in GroundedSpawns while CraftTown is
+    // current, and getSavedCoordinatesForLevel reads the confirmed table.
     const homeChar: any = {
         name: 'Faller',
         CurrentLevel: { name: 'CraftTown', x: 360, y: 1_460 },
-        PreviousLevel: { name: 'JadeCityHard', x: 9_100, y: 1_058 }
+        GroundedSpawns: { JadeCityHard: { x: 9_100, y: 1_058 } }
     };
     const homeReturn = LevelConfig.resolveDungeonSafeReturn('JC_Mini2Hard', 'JadeCityHard', homeChar, airborneEntry);
-    assert.equal(homeReturn!.x, 9_100, 'the region record is used even when it sits in PreviousLevel');
+    assert.equal(homeReturn!.x, 9_100, 'the confirmed region record is used');
     assert.equal(homeReturn!.y, 1_058);
+
+    // A dead-reckoned CurrentLevel/PreviousLevel record is no longer a place to stand: without
+    // a confirmed point the entry point wins over the stale coordinate.
+    const staleChar: any = {
+        name: 'Faller',
+        CurrentLevel: { name: 'JadeCityHard', x: 8_400, y: 1_058 }
+    };
+    const staleReturn = LevelConfig.resolveDungeonSafeReturn('JC_Mini2Hard', 'JadeCityHard', staleChar, airborneEntry);
+    assert.equal(staleReturn!.x, 8_400, 'the entry point remains the fallback');
+    assert.equal(staleReturn!.y, -848, 'a stale CurrentLevel record must not be replayed');
 
     // With no record for the region at all the entry point is still better than nothing.
     const bare: any = { name: 'Faller' };

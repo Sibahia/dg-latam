@@ -7,6 +7,7 @@ import { DungeonCompletionSystem } from '../core/DungeonCompletionSystem';
 import { DungeonCompletionConditions } from '../core/DungeonCompletionConditions';
 import { Entity, EntityProps, EntityState, EntityTeam } from '../core/Entity';
 import { LevelConfig } from '../core/LevelConfig';
+import { discardForeignGroundedSample, inheritGroundedSample, noteGroundedSample } from '../core/GroundedPosition';
 import { GameData } from '../core/GameData';
 import { PetHandler } from './PetHandler';
 import { BuildingHandler } from './BuildingHandler';
@@ -3976,6 +3977,27 @@ export class EntityHandler {
 
         if (EntityHandler.suppressLateDuplicateRoomBossSpawn(client, levelName, levelMap, props, entityId)) {
             return;
+        }
+
+        // A full update rebuilds the entity from scratch, so carry the floor sample it
+        // already had across (otherwise the sample every spawn path depends on is silently
+        // discarded on every gear/state refresh), then drop any sample that belongs to a
+        // level we are no longer in.
+        const previousEntity = client.entities.get(entityId) ?? levelMap?.get(entityId);
+        if (previousEntity && previousEntity !== props) {
+            inheritGroundedSample(props, previousEntity);
+        }
+        discardForeignGroundedSample(props, levelName);
+        if (ownsThisPlayerPacket) {
+            // The client sends its true absolute position here, so a standing self full
+            // update is the most trustworthy floor sample there is -- and the only
+            // coordinate that may ever be replayed as a spawn point (a dead-reckoned 0x07
+            // sample can be arbitrarily far from real floor with no way to know it).
+            const standing = !bJumping && !bDropping;
+            noteGroundedSample(props, posX, posY, !standing, levelName, true);
+            if (standing && client.character) {
+                LevelConfig.rememberConfirmedSpawn(client.character, levelName, posX, posY);
+            }
         }
 
         client.entities.set(entityId, props);
