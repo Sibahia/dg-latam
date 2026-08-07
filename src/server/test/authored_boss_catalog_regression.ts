@@ -158,35 +158,6 @@ function assertMarkedAliasCompletes(levelName: string, aliasName: string, canoni
     GlobalState.levelEntities.delete(scope);
 }
 
-function assertVerifiedClientBossBypassesMissingMarker(levelName: string, bossName: string, ordinal: number): void {
-    const scope = getLevelScopeKey(levelName, `verified-client-boss-${ordinal}`);
-    const unverified = deadBoss(30_000 + ordinal * 10, bossName);
-    unverified.clientSpawned = true;
-    unverified.playerDamageContributed = false;
-    unverified.clientDefeatVerified = false;
-    GlobalState.levelEntities.set(scope, new Map([[unverified.id, unverified]]));
-    DungeonCompletionSystem.noteEntityDefeated(scope, unverified, 1000);
-    assert.equal(
-        DungeonCompletionSystem.evaluate(scope, 1001).objectivesMet,
-        false,
-        `${levelName}: unverified unmarked client boss bypassed the marker guard`
-    );
-
-    const verified = deadBoss(unverified.id + 1, bossName);
-    verified.clientSpawned = true;
-    verified.playerDamageContributed = true;
-    GlobalState.levelEntities.get(scope)!.set(verified.id, verified);
-    DungeonCompletionSystem.noteEntityDefeated(scope, verified, 1002);
-    assert.equal(
-        DungeonCompletionSystem.evaluate(scope, 1003).objectivesMet,
-        true,
-        `${levelName}: verified unmarked client boss did not bypass the missing marker`
-    );
-
-    DungeonCompletionSystem.reset(scope);
-    GlobalState.levelEntities.delete(scope);
-}
-
 function assertVerifiedAliasStillNeedsMarker(levelName: string, aliasName: string, ordinal: number): void {
     const scope = getLevelScopeKey(levelName, `verified-alias-marker-${ordinal}`);
     const verified = deadBoss(35_000 + ordinal * 10, aliasName);
@@ -265,8 +236,8 @@ function testScriptedIdentityAndEarlyEndingGuardrails(): void {
     assertMarkedAliasCompletes('JC_Mission11Hard', 'BrigandChampMarkerHard', 'BrigandChampHard', 6);
     assertMarkedAliasCompletes('SD_Mission4', 'OasisVizierGreen', 'OasisVizier', 7);
     assertMarkedAliasCompletes('SD_Mission4Hard', 'OasisVizierGreenHard', 'OasisVizierHard', 8);
-    assertVerifiedClientBossBypassesMissingMarker('SD_Mission4', 'OasisVizier', 9);
-    assertVerifiedClientBossBypassesMissingMarker('SD_Mission4Hard', 'OasisVizierHard', 10);
+    assertVerifiedAliasStillNeedsMarker('SD_Mission4', 'OasisVizier', 9);
+    assertVerifiedAliasStillNeedsMarker('SD_Mission4Hard', 'OasisVizierHard', 10);
     assertVerifiedAliasStillNeedsMarker('SD_Mission4', 'OasisVizierGreen', 11);
     assertVerifiedAliasStillNeedsMarker('SD_Mission4Hard', 'OasisVizierGreenHard', 12);
     // These four used to assert that killing a desert raptor completes Unearthing

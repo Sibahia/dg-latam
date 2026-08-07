@@ -71,6 +71,10 @@ function createBoss(id: number, name: string, hp: number): any {
         EntName: name,
         characterName: `,${name}`,
         clientSpawned: true,
+        // A terminal boss that reaches the completion system was killed by the
+        // player, so it carries verified damage (a scripted dead copy must not
+        // satisfy the required boss).
+        playerDamageContributed: true,
         isPlayer: false,
         team: EntityTeam.ENEMY,
         roomId: 11,
