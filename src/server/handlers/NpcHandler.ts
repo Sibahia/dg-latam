@@ -1,4 +1,5 @@
 import { Achievements } from '../core/Achievements';
+import { HomeStatueHandler } from './HomeStatueHandler';
 import { Client } from '../core/Client';
 import { GlobalState } from '../core/GlobalState';
 import { GameData } from '../core/GameData';
@@ -87,6 +88,12 @@ export class NpcHandler {
 
         const br = new BitReader(data);
         const npcId = br.readMethod9();
+
+        // Keep garden statues ride the same interact packet but have no dialogue of their own.
+        if (HomeStatueHandler.handleStatueInteract(client, npcId)) {
+            return;
+        }
+
         const levelName = String(client.currentLevel || client.character.CurrentLevel?.name || '');
         const npc = NpcHandler.findNpc(client, levelName, npcId);
 
