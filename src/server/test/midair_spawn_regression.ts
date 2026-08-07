@@ -119,20 +119,29 @@ function testGroundedSampleTracksTheLastStandingPosition(): void {
     assert.equal(jumping.groundedY, GROUND_Y);
 }
 
-// The helper every anchor spawn now goes through.
+// The helper every anchor spawn now goes through. Only a position the anchor's own
+// client reported standing on (a standing self full update, `groundedAbsolute`) may be
+// replayed; a dead-reckoned live position is never floor, so it is never an anchor.
 function testAnchorPositionRefusesOpenAir(): void {
     assert.equal(LevelHandler.resolveGroundedAnchorPosition(null), null);
 
     assert.deepEqual(
-        LevelHandler.resolveGroundedAnchorPosition({ x: 5, y: 9, groundedX: 100, groundedY: 200, airborne: true }),
+        LevelHandler.resolveGroundedAnchorPosition({
+            x: 5,
+            y: 9,
+            groundedX: 100,
+            groundedY: 200,
+            groundedAbsolute: true,
+            airborne: true
+        }),
         { x: 100, y: 200 },
-        'the grounded sample wins over a live airborne position'
+        'a confirmed grounded sample wins over a live airborne position'
     );
 
     assert.equal(
         LevelHandler.resolveGroundedAnchorPosition({ x: 100, y: -848, airborne: true }),
         null,
-        'no grounded sample and airborne means no safe spot'
+        'no confirmed sample and airborne means no safe spot'
     );
     assert.equal(
         LevelHandler.resolveGroundedAnchorPosition({ x: 100, y: -848, bJumping: true }),
@@ -145,10 +154,15 @@ function testAnchorPositionRefusesOpenAir(): void {
         'dropping through a platform counts too'
     );
 
-    assert.deepEqual(
+    assert.equal(
         LevelHandler.resolveGroundedAnchorPosition({ x: 640, y: 880 }),
+        null,
+        'a standing anchor with no confirmed sample is still not a place to put a body'
+    );
+    assert.deepEqual(
+        LevelHandler.resolveGroundedAnchorPosition({ x: 640, y: 880, groundedX: 640, groundedY: 880, groundedAbsolute: true }),
         { x: 640, y: 880 },
-        'a standing anchor with no sample yet is still usable'
+        'a confirmed sample from the anchor\'s own client is usable'
     );
 }
 
@@ -187,10 +201,24 @@ function testUnauthoredSpawnYieldsNoCoordinate(): void {
     assert.equal(jade.x, 10_430, 'a 0,0 record falls through to the authored spawn');
     assert.equal(jade.y, 1_058);
 
-    // And a real saved position still round-trips.
-    const saved: any = { CurrentLevel: { name: 'JadeCity', x: 12_777, y: 880 } };
-    const kept = LevelConfig.getSpawnCoordinates(saved, 'BridgeTown', 'JadeCity');
+    // A confirmed spawn point (client-reported standing full update) still round-trips.
+    const confirmed: any = {
+        CurrentLevel: { name: 'JadeCity', x: 0, y: 0 },
+        GroundedSpawns: { JadeCity: { x: 12_777, y: 880 } }
+    };
+    const kept = LevelConfig.getSpawnCoordinates(confirmed, 'BridgeTown', 'JadeCity');
     assert.deepEqual({ x: kept.x, y: kept.y, hasCoord: kept.hasCoord }, { x: 12_777, y: 880, hasCoord: true });
+
+    // A dead-reckoned CurrentLevel record is no longer replayed as a spawn: without a
+    // confirmed point the level's authored spawn wins.
+    const stale: any = { CurrentLevel: { name: 'JadeCity', x: 12_777, y: 880 } };
+    const replayed = LevelConfig.getSpawnCoordinates(stale, 'BridgeTown', 'JadeCity');
+    assert.equal(replayed.hasCoord, true, 'an authored spawn still covers the level');
+    assert.notDeepEqual(
+        { x: replayed.x, y: replayed.y },
+        { x: 12_777, y: 880 },
+        'a dead-reckoned CurrentLevel record must not be replayed as a spawn'
+    );
 }
 
 function main(): void {

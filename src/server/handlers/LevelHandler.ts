@@ -60,6 +60,7 @@ import { TutorialDungeonMechanics } from '../core/TutorialDungeonMechanics';
 import { DungeonCompletionSystem } from '../core/DungeonCompletionSystem';
 import { DungeonCompletionConditions } from '../core/DungeonCompletionConditions';
 import { MovementAuthority } from '../core/MovementAuthority';
+import { noteGroundedSample, resolveConfirmedGroundedPosition } from '../core/GroundedPosition';
 
 const db = new JsonAdapter();
 
@@ -468,30 +469,19 @@ export class LevelHandler {
      * and when there is none the caller must fall back to the level's own spawn marker
      * rather than guess.
      */
-    static resolveGroundedAnchorPosition(entity: any): { x: number; y: number } | null {
-        if (!entity || typeof entity !== 'object') {
-            return null;
-        }
-
-        const groundedX = Number(entity.groundedX);
-        const groundedY = Number(entity.groundedY);
-        if (Number.isFinite(groundedX) && Number.isFinite(groundedY)) {
-            return { x: Math.round(groundedX), y: Math.round(groundedY) };
-        }
-
-        // No grounded sample yet -- the anchor has not sent a standing 0x07 since they
-        // arrived. Their current position is only usable if it is not airborne.
-        if (entity.airborne || entity.bJumping || entity.bDropping) {
-            return null;
-        }
-
-        const liveX = Number(entity.x);
-        const liveY = Number(entity.y);
-        if (!Number.isFinite(liveX) || !Number.isFinite(liveY)) {
-            return null;
-        }
-
-        return { x: Math.round(liveX), y: Math.round(liveY) };
+    /**
+     * "Last standing on" now means a position the anchor's own client reported, not one the
+     * server dead-reckoned for it. Every caller here is placing a body, and a dead-reckoned
+     * point can be arbitrarily far from real floor with no way to know it -- see the note at
+     * the top of core/GroundedPosition.ts. Falling back to the level's spawn marker is the
+     * correct answer whenever there is no confirmed point, because that marker is floor by
+     * construction and a guess is not.
+     */
+    static resolveGroundedAnchorPosition(
+        entity: any,
+        expectedLevel?: string | null
+    ): { x: number; y: number } | null {
+        return resolveConfirmedGroundedPosition(entity, expectedLevel);
     }
 
     /**
@@ -545,7 +535,7 @@ export class LevelHandler {
         let y = 0;
         let hasCoord = false;
         const entity = session.entities.get(session.clientEntID);
-        const grounded = LevelHandler.resolveGroundedAnchorPosition(entity);
+        const grounded = LevelHandler.resolveGroundedAnchorPosition(entity, targetLevel);
         if (grounded) {
             x = grounded.x;
             y = grounded.y;
@@ -6292,11 +6282,10 @@ export class LevelHandler {
         // The last position the player was known to be standing on. entity.x/y alone is
         // only a running sum of movement deltas and its `airborne` flag is whatever the
         // most recent 0x07 carried, so anything that has to place a body on solid floor
-        // (party anchor spawns, dungeon return points) reads this instead.
-        if (!isAirborne && !flags.bJumping && !flags.bDropping) {
-            ent.groundedX = ent.x;
-            ent.groundedY = ent.y;
-        }
+        // (party anchor spawns, dungeon return points) reads this instead. A 0x07 sample is
+        // dead-reckoned, so it is tagged with its level but never `absolute`.
+        const isGroundedMovementPacket = !isAirborne && !flags.bJumping && !flags.bDropping;
+        noteGroundedSample(ent, ent.x, ent.y, !isGroundedMovementPacket, currentLevel);
 
         // Neo's "King of the World" ledger entry: the only place the server sees
         // where a player actually climbed to.
@@ -6320,10 +6309,7 @@ export class LevelHandler {
             levelEntity.bBackpedal = flags.bBackpedal;
             levelEntity.velocityY = velocityY;
             levelEntity.airborne = isAirborne;
-            if (!isAirborne && !flags.bJumping && !flags.bDropping) {
-                levelEntity.groundedX = ent.x;
-                levelEntity.groundedY = ent.y;
-            }
+            noteGroundedSample(levelEntity, ent.x, ent.y, !isGroundedMovementPacket, currentLevel);
         }
 
         if (isActiveSelfState) {

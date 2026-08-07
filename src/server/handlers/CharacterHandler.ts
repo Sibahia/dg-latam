@@ -1045,7 +1045,7 @@ export class CharacterHandler {
                      // point in open air, and spawning onto it drops the joiner; when the
                      // anchor has no grounded sample yet the level's own spawn marker wins.
                      const otherEntity = other.clientEntID > 0 ? other.entities?.get(other.clientEntID) : null;
-                     const anchorGround = LevelHandler.resolveGroundedAnchorPosition(otherEntity);
+                     const anchorGround = LevelHandler.resolveGroundedAnchorPosition(otherEntity, normalizedTarget);
                      if (anchorGround) {
                          spawn = {
                              x: anchorGround.x + 100,
