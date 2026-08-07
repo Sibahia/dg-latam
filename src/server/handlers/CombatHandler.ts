@@ -13,6 +13,7 @@ import { LevelHandler } from './LevelHandler';
 import { EntityState, EntityTeam } from '../core/Entity';
 import { EntityHandler } from './EntityHandler';
 import { MissionHandler } from './MissionHandler';
+import { SocialHandler } from './SocialHandler';
 import { areClientsInSameParty, getClientCharacterKey, sharesRoomIds, shouldShareCombatView } from '../core/PartySync';
 import { areClientsInSameLevelScope, getClientLevelScope, getScopeLevelName } from '../core/LevelScope';
 import {
@@ -2708,6 +2709,8 @@ export class CombatHandler {
 
         client.authoritativeCurrentHp = 0;
         CombatHandler.armBossRegenForPlayerDeath(client, nowMs, !wasAlreadyDead || !deathRegenWasArmed);
+        // The party portrait must show the death immediately, not on the next membership event.
+        SocialHandler.broadcastPartyHpForPlayer(client);
     }
 
     static notePlayerActiveMovementState(
@@ -4123,6 +4126,8 @@ export class CombatHandler {
 
         const payload = CombatHandler.buildHpDeltaPayload(targetSession.clientEntID, delta);
         CombatHandler.broadcastToCombatRoom(targetSession, CombatHandler.CLIENT_HEAL_PACKET_ID, payload, includeTarget, [targetSession.clientEntID]);
+        // Keep the party portrait's HP in step with the in-world bar.
+        SocialHandler.broadcastPartyHpForPlayer(targetSession);
     }
 
     private static broadcastPlayerState(targetSession: Client, entState: number, roomScoped: boolean = false): void {
