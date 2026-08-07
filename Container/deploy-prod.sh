@@ -22,6 +22,7 @@ sudo docker run -d \
   -e GAME_MONGODB_URI="${MONGO_URI}" \
   -e GAME_MONGODB_DB_NAME="${DB_NAME}" \
   -e ADMIN_API_SECRET="$(cat /opt/dungeon-blitz-r/.admin_api_secret)" \
+  -e DUNGEON_DIAG=1 \
   "${IMAGE}"
 
 echo "Waiting for health ..."
