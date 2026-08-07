@@ -23,7 +23,7 @@
         44,
         342
       ],
-      "capacity": 5,
+      "capacity": 2,
       "connections": [
         2
       ]
@@ -34,7 +34,7 @@
         77,
         304
       ],
-      "capacity": 2,
+      "capacity": 5,
       "connections": [
         3
       ]
@@ -107,7 +107,7 @@
         201,
         102
       ],
-      "capacity": 3,
+      "capacity": 2,
       "connections": [
         5,
         8
@@ -119,7 +119,7 @@
         234,
         50
       ],
-      "capacity": 2,
+      "capacity": 3,
       "connections": [
         6,
         7,
@@ -133,7 +133,7 @@
         372,
         52
       ],
-      "capacity": 5,
+      "capacity": 2,
       "connections": [
         8,
         11
@@ -145,7 +145,7 @@
         394,
         97
       ],
-      "capacity": 2,
+      "capacity": 5,
       "connections": [
         8,
         12
@@ -219,7 +219,7 @@
         527,
         291
       ],
-      "capacity": 3,
+      "capacity": 2,
       "connections": [
         14,
         17
@@ -231,7 +231,7 @@
         559,
         341
       ],
-      "capacity": 2,
+      "capacity": 3,
       "connections": [
         15,
         16,
@@ -245,7 +245,7 @@
         481,
         493
       ],
-      "capacity": 5,
+      "capacity": 2,
       "connections": [
         17,
         20
@@ -257,7 +257,7 @@
         425,
         490
       ],
-      "capacity": 2,
+      "capacity": 5,
       "connections": [
         17,
         21
@@ -331,7 +331,7 @@
         189,
         498
       ],
-      "capacity": 3,
+      "capacity": 2,
       "connections": [
         23,
         26
@@ -343,7 +343,7 @@
         127,
         495
       ],
-      "capacity": 2,
+      "capacity": 3,
       "connections": [
         24,
         25
@@ -373,7 +373,7 @@
         405
       ],
       "pointsRequired": 40,
-      "connection": 18
+      "connection": 17
     }
   ]
 }

@@ -43,9 +43,10 @@ function getOffset(el) {
 }
 
 function showTalent(el, icon) {
-    if (!el) return;
+    if (!el || !icon) return;
     el.style.backgroundImage = 'url(icons/' + icon + '.png)';
-    el.style.backgroundPosition = '0px 0px';
+    el.style.backgroundSize = '44px';
+    el.style.backgroundPosition = 'center';
 }
 
 function formatStatValue(v) {
@@ -278,7 +279,7 @@ function socketStone(slot_id, tier, tier_pos, level) {
     };
     var talent_el = document.getElementById('tree_slot_' + slot_id).querySelector('.talent');
     showTalent(talent_el, DBCalc.talents[talent_id].icon);
-    talent_el.style.display = '';
+    talent_el.style.display = 'block';
     document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').textContent =
         level + '/' + DBCalc.talent_slots[slot_id].capacity;
     document.getElementById('tree_slot_' + slot_id).querySelector('.talent-slot-level').style.display = 'block';

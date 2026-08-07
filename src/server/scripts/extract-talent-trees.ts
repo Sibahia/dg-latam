@@ -32,11 +32,16 @@ const SOCKET_CONNECTIONS: number[][] = [
     [15, 16, 18, 19], [17, 20], [17, 21], [18, 22], [19, 23], [20, 23], [21, 22, 24, 25],
     [23, 26], [23, 26], [24, 25]
 ];
-// Capacities per socket (0-indexed), authoritative: game const_529 == server TalentConfig.CONST_529.
-const SOCKET_CAPACITIES = [5, 2, 3, 5, 5, 3, 2, 3, 2, 5, 2, 3, 5, 5, 3, 2, 3, 2, 5, 2, 3, 5, 5, 3, 2, 3, 2];
+// Capacities per socket (0-indexed), in the *visual* slot order of the archived talent
+// calculator. Server TalentConfig.CONST_529 uses the game's internal socket order, which is
+// NOT the same as the visual order the calculator renders sockets in, so it must not be mapped
+// 1:1 onto SOCKET_POSITIONS. The archived calculator is the authoritative per-slot source for
+// the tree display (see skill slot 2 -> socket 17: the game-internal index 18 is the visual
+// socket 17).
+const SOCKET_CAPACITIES = [2, 5, 3, 5, 5, 3, 2, 2, 3, 2, 5, 3, 5, 5, 3, 2, 2, 3, 2, 5, 3, 5, 5, 3, 2, 2, 3];
 
 const SKILL_PREREQ_POINTS = [0, 20, 40];
-const SKILL_PREREQ_SOCKET = [-1, 8, 18];
+const SKILL_PREREQ_SOCKET = [-1, 8, 17];
 const SKILL_SLOT_POSITIONS: Array<[number, number]> = [
     [86, 405], [305, 61], [523, 405]
 ];
