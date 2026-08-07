@@ -769,7 +769,27 @@ export class LevelHandler {
             return null;
         }
 
-        return LevelHandler.collectPartyTransferSyncAnchorCandidates(client, targetLevel)[0] ?? null;
+        const candidates = LevelHandler.collectPartyTransferSyncAnchorCandidates(client, targetLevel);
+        const anchor = candidates[0] ?? null;
+        // This is where a party member entering a dungeon decides whose run to join.
+        // Losing the anchor here is what strands them in a private instance with their
+        // own copy of every enemy, so make the decision visible either way.
+        const partyId = getPartyIdForClient(client);
+        if (partyId > 0) {
+            if (anchor) {
+                console.log(
+                    `[TransferAnchor] ${client.character?.name ?? '?'} -> ${targetLevel} joining ` +
+                    `${anchor.characterName ?? anchor.characterKey} instance=${anchor.state.levelInstanceId ?? '(none)'}`
+                );
+            } else {
+                console.warn(
+                    `[TransferAnchor] ${client.character?.name ?? '?'} -> ${targetLevel} found NO party anchor ` +
+                    `(partyId=${partyId}, sessionsInParty=${GlobalState.getSessionsInParty(partyId).size}) - ` +
+                    'will open a private instance unless the scope guard adopts one later.'
+                );
+            }
+        }
+        return anchor;
     }
 
     private static applyStoredRoomProgressState(
@@ -898,7 +918,12 @@ export class LevelHandler {
                     Number.isFinite(Number(anchorState.x)) &&
                     Number.isFinite(Number(anchorState.y))
                 ) {
-                    x = Math.round(Number(anchorState.x) + 100);
+                    // Land on the anchor's own confirmed grounded sample, not beside it. The server
+                    // has no collision, so a sideways offset is a guess about floor it cannot
+                    // check -- and next to a ledge, a pit or a doorway that guess dropped the
+                    // joiner through the map. Two bodies in one spot is what the client already
+                    // does for every stacked player; falling is not.
+                    x = Math.round(Number(anchorState.x));
                     y = Math.round(Number(anchorState.y));
                     hasCoord = true;
                     console.log(
@@ -1294,8 +1319,16 @@ export class LevelHandler {
 
     private static broadcastSharedDungeonQuestProgress(levelScope: string, progress: number): void {
         const payload = LevelHandler.buildQuestProgressPayload(progress);
-        for (const other of GlobalState.getSessionsInLevelScope(levelScope)) {
-            if (!other.playerSpawned) {
+
+        // Resolve the audience by scanning live sessions rather than trusting
+        // `sessionsByLevelScope`. That index is refreshed lazily and was observed
+        // dropping a player mid-run -- the broadcast then reached only one of two party
+        // members and their progress bars silently diverged (20% vs 0%). This runs on
+        // enemy death, not per frame, so the scan is affordable and correctness wins.
+        const indexed = new Set(GlobalState.getSessionsInLevelScope(levelScope));
+        const missedByIndex: string[] = [];
+        for (const other of GlobalState.sessionsByToken.values()) {
+            if (!other.playerSpawned || getClientLevelScope(other) !== levelScope) {
                 continue;
             }
 
@@ -1303,6 +1336,19 @@ export class LevelHandler {
                 other.character.questTrackerState = progress;
             }
             other.send(0xB7, payload);
+            if (!indexed.has(other)) {
+                missedByIndex.push(other.character?.name ?? '?');
+            }
+        }
+
+        if (missedByIndex.length > 0) {
+            // Not fatal here any more, but it means anything else still reading the
+            // index for this scope (combat relay, cutscene fan-out, the fresh-run guard)
+            // is also missing these players.
+            console.warn(
+                `[DungeonProgress] level scope index is STALE for ${levelScope}: ` +
+                `${missedByIndex.join(', ')} were in the scope but absent from sessionsByLevelScope.`
+            );
         }
     }
 

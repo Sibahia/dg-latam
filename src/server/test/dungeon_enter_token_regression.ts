@@ -153,7 +153,7 @@ function testDungeonJoinerEnterWorldUsesOwnTransferToken(): void {
     assert.ok(pendingEntry, 'joiner pending token should resolve to pending world entry');
     assert.equal(pendingEntry.syncAnchorToken, rogue.token, 'pending state should still remember the rogue sync anchor');
     assert.equal(pendingEntry.levelInstanceId, rogue.levelInstanceId, 'joiner should still share the rogue dungeon instance');
-    assert.equal(pendingEntry.newX, 3500, 'joiner should spawn 100px beside the party anchor instead of dungeon start');
+    assert.equal(pendingEntry.newX, 3400, 'joiner should land on the party anchor instead of dungeon start');
     assert.equal(pendingEntry.newY, 1200, 'joiner should spawn at the party anchor vertical position');
     assert.equal(pendingEntry.newHasCoord, true, 'joiner party-anchor spawn should use explicit coordinates');
     assert.equal(parseEnterWorldTransferToken(enterWorldPacket.payload), joinerToken, '0x21 must carry the joiner token, not the sync anchor token');
@@ -203,7 +203,7 @@ function testPartyDungeonTransferKeepsAnchorSpawnCoordinates(): void {
     assert.equal(syncState.levelInstanceId, rogue.levelInstanceId, 'joiner transfer should reuse the party anchor dungeon instance');
     assert.equal(syncState.syncAnchorToken, rogue.token, 'joiner transfer should remember the party anchor token');
     assert.equal(syncState.hasCoord, true, 'joiner transfer should preserve explicit party-anchor spawn coordinates');
-    assert.equal(syncState.x, 3500, 'joiner transfer should spawn 100px beside the party anchor');
+    assert.equal(syncState.x, 3400, 'joiner transfer should land on the party anchor');
     assert.equal(syncState.y, 1200, 'joiner transfer should spawn at the party anchor vertical position');
     assert.equal(syncState.syncEntryLevel, 'CemeteryHillHard', 'joiner should keep their own dungeon entry region');
     assert.equal(syncState.syncEntryX, 1800, 'joiner should keep their own dungeon entry x coordinate');
@@ -413,14 +413,14 @@ function testReturningDungeonRootLogsPhysicalPartyAnchor(): void {
         assert.equal(syncState.levelInstanceId, neodevils.levelInstanceId, 'returning root should keep the shared dungeon instance');
         assert.equal(syncState.syncAnchorToken, 37629, 'returning root should preserve the original dungeon sync anchor');
         assert.equal(syncState.syncAnchorCharacterName, 'AlexMercer', 'sync anchor identity should still describe the dungeon root');
-        assert.equal(syncState.x, -1484, 'returning root should spawn beside the live party member');
+        assert.equal(syncState.x, -1584, 'returning root should land on the live party member');
         assert.equal(syncState.y, -1875, 'returning root should use the live party member vertical position');
     } finally {
         console.log = originalLog;
     }
 
     assert.ok(
-        logs.some((line) => line.includes('Party dungeon anchor spawn AlexMercer -> AC_Mission1 beside Neodevils at -1484,-1875')),
+        logs.some((line) => line.includes('Party dungeon anchor spawn AlexMercer -> AC_Mission1 beside Neodevils at -1584,-1875')),
         'party anchor log should name the physical party member, not the inherited sync root'
     );
     assert.ok(
@@ -473,7 +473,7 @@ function testClosedPartySessionsDoNotProvideDungeonAnchorCoordinates(): void {
 
     const syncState = (LevelHandler as any).buildTransferSyncState(alex, 'AC_Mission1', null);
     assert.ok(syncState, 'returning player should find the live party anchor');
-    assert.equal(syncState.x, 500, 'closed party sessions must not supply stale anchor coordinates');
+    assert.equal(syncState.x, 400, 'closed party sessions must not supply stale anchor coordinates');
     assert.equal(syncState.y, 500, 'closed party sessions must not supply stale anchor coordinates');
 }
 
