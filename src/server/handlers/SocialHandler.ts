@@ -1046,12 +1046,6 @@ export class SocialHandler {
                 if (!sameLevel) {
                     bb.writeMethod13(session.currentLevel || '');
                 }
-                // HP / death state for the party portrait. The client reads the existing
-                // fields first and stops where it knows how; these are appended last so a
-                // client that does not parse them yet is unaffected.
-                bb.writeMethod91(Math.max(0, Math.round(Number(session.authoritativeCurrentHp ?? 0))));
-                bb.writeMethod91(Math.max(1, Math.round(Number(session.authoritativeMaxHp ?? 1))));
-                bb.writeMethod15(Math.max(0, Math.round(Number(session.authoritativeCurrentHp ?? 0))) <= 0);
             }
         }
 
@@ -1071,21 +1065,6 @@ export class SocialHandler {
             }
 
             session.send(0x75, SocialHandler.buildPartyUpdatePayload(group, session));
-        }
-    }
-
-    /**
-     * Pushes the 0x75 party packet again for a player whose HP / death state just changed,
-     * so the party portrait reflects it without waiting for the next membership event.
-     */
-    static broadcastPartyHpForPlayer(client: Client): void {
-        const name = client.character?.name;
-        if (!name) {
-            return;
-        }
-        const party = SocialHandler.getPartyForName(name);
-        if (party && party.partyId > 0) {
-            SocialHandler.broadcastPartyUpdateById(party.partyId);
         }
     }
 
