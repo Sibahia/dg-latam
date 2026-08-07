@@ -296,10 +296,10 @@ function testStandingMemberStillSuppliesTheArrivalPosition(): void {
     assert.ok(syncState, 'joining a live party dungeon produced no sync state');
     assert.equal(syncState.levelInstanceId, SHARED_INSTANCE_ID, 'the joiner left the shared instance');
     assert.equal(syncState.hasCoord, true, 'the joiner was sent to the dungeon entrance instead of the party');
-    // Our fork lands the joiner a fixed offset to the side of the anchor's grounded
-    // sample (no server-side collision), not on top of it.
-    assert.equal(syncState.x, 500, 'the joiner should arrive beside the standing party member');
-    assert.equal(syncState.y, 500, 'the joiner should arrive beside the standing party member');
+    // The joiner lands on the anchor's own confirmed grounded sample (no server-side
+    // collision, so no sideways guess).
+    assert.equal(syncState.x, 400, 'the joiner should land on the standing party member');
+    assert.equal(syncState.y, 500, 'the joiner should land on the standing party member');
     assert.equal(
         syncState.syncAnchorCharacterName,
         standing.character.name,

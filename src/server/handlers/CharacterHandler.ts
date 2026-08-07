@@ -1020,6 +1020,7 @@ export class CharacterHandler {
              let syncEntryLevel: string | undefined = storedDungeonSnapshot?.entryLevel;
              let syncQuestProgress: number | undefined = storedDungeonSnapshot?.questProgress;
 
+             let syncedWithPartyAnchor = false;
              if (isDungeonLevel) {
                  const normalizedTarget = LevelConfig.normalizeLevelName(currentLevelName);
                  // Search active sessions for a party member in the same dungeon
@@ -1048,7 +1049,7 @@ export class CharacterHandler {
                      const anchorGround = LevelHandler.resolveGroundedAnchorPosition(otherEntity, normalizedTarget);
                      if (anchorGround) {
                          spawn = {
-                             x: anchorGround.x + 100,
+                             x: anchorGround.x,
                              y: anchorGround.y,
                              hasCoord: true
                          };
@@ -1066,6 +1067,7 @@ export class CharacterHandler {
                          : undefined);
                      console.log(`[EnterWorld] Syncing dungeon instance for ${char.name} with party anchor ${other.character.name} (instanceId=${levelInstanceId})`);
                      sharedAnchor = other;
+                     syncedWithPartyAnchor = true;
                      break;
                  }
 
@@ -1087,12 +1089,24 @@ export class CharacterHandler {
                          syncAnchorToken = pending.syncAnchorToken || token;
                          syncAnchorCharacterName = String(pending.syncAnchorCharacterName || pending.character?.name || '').trim();
                          console.log(`[EnterWorld] Syncing dungeon instance for ${char.name} with pending party anchor ${syncAnchorCharacterName} (instanceId=${levelInstanceId})`);
+                         syncedWithPartyAnchor = true;
                          break;
                      }
                  }
 
                  if (!levelInstanceId) {
                      levelInstanceId = createDungeonInstanceId(token);
+                 } else if (!syncedWithPartyAnchor) {
+                     // No party mate was found in this dungeon, so the id came from this
+                     // character's own saved snapshot: they resume a PRIVATE run with their
+                     // own enemies. Reported repeatedly as "the second player spawns their
+                     // own enemies", and it is invisible unless the source is stated.
+                     const partyId = getPartyIdForClient(client);
+                     console.warn(
+                         `[EnterWorld] ${char.name} -> ${normalizedTarget} reusing stored snapshot ` +
+                         `instance '${levelInstanceId}' (no party mate found in this dungeon; ` +
+                         `partyId=${partyId || 0}). This is a private run unless the scope guard adopts one later.`
+                     );
                  }
              }
 

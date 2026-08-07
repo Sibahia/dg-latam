@@ -1333,6 +1333,34 @@ export class CombatHandler {
             return roomBossId;
         }
 
+        // A client-spawned copy of a required boss must resolve to the level's canonical
+        // required-boss entity, or the reported damage accumulates on a body the completion
+        // system never sees and the run stays on objectives_pending forever after the boss
+        // dies. The multi-part Nephit fight (Dread Capstone) spawns several
+        // `NephitSpireMarkerHard` bodies, all reported by the client; the copy's own
+        // aliasTarget field is not always mirrored into `canonicalEntityId`, so fall back to
+        // a canonical-name match against the scope map.
+        if (localEntity && !Boolean(localEntity.isPlayer) && !Boolean(localEntity.canonicalEntityId ?? localEntity.sharedCanonicalId)) {
+            const levelName = getScopeLevelName(levelScope);
+            const requiredBossName = DungeonCompletionConditions.getCanonicalBossName(levelName, localEntity, levelScope);
+            if (requiredBossName) {
+                const scopeMap = GlobalState.levelEntities.get(levelScope);
+                if (scopeMap) {
+                    for (const [candidateId, candidate] of scopeMap) {
+                        if (
+                            candidateId !== localId &&
+                            candidate &&
+                            !candidate.isPlayer &&
+                            DungeonCompletionConditions.getCanonicalBossName(levelName, candidate, levelScope) === requiredBossName
+                        ) {
+                            EntityHandler.rememberEntityAlias(client, localId, candidateId);
+                            return candidateId;
+                        }
+                    }
+                }
+            }
+        }
+
         return localId;
     }
 

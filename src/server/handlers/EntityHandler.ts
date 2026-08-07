@@ -24,7 +24,7 @@ import { MissionHandler } from './MissionHandler';
 import { noteDungeonRunBossCutscene, noteDungeonRunEntitySeen } from '../core/DungeonRunStats';
 import { areClientsInSameParty, getPartyIdForClient, isClientPartyLeader, sharesRoomIds } from '../core/PartySync';
 import { areClientsInSameLevelScope, getClientLevelScope, getLevelScopeKey, getScopeLevelName } from '../core/LevelScope';
-import { getPartyRuntimeLevelForClient } from '../core/RuntimeLevel';
+import { getScopeRuntimeLevel } from '../core/RuntimeLevel';
 import { clearOpenBossScene, getOpenBossScene, isRoomBossEntity, markRoomBossEntity } from '../core/RoomBossState';
 import { getBossIdentityKey, getBossIdentityKeys } from '../core/BossCopyCensus';
 import { TutorialDungeonAuthorityEntity, TutorialDungeonMechanics } from '../core/TutorialDungeonMechanics';
@@ -1802,7 +1802,9 @@ export class EntityHandler {
             return Math.max(1, Math.min(50, Math.round(Number(fallbackLevel) || 1)));
         }
 
-        return getPartyRuntimeLevelForClient(client, client.character, fallbackLevel);
+        // A dungeon's difficulty is the dungeon's authored tier, fixed per level and the
+        // same for every party member -- never the highest player level in the run.
+        return getScopeRuntimeLevel(getClientLevelScope(client), client, fallbackLevel);
     }
 
     private static applyRuntimeDungeonEntityLevel(client: Client, levelName: string | null | undefined, entity: any): void {
