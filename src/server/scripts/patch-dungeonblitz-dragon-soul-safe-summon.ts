@@ -30,7 +30,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-dragon-soul-safe-summon.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-dragon-soul-safe-summon.ts [--verify] [--swf <path>]",
         "",
         "Compatibility wrapper for the Dragon Soul copy-power patch.",
         "Dragon Soul must copy triggering Fire Brand projectiles only; this script no longer",

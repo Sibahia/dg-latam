@@ -47,7 +47,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-dragon-soul-copy-power.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-dragon-soul-copy-power.ts [--verify] [--swf <path>]",
         "",
         "Patches ActivePower.method_872 so Dragon Soul copies the triggering",
         "Fire Brand projectile instead of always replacing it with DragonSoulShotN.",

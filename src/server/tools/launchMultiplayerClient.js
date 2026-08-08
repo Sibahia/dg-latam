@@ -41,7 +41,7 @@ function normalizeHttpUrl(value, { loopbackOnly = false } = {}) {
 function ensureBuilt() {
     if (!fs.existsSync(BRIDGE_ENTRY)) {
         console.error(`[Launcher] Missing build output: ${BRIDGE_ENTRY}`);
-        console.error('[Launcher] Run `npm run build` first.');
+        console.error('[Launcher] Run `pnpm run build` first.');
         process.exit(1);
     }
 }

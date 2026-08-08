@@ -57,7 +57,7 @@ import {
  * ---------------------------------------------------------------------------------------------
  *
  * Usage:
- *   npm exec tsx src/server/scripts/patch-dungeonblitz-pet-fetches-loot.ts [--verify] [--only brain|loot|both]
+ *   pnpm dlx tsx src/server/scripts/patch-dungeonblitz-pet-fetches-loot.ts [--verify] [--only brain|loot|both]
  */
 
 const DEFAULT_SWF = path.resolve(
@@ -172,7 +172,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean; only: On
       only = value;
     } else if (arg === "--help" || arg === "-h") {
       console.log([
-        "Usage: npm exec tsx src/server/scripts/patch-dungeonblitz-pet-fetches-loot.ts [--verify] [--only brain|loot|both]",
+        "Usage: pnpm dlx tsx src/server/scripts/patch-dungeonblitz-pet-fetches-loot.ts [--verify] [--only brain|loot|both]",
         "  --only loot    the pet becomes what collects loot (does not steer it)",
         "  --only brain   the pet walks toward dropped gold (does not collect it)",
         "Revert with: git checkout -- <swf path>",

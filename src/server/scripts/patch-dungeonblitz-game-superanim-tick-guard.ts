@@ -44,7 +44,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-game-superanim-tick-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-game-superanim-tick-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches Game.method_1325 so a bad SuperAnimInstance BitmapData allocation",
         "is destroyed and removed instead of crashing the Flash render tick.",

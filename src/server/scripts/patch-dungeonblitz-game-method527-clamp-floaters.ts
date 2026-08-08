@@ -55,7 +55,7 @@ function parseArgs(argv: string[]): { swfPath: string; sourceSwfPath: string; ve
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-game-method527-clamp-floaters.ts [--verify] [--swf <path>] [--source-swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-game-method527-clamp-floaters.ts [--verify] [--swf <path>] [--source-swf <path>]",
         "",
         "Restores Game.method_527 damage floaters from the source SWF, then clamps",
         "their displayed damage and on-screen position before class_72 allocates text bitmaps.",

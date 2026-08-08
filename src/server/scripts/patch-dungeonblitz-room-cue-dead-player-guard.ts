@@ -54,7 +54,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-room-cue-dead-player-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-room-cue-dead-player-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches Room cue hooks so room-scripted boss powers/buffs are ignored",
         "while the local player is in the dead/revive state.",

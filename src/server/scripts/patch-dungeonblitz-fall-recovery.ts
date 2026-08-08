@@ -44,7 +44,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     } else if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-fall-recovery.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-fall-recovery.ts [--verify] [--swf <path>]",
         "",
         "Makes authored Plummet and generic out-of-bounds recovery prefer the last",
         "grounded surface over room/global first-spawn markers.",

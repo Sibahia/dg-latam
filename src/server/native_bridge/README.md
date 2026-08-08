@@ -31,13 +31,13 @@ Do not commit the SDK directory, token cache, channel-link cache, `.env`, or bot
 From the repository root:
 
 ```bash
-npm run install:discord-social-sdk
+pnpm run install:discord-social-sdk
 ```
 
 The files are installed in `src/server/native_bridge/discord_social_sdk/`. To replace an existing local SDK copy, run:
 
 ```bash
-npm run install:discord-social-sdk -- --force
+pnpm run install:discord-social-sdk -- --force
 ```
 
 If the command reports that Git LFS is missing, install and initialize Git LFS before retrying.
@@ -86,7 +86,7 @@ The bridge reads `src/server/discord-social-bridge.config.json`; environment var
 | `DISCORD_SOCIAL_CHANNEL_LINK_CACHE_PATH` | Overrides the local channel-link cache location. |
 | `DISCORD_SOCIAL_BRIDGE_LOG_PAYLOADS` | Logs bridge payloads for debugging. Leave it disabled outside controlled debugging because payloads include chat content. |
 
-For a local development session, build the bridge, set the required variables in `src/server/.env` or your shell, then run `npm run dev` from the repository root. The macOS and Windows launchers detect a built bridge and enable it automatically; without the SDK or executable, they leave the optional bridge disabled.
+For a local development session, build the bridge, set the required variables in `src/server/.env` or your shell, then run `pnpm run dev` from the repository root. The macOS and Windows launchers detect a built bridge and enable it automatically; without the SDK or executable, they leave the optional bridge disabled.
 
 ## Bridge protocol
 

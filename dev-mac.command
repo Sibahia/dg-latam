@@ -197,35 +197,42 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "ERROR: npm is not installed or not on PATH."
+if ! command -v corepack >/dev/null 2>&1; then
+  echo "ERROR: Corepack is not installed or not on PATH."
   echo "Reinstall Node.js (LTS) then re-run this file."
   echo
   read -r -p "Press Enter to close..."
   exit 1
 fi
 
+if ! corepack enable pnpm; then
+  echo "ERROR: Could not enable pnpm through Corepack."
+  echo "Run 'corepack enable pnpm' from a terminal with permission to update your Node.js installation, then re-run this file."
+  echo
+  read -r -p "Press Enter to close..."
+  exit 1
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "ERROR: pnpm is not available after enabling Corepack."
+  echo "Run 'corepack enable pnpm', reopen Terminal, then re-run this file."
+  echo
+  read -r -p "Press Enter to close..."
+  exit 1
+fi
+
 echo "Node: $(node -v)"
-echo "npm:  $(npm -v)"
+echo "pnpm:  $(pnpm -v)"
 echo
 
-if [[ ! -d "node_modules" ]]; then
-  echo "Installing root dependencies..."
-  npm install
+echo "Installing workspace dependencies..."
+if ! pnpm install --frozen-lockfile --prod=false; then
+  echo "ERROR: Workspace dependency install failed."
   echo
-else
-  echo "Root dependencies already installed; skipping."
-  echo
+  read -r -p "Press Enter to close..."
+  exit 1
 fi
-
-if [[ ! -d "src/server/node_modules" ]]; then
-  echo "Installing server dependencies..."
-  (cd "src/server" && npm install)
-  echo
-else
-  echo "Server dependencies already installed; skipping."
-  echo
-fi
+echo
 
 BRIDGE_DIR="$ROOT_DIR/src/server/native_bridge"
 BRIDGE_SDK_DIR="$BRIDGE_DIR/discord_social_sdk"
@@ -240,7 +247,7 @@ elif [[ -x "$BRIDGE_EXECUTABLE" ]]; then
   echo
 else
   echo "Discord Social SDK native bridge is not installed; skipping native bridge build."
-  echo "Run npm run install:discord-social-sdk to install the optional SDK files."
+  echo "Run pnpm run install:discord-social-sdk to install the optional SDK files."
   echo
 fi
 
@@ -259,7 +266,7 @@ fi
 export DISCORD_SOCIAL_APP_ID="1447954255452311695"
 export DISCORD_SOCIAL_DEVICE_FLOW="false"
 
-echo "Starting server + Discord RPC (npm run dev)..."
+echo "Starting server + Discord RPC (pnpm run dev)..."
 echo "Discord channel bridge enabled: $DISCORD_SOCIAL_BRIDGE_ENABLED"
 echo "Discord Social SDK native bridge enabled: $DISCORD_SOCIAL_NATIVE_BRIDGE_ENABLED"
 echo "Discord chat relay mode: $DISCORD_SOCIAL_CHAT_RELAY_MODE"
@@ -271,7 +278,7 @@ echo
 open_flashbrowser_when_ready "$DEV_URL" "$FLASH_BROWSER_APP_NAME" "$FLASH_BROWSER_OPEN_ATTEMPTS" "$FLASH_BROWSER_OPEN_DELAY_SECONDS" &
 FLASH_BROWSER_WATCHER_PID=$!
 set +e
-npm run dev
+pnpm run dev
 EXIT_CODE=$?
 set -e
 

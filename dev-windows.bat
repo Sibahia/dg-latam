@@ -92,11 +92,29 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: npm kontrol
-where npm >nul 2>nul
+:: Corepack kontrol
+where corepack >nul 2>nul
 if %errorlevel% neq 0 (
-    echo ERROR: npm is not installed or not on PATH.
+    echo ERROR: Corepack is not installed or not on PATH.
     echo Reinstall Node.js ^(LTS^) then re-run this file.
+    echo.
+    pause
+    exit /b 1
+)
+
+call corepack enable pnpm
+if !errorlevel! neq 0 (
+    echo ERROR: Could not enable pnpm through Corepack.
+    echo Run "corepack enable pnpm" from a terminal with permission to update your Node.js installation, then re-run this file.
+    echo.
+    pause
+    exit /b !errorlevel!
+)
+
+where pnpm >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ERROR: pnpm is not available after enabling Corepack.
+    echo Run "corepack enable pnpm", reopen Command Prompt, then re-run this file.
     echo.
     pause
     exit /b 1
@@ -105,42 +123,20 @@ if %errorlevel% neq 0 (
 :: Versiyonlar
 echo Node:
 node -v
-echo npm:
-call npm -v
+echo pnpm:
+call pnpm -v
 echo.
 
-:: Root dependencies
-if not exist node_modules\.bin\concurrently.cmd (
-    echo Installing root dependencies...
-    call npm install --include=dev
-    if !errorlevel! neq 0 (
-        echo.
-        echo ERROR: Root dependency install failed.
-        pause
-        exit /b !errorlevel!
-    )
+:: Workspace dependencies
+echo Installing workspace dependencies...
+call pnpm install --frozen-lockfile --prod=false
+if !errorlevel! neq 0 (
     echo.
-) else (
-    echo Root dependencies already installed; skipping.
-    echo.
+    echo ERROR: Workspace dependency install failed.
+    pause
+    exit /b !errorlevel!
 )
-
-:: Server dependencies
-if not exist src\server\node_modules\.bin\nodemon.cmd (
-    echo Installing server dependencies...
-    cd src\server
-    call npm install --include=dev
-    if !errorlevel! neq 0 (
-        cd /d "%~dp0"
-        echo.
-        echo ERROR: Server dependency install failed.
-        pause
-        exit /b !errorlevel!
-    )
-    cd /d "%~dp0"
-    echo.
-) else (
-    echo Server dependencies already installed; skipping.
+echo.
     echo.
 )
 
@@ -189,7 +185,7 @@ if "%BRIDGE_BUILD_READY%"=="true" (
     echo.
 ) else (
     echo Discord Social SDK native bridge is not installed; skipping native bridge build.
-    echo Run npm run install:discord-social-sdk to install the optional SDK files.
+    echo Run pnpm run install:discord-social-sdk to install the optional SDK files.
     echo.
 )
 
@@ -214,7 +210,7 @@ if not defined FLASH_BROWSER_URL set "FLASH_BROWSER_URL=http://localhost:%STATIC
 set "FLASH_PLAYER_URL=!FLASH_BROWSER_URL!!FLASH_SWF_PATH!?fv=!FLASH_FILE_VERSION!^&gv=!FLASH_GAME_VERSION!"
 
 :: SERVER BASLAT
-echo Starting server with Discord RPC ^(npm run dev^)^...
+echo Starting server with Discord RPC ^(pnpm run dev^)^...
 echo Discord channel bridge enabled: %DISCORD_SOCIAL_BRIDGE_ENABLED%
 echo Discord Social SDK native bridge enabled: %DISCORD_SOCIAL_NATIVE_BRIDGE_ENABLED%
 echo Discord chat relay mode: %DISCORD_SOCIAL_CHAT_RELAY_MODE%

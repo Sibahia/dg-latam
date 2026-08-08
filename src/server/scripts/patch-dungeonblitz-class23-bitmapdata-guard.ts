@@ -51,7 +51,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-class23-bitmapdata-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-class23-bitmapdata-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches class_23.method_942 so oversized render-cache BitmapData",
         "allocations fall back to a safe 512x512 bitmap instead of crashing Flash.",

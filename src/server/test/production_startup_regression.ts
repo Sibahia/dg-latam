@@ -11,7 +11,7 @@ function main(): void {
 
     const entrypoint = fs.readFileSync(path.join(repoRoot, 'Container/entrypoint.sh'), 'utf8');
     assert.match(entrypoint, /exec node dist\/main\.js/);
-    assert.doesNotMatch(entrypoint, /npm (install|ci|run build)|ts-node/);
+    assert.doesNotMatch(entrypoint, /(?:npm|pnpm) (install|ci|run build)|ts-node/);
 
     const launcher = fs.readFileSync(path.join(repoRoot, 'src/server/tools/startMultiplayerServer.js'), 'utf8');
     assert.match(launcher, /dist\/main\.js/);

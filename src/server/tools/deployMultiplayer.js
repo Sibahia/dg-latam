@@ -9,8 +9,7 @@ const serverDir = path.resolve(__dirname, '..');
 // It must never become the PM2 app command itself. PM2 would then be running a script whose
 // first action is `pm2 delete dungeon-mp` -- which SIGINTs its own process tree partway
 // through, so `pm2 start` never runs and the app disappears from the list entirely. That
-// took production down on 2026-07-25 via
-// `pm2 start npm --name dungeon-mp -- run multiplayer`.
+// took production down on 2026-07-25 via a package-manager script command.
 //
 // PM2 must start the compiled entry point directly instead:
 //   pm2 start dist/main.js --name dungeon-mp
@@ -39,10 +38,10 @@ function deploy() {
     }
 
     // Gate the deploy, not every local build: the sweep takes ~2 minutes, and the moment that
-    // actually matters is shipping a rebuilt SWF to players. Run `npm run verify:client-patches`
+    // actually matters is shipping a rebuilt SWF to players. Run `pnpm run verify:client-patches`
     // by hand after touching a client asset if you want the answer sooner.
-    run('npm run verify:client-patches');
-    run('npm run build');
+    run('pnpm run verify:client-patches');
+    run('pnpm run build');
 
     try {
         run(`pm2 delete ${APP_NAME}`, { stdio: 'ignore' });

@@ -87,7 +87,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-armory-paperdoll-equipped-gear.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-armory-paperdoll-equipped-gear.ts [--verify] [--swf <path>]",
         "",
         "Patches ScreenArmory.GetPaperDollType in DungeonBlitz.swf so the Gear Manager",
         "paper doll emits an <EquippedGear> block carrying the player's dyes instead of",

@@ -62,7 +62,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-main-scrollrect-viewport.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-main-scrollrect-viewport.ts [--verify] [--swf <path>]",
         "",
         "Removes the injected Main.scrollRect viewport clip.",
         "Leaves the authored EdgeHud/EdgeFull border art in the SWF untouched.",

@@ -8,8 +8,8 @@
  * unlock in the game, which is a gift to anyone who can reach it -- so it refuses to
  * run against a multiplayer server rather than trusting whoever typed the command.
  *
- *   npm run seed:test-account
- *   TEST_ACCOUNT_PASSWORD=something npm run seed:test-account
+ *   pnpm --filter server run seed:test-account
+ *   TEST_ACCOUNT_PASSWORD=something pnpm --filter server run seed:test-account
  */
 
 import * as path from 'path';

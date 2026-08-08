@@ -16,40 +16,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: src/server/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install server dependencies
-        working-directory: src/server
-        run: npm ci
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        working-directory: src/server
-        run: npm run typecheck
+        run: pnpm --filter server run typecheck
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Parse JSON data
         run: node src/server/tools/verifyJsonData.js
 
       - name: Production dependency audit
-        working-directory: src/server
-        run: npm audit --omit=dev --audit-level=high
+        run: pnpm audit --prod --audit-level=high
 
       - name: Full dependency audit
-        working-directory: src/server
-        run: npm audit --audit-level=high
+        run: pnpm audit --audit-level=high
 
       - name: Regression suite
-        working-directory: src/server
         run: |
           set -o pipefail
-          npm run test:regression 2>&1 | tee ../../regression.log
+          pnpm --filter server run test:regression 2>&1 | tee regression.log
 
       - name: Upload regression log
         if: always()
@@ -65,12 +65,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: src/server/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -78,9 +83,8 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Install server dependencies
-        working-directory: src/server
-        run: npm ci
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install pinned FFDec
         run: |
@@ -101,10 +105,10 @@ jobs:
           REQUIRE_FFDEC: "1"
         run: |
           set -o pipefail
-          npm run verify:client-patches 2>&1 | tee client-patches.log
+          pnpm run verify:client-patches 2>&1 | tee client-patches.log
 
       - name: Verify client-patch provenance
-        run: npm run verify:client-patch-provenance
+        run: node src/server/tools/verifyClientPatchProvenance.js
 
       - name: Upload client-patch log
         if: always()

@@ -21,17 +21,17 @@ Use a dedicated local account and saves for development. Never test against anot
 
 ## Local development
 
-Install both dependency sets from the repository root:
+Enable pnpm through Corepack and install the workspace dependencies from the repository root:
 
 ```bash
-npm install
-npm install --prefix src/server
+corepack enable pnpm
+pnpm install --frozen-lockfile
 ```
 
 Start the local development session:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 The development server binds to `127.0.0.1`, uses JSON persistence, disables multiplayer mode, and normally serves the client at `http://localhost:8000/`.
@@ -42,20 +42,20 @@ Run the checks that prove your change. At minimum, review the diff and run:
 
 ```bash
 git diff --check
-(cd src/server && npm run typecheck)
+pnpm --filter server run typecheck
 ```
 
 Use additional checks when their scope applies:
 
 ```bash
 # All server regression tests
-(cd src/server && npm run test:regression)
+pnpm --filter server run test:regression
 
 # Scripted client-patch validation
-npm run verify:client-patches
+pnpm run verify:client-patches
 
 # Production server build
-npm run build
+pnpm run build
 ```
 
 For gameplay changes, test the affected state transitions rather than only compilation. Depending on the change, that can include windowed and fullscreen play, solo and party sessions, dungeon cutscenes, boss visibility/targetability, reconnects, and persistence after restart.

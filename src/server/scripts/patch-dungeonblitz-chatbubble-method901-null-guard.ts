@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-chatbubble-method901-null-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-chatbubble-method901-null-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches ChatBubble.method_901 so stale/null bubble clips during entity cleanup",
         "are ignored instead of crashing the Flash client.",

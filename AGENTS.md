@@ -73,11 +73,11 @@ For a bug fix, first reproduce or identify the failing regression, then trace th
 
 Use the lightest verification that proves the change:
 
-- Server type check: `npm run typecheck` from `src/server/`.
+- Server type check: `pnpm --filter server run typecheck` from the repository root.
 - Focused regression: from `src/server/`, use the same invocation as the custom runner, for example `TS_NODE_COMPILER_OPTIONS='{"types":["node"]}' node -r ts-node/register test/<name>_regression.ts`; execute JavaScript regressions with `node test/<name>_regression.js`.
-- Full server regression suite: `npm run test:regression` from `src/server/` for cross-cutting gameplay, protocol, persistence, authentication, or shared-state changes.
-- Client patch verification: `npm run verify:client-patches` from the repository root whenever `src/server/scripts/`, client assets, or patch baselines change.
-- Production/server build: `npm run build` from the repository root when compiled output or deployment behavior is affected.
+- Full server regression suite: `pnpm --filter server run test:regression` from the repository root for cross-cutting gameplay, protocol, persistence, authentication, or shared-state changes.
+- Client patch verification: `pnpm run verify:client-patches` from the repository root whenever `src/server/scripts/`, client assets, or patch baselines change.
+- Production/server build: `pnpm run build` from the repository root when compiled output or deployment behavior is affected.
 
 Before finalizing, inspect the diff, run `git diff --check`, and state exactly what was verified and what could not be verified. For gameplay changes, verify the relevant windowed/fullscreen, solo/party, cutscene, boss, and persistence cases rather than claiming unrelated coverage.
 
@@ -88,6 +88,6 @@ Before finalizing, inspect the diff, run `git diff --check`, and state exactly w
   - `patch` — bug fixes, small data/content edits, documentation, tooling, and compatible maintenance.
   - `minor` — backward-compatible gameplay, server, client, or meaningful content features.
   - `major` — breaking protocol, save-data, deployment, or gameplay-contract changes.
-- Keep the root `package.json` and `package-lock.json` version synchronized with `src/server/package.json` and `src/server/package-lock.json`, unless a change demonstrably applies to only one package.
+- Keep the root and server `package.json` versions synchronized, and keep `pnpm-lock.yaml` current, unless a change demonstrably applies to only one package.
 - Do not change versions for an uncommitted edit unless the user requests a release/version bump. When preparing a commit, apply the required bump as part of that same change.
 - In commit/PR/final summaries, state the selected bump level and resulting version, the behavior changed, the reason, and the verification performed.

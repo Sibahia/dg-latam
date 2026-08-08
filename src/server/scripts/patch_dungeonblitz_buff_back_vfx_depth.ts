@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch_dungeonblitz_buff_back_vfx_depth.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch_dungeonblitz_buff_back_vfx_depth.ts [--verify] [--swf <path>]",
         "",
         "Patches Buff.UpdatePos so back-layer buff VFX stay behind their entity",
         "after hit-react or other entity display-depth changes.",

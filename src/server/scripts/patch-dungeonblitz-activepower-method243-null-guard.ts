@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-activepower-method243-null-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-activepower-method243-null-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches ActivePower.method_243 so stale/null active power references return",
         "false instead of crashing the Flash client during high-damage ticks.",
