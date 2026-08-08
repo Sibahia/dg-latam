@@ -32,3 +32,4 @@ data-backup-*/
 src/server/data/Accounts.json
 
 .playwright-cli/
+.admin_jwt_secret
