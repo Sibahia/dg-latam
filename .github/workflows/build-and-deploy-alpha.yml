@@ -34,7 +34,7 @@ jobs:
         working-directory: src/server
         run: |
           npm ci
-          node -r ts-node/register scripts/patch-dungeonblitz-alpha-ports.js
+          node -r ts-node/register scripts/patch-dungeonblitz-alpha-ports.ts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
