@@ -16,10 +16,39 @@ function toast(message, error = false) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => el.className = 'toast', 3200);
 }
+let accessToken = sessionStorage.getItem('admin_access') || '';
+async function refreshAccessToken() {
+  try {
+    const response = await fetch('/api/admin/refresh', { method: 'POST' });
+    if (!response.ok) return false;
+    const data = await response.json().catch(() => ({}));
+    if (!data.accessToken) return false;
+    accessToken = data.accessToken;
+    sessionStorage.setItem('admin_access', accessToken);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 async function api(path, options = {}) {
-  const response = await fetch(`/api/${path}`, { ...options, headers: { 'content-type': 'application/json', ...(options.headers || {}) } });
+  const doFetch = async () => {
+    const headers = { 'content-type': 'application/json', ...(options.headers || {}) };
+    if (accessToken) headers['authorization'] = 'Bearer ' + accessToken;
+    return fetch(`/api/${path}`, { ...options, headers });
+  };
+  let response = await doFetch();
+  if (response.status === 401 && (await refreshAccessToken())) {
+    response = await doFetch();
+  }
   const data = await response.json().catch(() => ({ error: 'Respuesta de servidor no válida' }));
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  if (!response.ok) {
+    if (response.status === 401) {
+      sessionStorage.removeItem('admin_access');
+      window.location.href = '/';
+      return data;
+    }
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
   return data;
 }
 function initSliders() {

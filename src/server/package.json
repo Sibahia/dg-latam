@@ -1,7 +1,6 @@
 {
   "name": "server",
-  "version": "1.27.1",
-
+  "version": "1.28.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -47,6 +46,8 @@
     "discord-rpc": "^4.0.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
-    "mongodb": "^7.4.0"
+    "mongodb": "^7.4.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   }
 }
