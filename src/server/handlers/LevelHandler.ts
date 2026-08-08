@@ -111,6 +111,7 @@ type MissionWorkExecutorClient = Client & { socket?: unknown };
 type DungeonCutsceneRoomThoughtDelivery = 'level' | 'local' | 'suppress';
 
 export class LevelHandler {
+    private static readonly TRANSFER_LOGIN_TTL_MS = 60 * 1000;
 
     private static readonly pendingSharedProgressRefreshes = new Map<string, NodeJS.Timeout>();
     private static readonly sharedProgressRefreshMetrics = new Map<string, { requested: number; deduplicated: number; executed: number }>();
@@ -4591,8 +4592,10 @@ export class LevelHandler {
         syncState: LevelSyncState | null = null,
         doorContext: DoorTravelContext | null = null,
         craftTownHostCharacter?: Character,
-        playSessionStartedAt?: number
-    ): void {
+        playSessionStartedAt?: number,
+        sourceClient?: Client
+    ): string {
+        const transferLoginChallenge = TransferTokenAllocator.createLoginChallenge();
         const shouldSyncDungeonProgress = LevelConfig.isDungeonLevel(targetLevel);
         const craftTownHomeInstanceId = targetLevel === 'CraftTown'
             ? getCraftTownHomeInstanceId(character, craftTownHostCharacter)
@@ -4615,6 +4618,12 @@ export class LevelHandler {
                 character,
                 craftTownHostCharacter,
                 userId,
+                account: sourceClient?.account ?? undefined,
+                accountEmail: sourceClient?.account?.email,
+                sourceRemoteAddress: GlobalState.normalizeRemoteAddress(sourceClient?.socket.remoteAddress),
+                pendingSince: Date.now(),
+                expiresAt: Date.now() + LevelHandler.TRANSFER_LOGIN_TTL_MS,
+                loginChallengeHash: transferLoginChallenge.hash,
                 targetLevel,
                 levelInstanceId: levelInstanceId || undefined,
                 previousLevel,
@@ -4646,6 +4655,7 @@ export class LevelHandler {
         }
 
         GlobalState.pendingExtended.set(token, sendExtended);
+        return transferLoginChallenge.value;
     }
 
     private static shouldSendExtendedOnTransfer(_targetLevel: string): boolean {
@@ -4702,7 +4712,7 @@ export class LevelHandler {
             return hostToken;
         }
 
-        const fallbackToken = transferToken >= 0xFFFF ? 1 : transferToken + 1;
+        const fallbackToken = transferToken >= 0xFFFFFFFF ? 1 : transferToken + 1;
         return fallbackToken !== transferToken ? fallbackToken : 1;
     }
 
@@ -4736,6 +4746,29 @@ export class LevelHandler {
         client: Client,
         token: number
     ): { resolvedToken: number; source: string } | null {
+        const expectedUserId = Math.max(0, Math.round(Number(client.userId ?? 0)));
+        const expectedCharacterKey = normalizeCharacterKey(client.character?.name);
+        if (!expectedUserId || !expectedCharacterKey) {
+            return null;
+        }
+
+        const activeCandidate = GlobalState.sessionsByToken.get(token);
+        const usedCandidate = GlobalState.usedTransferTokens.get(token);
+        const tokenCandidate = GlobalState.tokenChar.get(token);
+        const pendingCandidate = GlobalState.pendingWorld.get(token);
+        const candidateUserId = Math.max(0, Math.round(Number(
+            activeCandidate?.userId ?? usedCandidate?.userId ?? tokenCandidate?.userId ?? pendingCandidate?.userId ?? 0
+        )));
+        const candidateCharacterKey = normalizeCharacterKey(
+            activeCandidate?.character?.name ??
+            usedCandidate?.character?.name ??
+            tokenCandidate?.character?.name ??
+            pendingCandidate?.character?.name
+        );
+        if (candidateUserId !== expectedUserId || candidateCharacterKey !== expectedCharacterKey) {
+            return null;
+        }
+
         const activeSession = GlobalState.sessionsByToken.get(token);
         if (activeSession?.character) {
             LevelHandler.cloneTransferGameplayState(client, activeSession);
@@ -4898,32 +4931,24 @@ export class LevelHandler {
         client: Client,
         token: number
     ): { resolvedToken: number; source: string } | null {
-        if (client.character) {
-            return {
-                resolvedToken: client.token > 0 ? client.token : token,
-                source: 'client'
-            };
-        }
-
-        const directState = LevelHandler.recoverTransferSessionStateFromExactToken(client, token);
-        if (directState) {
-            return directState;
-        }
-
-        const aliasedToken = LevelHandler.resolveTransferTokenAlias(token);
-        if (aliasedToken === token) {
+        const activeToken = Math.max(0, Math.round(Number(client.token ?? 0)));
+        const requestedToken = Math.max(0, Math.round(Number(token ?? 0)));
+        if (!client.character || !client.userId || activeToken <= 0 || requestedToken <= 0) {
             return null;
         }
 
-        const aliasedState = LevelHandler.recoverTransferSessionStateFromExactToken(client, aliasedToken);
-        if (!aliasedState) {
+        if (requestedToken === activeToken || GlobalState.sessionsByToken.get(requestedToken) === client) {
+            return { resolvedToken: activeToken, source: 'authenticated-client' };
+        }
+
+        const aliasedToken = LevelHandler.resolveTransferTokenAlias(requestedToken);
+        if (aliasedToken !== activeToken || GlobalState.sessionsByToken.get(activeToken) !== client) {
             return null;
         }
 
-        console.log(`[Level] Recovered transfer session from aliased token ${token} -> ${aliasedToken}`);
         return {
-            resolvedToken: aliasedState.resolvedToken,
-            source: `alias:${token}->${aliasedToken}:${aliasedState.source}`
+            resolvedToken: activeToken,
+            source: `authenticated-alias:${requestedToken}->${activeToken}`
         };
     }
 
@@ -5728,7 +5753,7 @@ export class LevelHandler {
                 ? LevelConfig.normalizeLevelName(syncState?.syncEntryLevel) || oldLevel
                 : oldLevel;
         const sendExtendedOnTransfer = LevelHandler.shouldSendExtendedOnTransfer(targetLevel);
-        LevelHandler.storePendingTransferToken(
+        const transferLoginChallenge = LevelHandler.storePendingTransferToken(
             newToken,
             activeCharacter,
             client.userId,
@@ -5743,7 +5768,8 @@ export class LevelHandler {
             LevelHandler.isDifferentCharacter(activeCharacter, hostChar) ? hostChar : undefined,
             Number.isFinite(client.playSessionStartedAt) && client.playSessionStartedAt > 0
                 ? Math.round(client.playSessionStartedAt)
-                : Date.now()
+                : Date.now(),
+            client
         );
         LevelHandler.rememberTransferTokenAlias(packetToken, newToken);
         LevelHandler.rememberTransferTokenAlias(transferToken, newToken);
@@ -5751,7 +5777,6 @@ export class LevelHandler {
         // 8. Send Enter World (0x21)
         const levelSpec = LevelConfig.get(targetLevel);
         const isHard = targetLevel.endsWith("Hard");
-        const oldLevelSpec = LevelConfig.get(oldLevel);
         const runtimeMapLevel = LevelHandler.resolveDungeonMapPacketLevel(targetLevel, levelSpec.mapId, activeCharacter, client);
         const runtimeBaseLevel = levelSpec.baseId;
         const isVisitedCraftTown = targetLevel === 'CraftTown' && LevelHandler.isDifferentCharacter(activeCharacter, hostChar);
@@ -5762,7 +5787,9 @@ export class LevelHandler {
         const pkt = WorldEnter.buildEnterWorldPacket(
             newToken,
             0,
-            oldLevelSpec.swf,
+            // LinkUpdater echoes this legacy old-SWF field during destination login;
+            // it loads levelSpec.swf from the separate newLevelSwf field below.
+            transferLoginChallenge,
             hasOldCoord,
             Math.round(oldX),
             Math.round(oldY),

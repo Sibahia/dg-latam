@@ -364,7 +364,33 @@ function patchSwf(repoRoot, ffdecPath, swfPath) {
     fs.mkdirSync(workRoot, { recursive: true });
 
     const classPath = exportClass127(ffdecPath, workRoot, swfPath);
-    const patchedSource = patchClass127Source(fs.readFileSync(classPath, 'utf8'), swfPath);
+    const source = fs.readFileSync(classPath, 'utf8');
+    const existingPatchesArePresent =
+        source.includes('private function method_1940(param1:String) : Boolean') &&
+        source.includes('_loc2_.indexOf("/maintenance:") == 0') &&
+        source.includes('if(this.method_1940(param2))') &&
+        source.includes('var_1.linkUpdater.WriteChatMessage(param1,param2);') &&
+        source.includes('var _loc7_:Packet = new Packet(_loc6_);') &&
+        source.includes('var_1.serverConn.SendPacket(_loc7_);') &&
+        source.includes('_loc3_ += _loc20_;') &&
+        !source.includes('var_1.serverConn.SendPacket(null);');
+
+    if (existingPatchesArePresent && !source.includes('_loc2_.indexOf("/ping") == 0')) {
+        const tsNodeRegister = path.join(repoRoot, 'src', 'server', 'node_modules', 'ts-node', 'register', 'transpile-only');
+        const pcodePatch = path.join(repoRoot, 'src', 'server', 'scripts', 'patch-dungeonblitz-chat-ping-pcode.ts');
+        execFileSync(process.execPath, ['-r', tsNodeRegister, pcodePatch, '--swf', swfPath], {
+            cwd: path.join(repoRoot, 'src', 'server'),
+            env: {
+                ...process.env,
+                TS_NODE_COMPILER_OPTIONS: '{"types":["node"]}'
+            },
+            stdio: 'inherit'
+        });
+        console.log(`Patched chat command handling in ${swfPath}`);
+        return;
+    }
+
+    const patchedSource = patchClass127Source(source, swfPath);
     fs.writeFileSync(classPath, patchedSource);
 
     const scriptsDir = path.join(workRoot, 'scripts');

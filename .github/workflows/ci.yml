@@ -2,15 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, alpha]
   pull_request:
-    branches: [main]
+    branches: [main, alpha]
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  server:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,3 +36,123 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Parse JSON data
+        run: node src/server/tools/verifyJsonData.js
+
+      - name: Production dependency audit
+        run: pnpm audit --prod --audit-level=high
+
+      - name: Full dependency audit
+        run: pnpm audit --audit-level=high
+
+      - name: Regression suite
+        run: |
+          set -o pipefail
+          pnpm --filter server run test:regression 2>&1 | tee regression.log
+
+      - name: Upload regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-log
+          path: regression.log
+          if-no-files-found: ignore
+
+  client-patches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install pinned FFDec
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version25.0.0/ffdec_25.0.0.zip \
+            --output /tmp/ffdec.zip
+          echo "c1c4bc4ef038b869f7ed9bd2a43a248d7d23c09547976c8497576497eb81a407  /tmp/ffdec.zip" | sha256sum --check
+          mkdir -p build/tools/ffdec_25.0.0
+          unzip -q /tmp/ffdec.zip -d build/tools/ffdec_25.0.0
+          rm -f build/tools/ffdec_25.0.0/ffdec-cli.exe build/tools/ffdec_25.0.0/ffdec.exe
+          ln -s ffdec_25.0.0 build/tools/ffdec_25.1.3
+          ln -s tools/ffdec_25.0.0 build/ffdec
+          mkdir -p temp/jpexs_25_1_3/FFDec.app/Contents
+          ln -s "$GITHUB_WORKSPACE/build/tools/ffdec_25.0.0" temp/jpexs_25_1_3/FFDec.app/Contents/Resources
+
+      - name: Verify client patches
+        env:
+          REQUIRE_FFDEC: "1"
+        run: |
+          set -o pipefail
+          pnpm run verify:client-patches 2>&1 | tee client-patches.log
+
+      - name: Verify client-patch provenance
+        run: node src/server/tools/verifyClientPatchProvenance.js
+
+      - name: Upload client-patch log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-patch-log
+          path: client-patches.log
+          if-no-files-found: ignore
+
+  container-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production container
+        run: docker build -f Container/Containerfile -t dungeon-blitz-r:ci .
+
+      - name: Start hardened container
+        run: |
+          docker run -d --name dungeon-blitz-r-ci \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 256 \
+            --memory 1g \
+            --cpus 1 \
+            -e ENABLE_MONGO_GAME_DATA=false \
+            -e MULTIPLAYER_BASE_IP=127.0.0.1 \
+            -p 18080:8000/tcp \
+            dungeon-blitz-r:ci
+
+      - name: Probe and inspect container
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz; then break; fi
+            if [ "$attempt" = 30 ]; then docker logs dungeon-blitz-r-ci; exit 1; fi
+            sleep 1
+          done
+          test "$(docker inspect --format '{{.Config.User}}' dungeon-blitz-r-ci)" = "10001:10001"
+          test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' dungeon-blitz-r-ci)" = "true"
+          test "$(docker inspect --format '{{.State.Health.Status}}' dungeon-blitz-r-ci)" != "unhealthy"
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f dungeon-blitz-r-ci || true

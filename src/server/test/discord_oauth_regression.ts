@@ -207,6 +207,11 @@ async function testDiscordClientLaunchRedirect(): Promise<void> {
         assert.match(location, /^discord:\/\/-\/oauth2\/authorize\?/, 'Discord client launch should use the Discord protocol');
         assert.match(location, /client_id=test-client/, 'Discord client launch should preserve OAuth parameters');
         assert.match(location, /state=test-state/, 'Discord client launch should preserve OAuth state');
+
+        const publicLinkResponse = await fetch(`${baseUrl}/discord/link?email=victim@example.com`, { redirect: 'manual' });
+        assert.equal(publicLinkResponse.status, 410, 'public email-selected Discord linking must be disabled');
+        const apiLinkResponse = await fetch(`${baseUrl}/api/discord/link/start?email=victim@example.com`);
+        assert.equal(apiLinkResponse.status, 401, 'link API must require an authenticated account-management flow');
     } finally {
         await staticServer.stop();
     }
@@ -261,7 +266,7 @@ async function testServedHostBootstrapsPendingDiscordLogin(): Promise<void> {
     }
 }
 
-async function testDiscordCallbackStoresPendingLoginWhenClientIsNotOpen(): Promise<void> {
+async function testDiscordCallbackDoesNotCreateIpBoundGameLogin(): Promise<void> {
     GlobalState.pendingDiscordOAuthLogins.clear();
     const staticServer = new StaticServer(0);
     const account = {
@@ -297,27 +302,47 @@ async function testDiscordCallbackStoresPendingLoginWhenClientIsNotOpen(): Promi
         const response = await fetch(`${baseUrl}/auth/discord/callback?code=oauth-code&state=oauth-state`);
         assert.equal(response.status, 200, 'Discord callback should succeed without an already-open game client');
         const callbackHtml = await response.text();
-        assert.match(callbackHtml, /next login connection/, 'callback should explain pending game login handoff');
-        assert.match(callbackHtml, /db_discord_oauth_complete/, 'callback should notify an open host page');
+        assert.match(callbackHtml, /sign in with your account password/i, 'callback should require normal game authentication');
+        assert.doesNotMatch(callbackHtml, /db_discord_oauth_complete/, 'callback must not trigger an IP-bound game login handoff');
 
         const pendingResponse = await fetch(`${baseUrl}/api/auth/discord/pending`);
         assert.equal(pendingResponse.status, 200, 'pending OAuth endpoint should render');
-        const pendingPayload = await pendingResponse.json() as {
-            pending: boolean;
-            email: string | null;
-            userId: number | null;
-        };
-        assert.equal(pendingPayload.pending, true, 'pending endpoint should expose the requester handoff');
-        assert.equal(pendingPayload.email, 'pending-oauth@example.com');
-        assert.equal(pendingPayload.userId, 77);
-
-        const pending = GlobalState.consumeDiscordOAuthLogin('127.0.0.1');
-        assert.ok(pending, 'callback should record a pending OAuth game login for the requester address');
-        assert.equal(pending?.account.email, 'pending-oauth@example.com');
-        assert.equal(pending?.account.user_id, 77);
+        const pendingPayload = await pendingResponse.json() as Record<string, unknown>;
+        assert.equal(pendingPayload.pending, false, 'OAuth callback must not create an IP-bound handoff');
+        assert.equal('email' in pendingPayload, false, 'pending endpoint must not expose account email');
+        assert.equal('userId' in pendingPayload, false, 'pending endpoint must not expose account user id');
+        assert.equal(GlobalState.pendingDiscordOAuthLogins.size, 0, 'no reusable OAuth credential should be retained');
     } finally {
         await staticServer.stop();
         GlobalState.pendingDiscordOAuthLogins.clear();
+    }
+}
+
+async function testOAuthStateIsOneTime(): Promise<void> {
+    const { adapter, dataDir } = await createTempAdapter();
+    try {
+        await adapter.createDiscordAccount('state@example.com', {
+            id: 'state-user',
+            username: 'state-user',
+            email: 'state@example.com',
+            emailVerified: true
+        });
+        const service = createConfiguredService(adapter, {
+            id: 'state-user',
+            username: 'state-user',
+            email: 'state@example.com',
+            verified: true
+        });
+        const start = await service.createLoginAuthorizeUrl();
+        const state = new URL(start.authorizeUrl).searchParams.get('state') ?? '';
+
+        const first = await service.completeOAuth('first-code', state);
+        assert.equal(first.ok, true, 'first callback should consume a valid state');
+        const replay = await service.completeOAuth('replayed-code', state);
+        assert.equal(replay.ok, false, 'replayed callback state must fail');
+        assert.equal(replay.reason, 'invalid-state');
+    } finally {
+        await fs.rm(dataDir, { recursive: true, force: true });
     }
 }
 
@@ -535,7 +560,8 @@ async function main(): Promise<void> {
     await testDiscordRoutesDisabled();
     await testDiscordClientLaunchRedirect();
     await testServedHostBootstrapsPendingDiscordLogin();
-    await testDiscordCallbackStoresPendingLoginWhenClientIsNotOpen();
+    await testDiscordCallbackDoesNotCreateIpBoundGameLogin();
+    await testOAuthStateIsOneTime();
     await testDiscordOAuthLogsIntoBotCreatedLinkedAccount();
     await testDiscordOAuthRejectsMissingBotAccount();
     await testExistingDiscordAccountCanQuickLoginWithoutSponsorRefresh();

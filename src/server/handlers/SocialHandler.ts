@@ -42,6 +42,15 @@ interface PendingFriendRequestPrompt {
     expiresAt: number;
 }
 
+interface PendingPartyInvite {
+    inviterToken: number;
+    inviterName: string;
+    inviteeName: string;
+    intendedPartyId: number;
+    intendedLeaderName: string;
+    expiresAt: number;
+}
+
 export interface DiscordPartyJoinResult {
     ok: boolean;
     reason:
@@ -62,6 +71,7 @@ export interface DiscordPartyJoinResult {
 export class SocialHandler {
     private static readonly MAX_PARTY_SIZE = 4;
     private static readonly FRIEND_REQUEST_PROMPT_TTL_MS = 5 * 60_000;
+    private static readonly PARTY_INVITE_TTL_MS = 2 * 60_000;
     private static readonly TELEPORT_COMMAND_PREFIXES = ['/teleport:', 'teleport:'];
     private static readonly MAINTENANCE_COMMAND_PREFIX = '/maintenance:';
     private static readonly PING_COMMAND_PREFIX = '/ping';
@@ -91,6 +101,7 @@ export class SocialHandler {
         ['valhaven', { level: 'JadeCity', dreadLevel: 'JadeCityHard', displayName: 'Valhaven' }]
     ]);
     private static readonly pendingFriendRequestPrompts: Map<number, PendingFriendRequestPrompt> = new Map();
+    private static readonly pendingPartyInvites: Map<number, PendingPartyInvite> = new Map();
     private static readonly lastSocialWarningByCharacter: Map<string, number> = new Map();
 
     private static normalizeName(value: unknown): string {
@@ -343,6 +354,21 @@ export class SocialHandler {
             token = 2_000_000 + Math.floor(Math.random() * 1_000_000);
         } while (SocialHandler.pendingFriendRequestPrompts.has(token));
 
+        return token;
+    }
+
+    private static nextPartyInviteToken(): number {
+        const now = Date.now();
+        for (const [token, invite] of SocialHandler.pendingPartyInvites) {
+            if (invite.expiresAt <= now) {
+                SocialHandler.pendingPartyInvites.delete(token);
+            }
+        }
+
+        let token = 0;
+        do {
+            token = 3_000_000 + Math.floor(Math.random() * 1_000_000);
+        } while (SocialHandler.pendingPartyInvites.has(token));
         return token;
     }
 
@@ -1645,14 +1671,32 @@ export class SocialHandler {
         }
 
         const inviterParty = SocialHandler.getPartyForName(inviterName);
+        if (inviterParty && !SocialHandler.isPartyLeader(inviterName)) {
+            SocialHandler.sendChatStatus(client, 'Only the party leader can invite new members.');
+            return;
+        }
         if (inviterParty && inviterParty.group.members.length >= SocialHandler.MAX_PARTY_SIZE) {
             SocialHandler.sendChatStatus(client, 'Your party is already full.');
             return;
         }
 
+        if (inviterParty?.group.locked) {
+            SocialHandler.sendChatStatus(client, 'Unlock your party before inviting new members.');
+            return;
+        }
+
+        const inviteToken = SocialHandler.nextPartyInviteToken();
+        SocialHandler.pendingPartyInvites.set(inviteToken, {
+            inviterToken: client.token,
+            inviterName,
+            inviteeName: invitee.character.name,
+            intendedPartyId: inviterParty?.partyId ?? 0,
+            intendedLeaderName: inviterParty?.group.leader ?? inviterName,
+            expiresAt: Date.now() + SocialHandler.PARTY_INVITE_TTL_MS
+        });
         SocialHandler.sendQueryMessageQuestion(
             invitee,
-            client.clientEntID || 0,
+            inviteToken,
             inviterName,
             `${inviterName} has invited you to join a party`
         );
@@ -1676,8 +1720,23 @@ export class SocialHandler {
             return;
         }
 
-        const inviter = SocialHandler.findSessionByEntityId(inviterEntityId);
+        const partyInvite = SocialHandler.pendingPartyInvites.get(inviterEntityId);
+        if (!partyInvite) {
+            return;
+        }
+        SocialHandler.pendingPartyInvites.delete(inviterEntityId);
+        if (
+            partyInvite.expiresAt <= Date.now() ||
+            SocialHandler.normalizeName(partyInvite.inviteeName) !== SocialHandler.normalizeName(client.character.name)
+        ) {
+            return;
+        }
+
+        const inviter = GlobalState.sessionsByToken.get(partyInvite.inviterToken) ?? null;
         if (!inviter?.character) {
+            return;
+        }
+        if (SocialHandler.normalizeName(inviter.character.name) !== SocialHandler.normalizeName(partyInvite.inviterName)) {
             return;
         }
 
@@ -1705,6 +1764,19 @@ export class SocialHandler {
         }
 
         const inviterExistingParty = SocialHandler.getPartyForName(inviter.character.name);
+        if (partyInvite.intendedPartyId > 0) {
+            if (
+                !inviterExistingParty ||
+                inviterExistingParty.partyId !== partyInvite.intendedPartyId ||
+                SocialHandler.normalizeName(inviterExistingParty.group.leader) !==
+                    SocialHandler.normalizeName(partyInvite.intendedLeaderName) ||
+                inviterExistingParty.group.locked
+            ) {
+                return;
+            }
+        } else if (inviterExistingParty) {
+            return;
+        }
         const group = inviterExistingParty?.group ?? SocialHandler.createParty(inviter.character.name);
         const partyId = inviterExistingParty?.partyId ?? group.id;
 

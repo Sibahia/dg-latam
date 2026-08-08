@@ -10,15 +10,12 @@ import { MovementAuthority, MovementAuthorityState } from './MovementAuthority';
 import { CastRateAuthority, CastRateState } from './CastRateAuthority';
 import { performance } from 'perf_hooks';
 import { getActiveMovementPacketKey, mergeActiveMovementPackets } from '../network/movementPacket';
+import { buildSocketPolicy } from '../network/socketPolicy';
+import { Config } from './config';
 
 const db = new JsonAdapter();
 const SOCKET_POLICY_REQUEST = '<policy-file-request/>';
-const SOCKET_POLICY_RESPONSE = `<?xml version="1.0"?>
-<!DOCTYPE cross-domain-policy SYSTEM
-  "http://www.adobe.com/xml/dtds/cross-domain-policy.dtd">
-<cross-domain-policy>
-  <allow-access-from domain="*" to-ports="1-65535" secure="false"/>
-</cross-domain-policy>\0`;
+const SOCKET_POLICY_RESPONSE = buildSocketPolicy(Config.PORTS[0], Config.SOCKET_POLICY_DOMAINS);
 
 export interface PendingLootDrop {
     gold?: number;
@@ -148,6 +145,7 @@ export class Client {
     private static readonly PENDING_LOOT_DEFERRED_CHARACTER_SAVE_MS = 750;
     private static readonly MAX_BUFFERED_PACKET_BYTES = 1024 * 1024;
     private static readonly MAX_QUEUED_PACKETS = 2048;
+    private static readonly MAX_OUTBOUND_BUFFER_BYTES = 1024 * 1024;
     private static readonly QUIET_SOCKET_ERROR_CODES = new Set([
         'ECONNABORTED',
         'ECONNRESET',
@@ -431,6 +429,12 @@ export class Client {
     }
 
     public send(packetId: number, buffer: Buffer): void {
+        const writableLength = Number(this.socket.writableLength ?? 0);
+        if (Number.isFinite(writableLength) && writableLength > Client.MAX_OUTBOUND_BUFFER_BYTES) {
+            console.warn(`[Client] Closing slow receiver bufferedBytes=${writableLength} token=${this.token}`);
+            this.socket.destroy();
+            return;
+        }
         const header = Buffer.alloc(4);
         header.writeUInt16BE(packetId, 0);
         header.writeUInt16BE(buffer.length, 2);

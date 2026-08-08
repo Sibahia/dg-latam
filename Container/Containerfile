@@ -12,17 +12,19 @@ RUN pnpm --filter server run build
 
 FROM node:22-bookworm-slim
 
-RUN corepack enable pnpm
+RUN corepack enable pnpm && \
+    groupadd --gid 10001 dungeonblitz && \
+    useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin dungeonblitz
 
-# Main port
-EXPOSE 80/tcp
-EXPOSE 80/udp
+# HTTP is kept above the privileged-port range inside the container and may be
+# published as host port 80. The legacy game and policy services are TCP-only.
+EXPOSE 8000/tcp
 EXPOSE 8080/tcp
-EXPOSE 8080/udp
-EXPOSE 843/tcp
-EXPOSE 843/udp
+EXPOSE 8843/tcp
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    STATIC_PORT=8000 \
+    POLICY_PORT=8843
 WORKDIR /opt/games/dungeon-blitz-r/src/server
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /opt/games/dungeon-blitz-r/
@@ -30,6 +32,9 @@ COPY src/server/package.json ./
 RUN cd /opt/games/dungeon-blitz-r && pnpm install --frozen-lockfile --prod --filter server...
 COPY --from=build /build/src/server/dist ./dist
 COPY src/server/data ./data
+RUN mkdir -p ./data/saves && \
+    test -f ./data/Accounts.json || printf '[]\n' > ./data/Accounts.json && \
+    chown -R 10001:10001 ./data/saves ./data/Accounts.json
 COPY src/server/tools ./tools
 COPY --from=build /build/client/content/localhost /opt/games/dungeon-blitz-r/src/client/content/localhost
 # XML data (DoorTypes, GearTypes, PlayerPowerTypes, etc.) is read by the server
@@ -45,4 +50,8 @@ COPY Container/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh && \
     sed -i -e 's/\r$//' /usr/local/bin/entrypoint.sh
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:8000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+
+USER 10001:10001
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

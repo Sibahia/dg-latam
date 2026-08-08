@@ -81,7 +81,7 @@ function consumeLoginAttempt(ip) {
 
 function refreshCookieHeader(token) {
     const secure = cookieSecure ? '; Secure' : '';
-    return `admin_refresh=${token}; HttpOnly; SameSite=Strict; Path=/api/admin${secure}; Max-Age=${Math.floor(refreshTokenTtlMs / 1000)}`;
+    return `admin_refresh=${token}; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=${Math.floor(refreshTokenTtlMs / 1000)}`;
 }
 
 function readCookie(req, name) {
@@ -90,15 +90,27 @@ function readCookie(req, name) {
     return match ? decodeURIComponent(match[1].trim()) : '';
 }
 
-function isAuthenticated(req) {
+async function isAuthenticated(req) {
     const authorization = String(req.headers.authorization || '');
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
-    if (!token) {
+    if (token) {
+        try {
+            jwt.verify(token, jwtSecret);
+            return true;
+        } catch (_error) {
+            // Fall through to the refresh cookie below.
+        }
+    }
+
+    // Page navigations carry no Authorization header, so a valid refresh cookie also counts.
+    const refreshToken = readCookie(req, 'admin_refresh');
+    if (!refreshToken) {
         return false;
     }
     try {
-        jwt.verify(token, jwtSecret);
-        return true;
+        const db = await getDb();
+        const session = await db.collection('admin_sessions').findOne({ tokenHash: sha256(refreshToken) });
+        return Boolean(session && !session.revokedAt && session.expiresAt > new Date());
     } catch (_error) {
         return false;
     }
@@ -234,7 +246,7 @@ async function handleLogout(req, res) {
     const secure = cookieSecure ? '; Secure' : '';
     res.writeHead(200, {
         'content-type': 'application/json; charset=utf-8',
-        'set-cookie': `admin_refresh=; HttpOnly; SameSite=Strict; Path=/api/admin${secure}; Max-Age=0`
+        'set-cookie': `admin_refresh=; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=0`
     });
     res.end(JSON.stringify({ ok: true }));
 }
@@ -325,7 +337,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/events' || url.pathname.startsWith('/api/')) {
-        if (!isAuthenticated(req)) {
+        if (!(await isAuthenticated(req))) {
             res.writeHead(401, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
             res.end(JSON.stringify({ error: 'Unauthorized.' }));
             return;
@@ -344,12 +356,19 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Static pages: only the authenticated panel, everyone else gets the login page.
-    if (!isAuthenticated(req)) {
+    // Static assets (css/js/svg) are fetched by the browser's <link>/<script> tags, which carry
+    // neither the Authorization header nor the refresh cookie, so they are served regardless of
+    // auth. Only the HTML pages are gated.
+    const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+    const ext = path.extname(requested);
+    if (ext && ext !== '.html') {
+        serveFile(res, requested);
+        return;
+    }
+    if (!(await isAuthenticated(req))) {
         serveFile(res, 'login.html');
         return;
     }
-    const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
     serveFile(res, requested);
 });
 

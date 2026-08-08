@@ -9,7 +9,6 @@ import { SponsorEligibilityService } from './SponsorEligibilityService';
 
 interface DiscordOAuthStatePayload {
     mode: 'login' | 'link';
-    email?: string;
     userId?: number;
     expiresAt: number;
     nonce: string;
@@ -154,6 +153,11 @@ export class DiscordAccountLinkService {
     private readonly clientSecret: string;
     private readonly redirectUri: string;
     private readonly stateSecret: string;
+    private readonly pendingOAuthStates = new Map<string, {
+        mode: 'login' | 'link';
+        userId?: number;
+        expiresAt: number;
+    }>();
 
     constructor() {
         this.appId = Config.DISCORD_CLIENT_ID;
@@ -198,48 +202,17 @@ export class DiscordAccountLinkService {
     public async createLinkAuthorizeUrlForAccount(account: UserAccount): Promise<DiscordLinkStartResult> {
         return this.createAuthorizeUrlForState({
             mode: 'link',
-            email: normalizeEmail(account.email),
             userId: account.user_id
         });
     }
 
     public async createAuthorizeUrl(email: string): Promise<DiscordLinkStartResult> {
-        if (!this.isConfigured()) {
-            return {
-                ok: false,
-                reason: 'not-configured',
-                message: 'Discord OAuth requires DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, and DISCORD_REDIRECT_URI.'
-            };
-        }
-
-        const normalizedEmail = normalizeEmail(email);
-        if (!normalizedEmail) {
-            return {
-                ok: false,
-                reason: 'missing-email',
-                message: 'Missing game account email.'
-            };
-        }
-
-        const account = await this.db.getAccount(normalizedEmail);
-        if (!account) {
-            return {
-                ok: false,
-                reason: 'account-not-found',
-                message: 'No game account exists for that email.'
-            };
-        }
-
-        if (account.discordId) {
-            return {
-                ok: true,
-                reason: 'already-linked',
-                link: account,
-                message: 'Discord account is already linked.'
-            };
-        }
-
-        return this.createLinkAuthorizeUrlForAccount(account);
+        void email;
+        return {
+            ok: false,
+            reason: 'authenticated-account-required',
+            message: 'Discord linking requires an authenticated account-management session.'
+        };
     }
 
     public async completeLink(code: string, state: string): Promise<DiscordLinkCompleteResult> {
@@ -379,7 +352,7 @@ export class DiscordAccountLinkService {
     }
 
     private async createAuthorizeUrlForState(
-        state: Pick<DiscordOAuthStatePayload, 'mode' | 'email' | 'userId'>
+        state: Pick<DiscordOAuthStatePayload, 'mode' | 'userId'>
     ): Promise<DiscordLinkStartResult> {
         if (!this.isConfigured()) {
             return {
@@ -389,7 +362,7 @@ export class DiscordAccountLinkService {
             };
         }
 
-        if (state.mode === 'link' && (!state.email || !state.userId)) {
+        if (state.mode === 'link' && !state.userId) {
             return {
                 ok: false,
                 reason: 'missing-account',
@@ -397,14 +370,20 @@ export class DiscordAccountLinkService {
             };
         }
 
-        const signedState = this.signState({
+        const statePayload: DiscordOAuthStatePayload = {
             mode: state.mode,
-            email: normalizeEmail(state.email),
             userId: Math.max(0, Math.round(Number(state.userId ?? 0))) || undefined,
             expiresAt: Date.now() + 10 * 60 * 1000,
             nonce: crypto.randomBytes(16).toString('hex'),
             cb: Config.PUBLIC_BASE_URL
+        };
+        this.purgeExpiredOAuthStates();
+        this.pendingOAuthStates.set(statePayload.nonce, {
+            mode: statePayload.mode,
+            userId: statePayload.userId,
+            expiresAt: statePayload.expiresAt
         });
+        const signedState = this.signState(statePayload);
         const authorizeUrl = new URL('https://discord.com/oauth2/authorize');
         authorizeUrl.searchParams.set('client_id', this.appId);
         authorizeUrl.searchParams.set('redirect_uri', this.redirectUri);
@@ -642,19 +621,44 @@ export class DiscordAccountLinkService {
         try {
             const parsed = JSON.parse(base64UrlDecode(body)) as DiscordOAuthStatePayload;
             const mode = parsed.mode === 'link' ? 'link' : parsed.mode === 'login' ? 'login' : null;
-            if (!mode || Date.now() > Number(parsed.expiresAt ?? 0)) {
+            const expiresAt = Number(parsed.expiresAt ?? 0);
+            const nonce = String(parsed.nonce ?? '');
+            const userId = Math.max(0, Math.round(Number(parsed.userId ?? 0))) || undefined;
+            const now = Date.now();
+            this.purgeExpiredOAuthStates(now);
+            const pending = nonce ? this.pendingOAuthStates.get(nonce) : undefined;
+            if (
+                !mode ||
+                !nonce ||
+                now > expiresAt ||
+                !pending ||
+                pending.expiresAt !== expiresAt ||
+                pending.mode !== mode ||
+                pending.userId !== userId
+            ) {
                 return null;
             }
 
+            // Delete before exchanging the authorization code so concurrent callbacks
+            // cannot both pass verification. A failed exchange requires a fresh flow.
+            this.pendingOAuthStates.delete(nonce);
+
             return {
                 mode,
-                email: normalizeEmail(parsed.email),
-                userId: Math.max(0, Math.round(Number(parsed.userId ?? 0))) || undefined,
-                expiresAt: Number(parsed.expiresAt),
-                nonce: String(parsed.nonce ?? '')
+                userId,
+                expiresAt,
+                nonce
             };
         } catch {
             return null;
+        }
+    }
+
+    private purgeExpiredOAuthStates(now: number = Date.now()): void {
+        for (const [nonce, pending] of this.pendingOAuthStates.entries()) {
+            if (pending.expiresAt <= now) {
+                this.pendingOAuthStates.delete(nonce);
+            }
         }
     }
 

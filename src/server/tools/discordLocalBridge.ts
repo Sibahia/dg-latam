@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Config } from '../core/config';
+import { PresenceService } from '../core/PresenceService';
 
 interface DiscordRpcClient {
     on(
@@ -452,7 +453,10 @@ class LocalDiscordBridge {
 
         try {
             const response = await fetch(this.buildPresenceUrl(), {
-                cache: 'no-store'
+                cache: 'no-store',
+                headers: {
+                    Authorization: `Bearer ${PresenceService.buildServiceTicket('presence:read')}`
+                }
             });
 
             if (!response.ok) {
@@ -572,11 +576,11 @@ class LocalDiscordBridge {
                 method: 'POST',
                 cache: 'no-store',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${PresenceService.buildServiceTicket('presence:join', requesterName)}`
                 },
                 body: JSON.stringify({
-                    secret: joinSecret,
-                    requesterName
+                    secret: joinSecret
                 })
             });
             const payload = await response.json().catch(() => null) as Record<string, unknown> | null;

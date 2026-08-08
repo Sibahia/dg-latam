@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-08",
+  "artifacts": {
+    "src/client/content/localhost/p/cbp/DungeonBlitz.swf": {
+      "sha256": "af689ef51be61f90aea9266d338e27bed23809d435adfd90dd068e2daead9627",
+      "clientRevision": "swf-8e45a2ee650c",
+      "staticVerifiers": [
+        "patch-dungeonblitz-banshee-wail-cap.ts",
+        "patch-dungeonblitz-chatbubble-method901-null-guard.ts",
+        "patch-dungeonblitz-class23-bitmapdata-guard.ts",
+        "patch-dungeonblitz-class72-floattext-bitmapdata-guard.ts",
+        "patch-dungeonblitz-class82-bitmapdata-guard.ts",
+        "patch-dungeonblitz-destroy-entity-without-brain.ts",
+        "patch-dungeonblitz-dye-ui-owned-color.ts",
+        "patch-dungeonblitz-game-method1947-screen-bitmapdata.ts",
+        "patch-dungeonblitz-game-method527-clamp-floaters.ts",
+        "patch-dungeonblitz-hide-duplicate-boss-visual.ts",
+        "patch-dungeonblitz-pet-fetches-loot.ts",
+        "patch-dungeonblitz-quest-ui.js",
+        "patch-dungeonblitz-room-cue-dead-player-guard.ts",
+        "patch-dungeonblitz-superanim-method806-fullscreen-bitmapdata.ts"
+      ]
+    }
+  }
+}

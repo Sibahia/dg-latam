@@ -32,6 +32,7 @@ import { MovementAuthority } from '../core/MovementAuthority';
 import { CastRateAuthority } from '../core/CastRateAuthority';
 import { TutorialDungeonMechanics } from '../core/TutorialDungeonMechanics';
 import { AdminRuntimeSettings } from '../core/AdminRuntimeSettings';
+import { Config } from '../core/config';
 
 type CombatRelayOptions = {
     includeAnchor?: boolean;
@@ -114,6 +115,8 @@ type HostileViewerHealthSnapshot = {
 
 export class CombatHandler {
     private static readonly MAX_RELAY_POWER_HIT_DAMAGE = 4_000_000;
+    private static readonly MAX_AUTHORIZED_HIT_RANGE = 1_600;
+    private static readonly AUTHORIZED_CAST_TTL_MS = 3_000;
     private static readonly FIREBRAND_THIRD_SHOT_POWER_ID = 6144;
     private static readonly FIREBRAND_PIERCING_SHOT_POWER_ID = 6146;
     private static readonly FIREBRAND_PIERCING_SHOT_RANGE = 800;
@@ -206,6 +209,88 @@ export class CombatHandler {
 
     private static clampRelayPowerHitDamage(damage: number): number {
         return Math.max(0, Math.min(CombatHandler.MAX_RELAY_POWER_HIT_DAMAGE, Math.round(Number(damage) || 0)));
+    }
+
+    private static rememberAuthorizedPlayerCast(client: Client, sourceId: number, powerId: number): void {
+        const casts = ((client as any).authorizedCombatCasts ??= new Map<number, any>()) as Map<number, any>;
+        const now = Date.now();
+        for (const [id, cast] of casts) {
+            if (Number(cast?.expiresAt ?? 0) <= now) casts.delete(id);
+        }
+        casts.set(powerId, {
+            sourceId,
+            expiresAt: now + CombatHandler.AUTHORIZED_CAST_TTL_MS,
+            remainingHits: 16,
+            targets: new Set<number>()
+        });
+    }
+
+    private static consumeAuthorizedPlayerHit(
+        client: Client,
+        sourceId: number,
+        targetId: number,
+        powerId: number,
+        allowRepeatTarget: boolean = false
+    ): boolean {
+        if (!Config.MULTIPLAYER_MODE) {
+            return true;
+        }
+        const casts = (client as any).authorizedCombatCasts as Map<number, any> | undefined;
+        const cast = casts?.get(powerId);
+        if (
+            !cast ||
+            Number(cast.sourceId) !== sourceId ||
+            Number(cast.expiresAt) <= Date.now() ||
+            Number(cast.remainingHits) <= 0 ||
+            (!allowRepeatTarget && cast.targets instanceof Set && cast.targets.has(targetId))
+        ) {
+            return false;
+        }
+        cast.remainingHits = Number(cast.remainingHits) - 1;
+        if (cast.targets instanceof Set) cast.targets.add(targetId);
+        if (cast.remainingHits <= 0) casts!.delete(powerId);
+        return true;
+    }
+
+    private static isHitInAuthoritativeRange(sourceEntity: any, targetEntity: any): boolean {
+        const sourceX = Number(sourceEntity?.x);
+        const sourceY = Number(sourceEntity?.y);
+        const targetX = Number(targetEntity?.x);
+        const targetY = Number(targetEntity?.y);
+        if (![sourceX, sourceY, targetX, targetY].every(Number.isFinite)) {
+            return false;
+        }
+        return Math.hypot(targetX - sourceX, targetY - sourceY) <= CombatHandler.MAX_AUTHORIZED_HIT_RANGE;
+    }
+
+    private static getPlayerPacketDamageCeiling(client: Client, isCrit: boolean): number {
+        const level = Math.max(1, Math.min(50, Math.round(Number(client.character?.level ?? 1))));
+        return Math.max(100, Math.round((50 + (level * level * 12)) * (isCrit ? 2 : 1)));
+    }
+
+    /**
+     * Multiplayer damage is derived only from server-owned progression and immutable power
+     * data. The packet value remains useful for rejecting obviously malformed traffic, but
+     * it is never the value applied to canonical HP.
+     */
+    private static getServerDerivedPlayerDamage(
+        client: Client,
+        powerId: number,
+        isDamageOverTime: boolean = false
+    ): number | null {
+        const authoredMultiplier = CastRateAuthority.getAuthoredDamageMultiplier(powerId);
+        if (authoredMultiplier === null) {
+            return null;
+        }
+        if (authoredMultiplier <= 0) {
+            return 0;
+        }
+
+        const level = Math.max(1, Math.min(50, Math.round(Number(client.character?.level ?? 1))));
+        const levelBaseDamage = 25 + (level * level * 3);
+        const dotScale = isDamageOverTime ? 0.2 : 1;
+        const derived = Math.max(1, Math.round(levelBaseDamage * Math.min(8, authoredMultiplier) * dotScale));
+        return Math.min(derived, CombatHandler.getPlayerPacketDamageCeiling(client, false));
     }
 
     private static tryConsumeRespawnPotion(client: Client): boolean {
@@ -438,6 +523,11 @@ export class CombatHandler {
 
     private static sendRespawnResponse(client: Client, usePotion: boolean): void {
         const healAmount = CombatHandler.getRespawnHealAmount(client);
+        (client as any).pendingRespawnBroadcast = {
+            healAmount,
+            usePotion,
+            expiresAt: Date.now() + 10_000
+        };
 
         const bb = new BitBuffer(false);
         bb.writeMethod24(healAmount);
@@ -4367,6 +4457,13 @@ export class CombatHandler {
     }
 
     private static resolveFireBrandPiercingShotDamage(sourceSession: Client, sourceEntity: any): number {
+        if (Config.MULTIPLAYER_MODE) {
+            return CombatHandler.getServerDerivedPlayerDamage(
+                sourceSession,
+                CombatHandler.FIREBRAND_PIERCING_SHOT_POWER_ID
+            ) ?? 0;
+        }
+
         const localSource = sourceSession.clientEntID > 0 ? sourceSession.entities.get(sourceSession.clientEntID) : null;
         const rawDamage = Math.max(
             0,
@@ -5265,6 +5362,10 @@ export class CombatHandler {
             return;
         }
 
+        if (sourceSession === client && EntityHandler.isClientOwnPlayerEntity(client, levelScope, info.sourceId, sourceEntity)) {
+            CombatHandler.rememberAuthorizedPlayerCast(client, info.sourceId, info.powerId);
+        }
+
         CombatHandler.broadcastCombatPacket(client, 0x09, relayPayload, {
             referencedEntityIds: CombatHandler.parseReferencedEntityIds(0x09, relayPayload)
         });
@@ -5348,6 +5449,28 @@ export class CombatHandler {
         const sourceSession = CombatHandler.resolveCombatSourceSession(levelScope, sourceId, client);
         const targetSession = CombatHandler.findPlayerSessionByEntityId(levelScope, targetId);
         const isPlayerSource = Boolean(sourceSession && !isHostileNpcSource);
+        if (isPlayerSource && targetSession) {
+            return;
+        }
+        if (
+            isPlayerSource &&
+            Config.MULTIPLAYER_MODE &&
+            (
+                packetDamage > CombatHandler.getPlayerPacketDamageCeiling(sourceSession!, info.isCrit) ||
+                !CombatHandler.consumeAuthorizedPlayerHit(sourceSession!, sourceId, targetId, info.powerId) ||
+                !CombatHandler.isHitInAuthoritativeRange(sourceEntity, targetEntity)
+            )
+        ) {
+            return;
+        }
+        if (isPlayerSource && Config.MULTIPLAYER_MODE) {
+            const authoritativeDamage = CombatHandler.getServerDerivedPlayerDamage(sourceSession!, info.powerId);
+            if (authoritativeDamage === null) {
+                return;
+            }
+            damage = authoritativeDamage;
+            info.isCrit = false;
+        }
         if (isPlayerSource && targetEntity && !targetEntity.isPlayer) {
             damage = AdminRuntimeSettings.scaleDamage(damage);
         }
@@ -5641,6 +5764,35 @@ export class CombatHandler {
         const destroyedEntity = EntityHandler.usesServerAuthorityHostiles(levelName)
             ? (canonicalServerAuthorityEntity ?? client.entities.get(entityId) ?? rawLocalDestroyedEntity ?? canonicalDestroyedEntity)
             : (client.entities.get(entityId) ?? canonicalDestroyedEntity ?? rawLocalDestroyedEntity);
+        if (destroyedEntity?.isPlayer) {
+            return;
+        }
+        const destroyOwnerToken = Math.max(0, Math.round(Number(destroyedEntity?.ownerToken ?? 0)));
+        if (Boolean(destroyedEntity?.clientSpawned) && destroyOwnerToken > 0 && destroyOwnerToken !== client.token) {
+            return;
+        }
+        // Hybrid canonical bosses are a legacy compatibility bridge: the client
+        // supplies the final authored destroy transition, but the server has
+        // already promoted the exact required boss and observed player damage.
+        // Do not treat that narrowly proven transition as a forged destroy just
+        // because the promoted canonical copy is no longer marked clientSpawned.
+        const trustedHybridRequiredBossDestroy = Boolean(
+            canonicalDestroyedEntity &&
+            Boolean(canonicalDestroyedEntity.hybridCanonicalHostile) &&
+            DungeonCompletionConditions.isRequiredBoss(levelName, canonicalDestroyedEntity, levelScope) &&
+            CombatHandler.getContributionSnapshot(levelScope, entityId).contributors.length > 0
+        );
+        if (
+            canonicalDestroyedEntity &&
+            !CombatHandler.isServerAuthoritySyncNpc(levelScope, canonicalDestroyedEntity) &&
+            !Boolean(canonicalDestroyedEntity.clientSpawned) &&
+            Number(canonicalDestroyedEntity.team ?? 0) === EntityTeam.ENEMY &&
+            !CombatHandler.isTerminalHostileEntity(canonicalDestroyedEntity) &&
+            !trustedHybridRequiredBossDestroy
+        ) {
+            EntityHandler.sendEntity(client, canonicalDestroyedEntity);
+            return;
+        }
         const scriptedAuthority = TutorialDungeonMechanics.isTutorialDungeon(levelName)
             ? TutorialDungeonMechanics.getAuthorityEntity(rawLocalDestroyedEntity, Number(client.currentRoomId ?? 0))
             : null;
@@ -5721,16 +5873,14 @@ export class CombatHandler {
                 !isSeedOutsideClientSpawnDestroy &&
                 Math.round(Number(destroyedEntity.hp ?? 0)) > 0
             ) {
-                // The client resolved the kill and reports the destroy. For a
-                // server-authority hostile whose canonical HP never reached 0
-                // through the damage-accounting relay (AoE / HP-report kills),
-                // trust the client's terminal signal and commit the death so loot
-                // and completion are granted. TutorialDungeon keeps its own
-                // mechanics via the scripted-authority path above.
-                destroyedEntity.hp = 0;
-                destroyedEntity.dead = true;
-                destroyedEntity.destroyed = true;
-                destroyedEntity.entState = EntityState.DEAD;
+                CombatHandler.sendServerAuthorityAliveCorrection(
+                    client,
+                    levelScope,
+                    destroyedEntity,
+                    'client_destroy_live_canonical',
+                    rawEntityId
+                );
+                return;
             }
         }
         if (EntityHandler.isHomeDummyEntity(destroyedEntity)) {
@@ -5960,34 +6110,55 @@ export class CombatHandler {
         const entId = EntityHandler.resolveEntityAlias(client, rawEntId);
         const clientHealAmount = Math.max(0, Math.round(br.readMethod24()));
         const usedPotion = br.readMethod15();
-        if (usedPotion && !client.respawnPotionCharged) {
-            CombatHandler.tryConsumeRespawnPotion(client);
-        }
-        client.respawnPotionCharged = false;
-
         const isSelfRespawn = entId === client.clientEntID;
         const levelScope = getClientLevelScope(client);
         const respawnEntity = client.currentLevel ? CombatHandler.resolveLevelEntity(levelScope, entId) : null;
-        if (!isSelfRespawn && CombatHandler.isServerAuthoritySyncNpc(levelScope, respawnEntity)) {
-            CombatHandler.correctServerAuthorityHostileProxy(
-                client,
-                levelScope,
-                respawnEntity,
-                'hostile_respawn_rejected',
-                rawEntId
-            );
+        if (!isSelfRespawn) {
+            if (CombatHandler.isServerAuthoritySyncNpc(levelScope, respawnEntity)) {
+                CombatHandler.correctServerAuthorityHostileProxy(
+                    client,
+                    levelScope,
+                    respawnEntity,
+                    'hostile_respawn_rejected',
+                    rawEntId
+                );
+            }
             return;
         }
-        const healAmount = isSelfRespawn
-            ? Math.max(clientHealAmount, CombatHandler.getRespawnHealAmount(client))
-            : clientHealAmount;
 
+        const pending = (client as any).pendingRespawnBroadcast as {
+            healAmount: number;
+            usePotion: boolean;
+            expiresAt: number;
+        } | undefined;
+        (client as any).pendingRespawnBroadcast = null;
+        client.respawnPotionCharged = false;
         const ent = client.entities.get(entId);
+        const canonicalSelf = CombatHandler.resolveLevelEntity(levelScope, entId);
+        if (
+            !pending ||
+            pending.expiresAt < Date.now() ||
+            Boolean(pending.usePotion) !== Boolean(usedPotion) ||
+            (!CombatHandler.isEntityDead(ent) && !CombatHandler.isEntityDead(canonicalSelf))
+        ) {
+            return;
+        }
+        const healAmount = Math.max(1, Math.round(Number(pending.healAmount ?? 0)));
+        if (healAmount !== CombatHandler.getRespawnHealAmount(client)) {
+            return;
+        }
+        if (clientHealAmount !== healAmount) {
+            client.send(
+                CombatHandler.CLIENT_HEAL_PACKET_ID,
+                CombatHandler.buildHpDeltaPayload(rawEntId, healAmount - clientHealAmount)
+            );
+        }
+
         if (ent) {
             ent.dead = false;
             ent.entState = EntityState.ACTIVE;
             ent.hp = healAmount;
-            ent.maxHp = Math.max(Math.round(Number(ent.maxHp ?? 0)), healAmount);
+            ent.maxHp = healAmount;
             ent.lastCombatActivityAt = 0;
             ent.lastCombatRegenTickAt = 0;
         }
@@ -5998,7 +6169,7 @@ export class CombatHandler {
                 levelEntity.dead = false;
                 levelEntity.entState = EntityState.ACTIVE;
                 levelEntity.hp = healAmount;
-                levelEntity.maxHp = Math.max(Math.round(Number(levelEntity.maxHp ?? 0)), healAmount);
+                levelEntity.maxHp = healAmount;
                 levelEntity.lastCombatActivityAt = 0;
                 levelEntity.lastCombatRegenTickAt = 0;
             }
@@ -6014,7 +6185,7 @@ export class CombatHandler {
 
         if (entId === client.clientEntID) {
             client.authoritativeCurrentHp = healAmount;
-            client.authoritativeMaxHp = Math.max(client.authoritativeMaxHp, healAmount);
+            client.authoritativeMaxHp = healAmount;
             client.lastCombatActivityAt = 0;
             client.lastCombatRegenTickAt = 0;
             CombatHandler.clearEnemyDeathRegenArm(client);
@@ -6361,6 +6532,14 @@ export class CombatHandler {
             return;
         }
 
+        if (amount > 0) {
+            client.send(
+                CombatHandler.CLIENT_HEAL_PACKET_ID,
+                CombatHandler.buildHpDeltaPayload(rawEntityId, -amount)
+            );
+            return;
+        }
+
         const levelEntity = CombatHandler.resolveLevelEntity(levelScope, entityId);
         const maxHp = CombatHandler.resolvePlayerMaxHp(client, entity, levelEntity);
         const currentHp = CombatHandler.resolvePlayerCurrentHp(client, entity, levelEntity, maxHp);
@@ -6615,7 +6794,8 @@ export class CombatHandler {
             return;
         }
 
-        const { targetId, sourceId, damage } = info;
+        const { targetId, sourceId } = info;
+        let damage = info.damage;
         const targetEntity = CombatHandler.resolveLevelEntity(levelScope, targetId);
         const sourceEntity = CombatHandler.resolvePowerCastSourceEntity(levelScope, sourceId, client);
         const isHostileNpcSource = Boolean(
@@ -6663,6 +6843,28 @@ export class CombatHandler {
         }
         if (CombatHandler.shouldSuppressForeignOwnedHit(client, sourceSession, isHostileNpcSource)) {
             return;
+        }
+        const isPlayerSource = Boolean(sourceSession && !isHostileNpcSource);
+        if (isPlayerSource && targetSession) {
+            return;
+        }
+        if (
+            isPlayerSource &&
+            Config.MULTIPLAYER_MODE &&
+            (
+                damage > CombatHandler.getPlayerPacketDamageCeiling(sourceSession!, false) ||
+                !CombatHandler.consumeAuthorizedPlayerHit(sourceSession!, sourceId, targetId, info.powerId, true) ||
+                !CombatHandler.isHitInAuthoritativeRange(sourceEntity, targetEntity)
+            )
+        ) {
+            return;
+        }
+        if (isPlayerSource && Config.MULTIPLAYER_MODE) {
+            const authoritativeDamage = CombatHandler.getServerDerivedPlayerDamage(sourceSession!, info.powerId, true);
+            if (authoritativeDamage === null) {
+                return;
+            }
+            damage = authoritativeDamage;
         }
 
         if (damage > 0) {

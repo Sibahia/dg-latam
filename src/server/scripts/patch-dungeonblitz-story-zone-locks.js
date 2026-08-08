@@ -345,10 +345,12 @@ function main() {
         throw new Error('FFDec not found. Pass --ffdec or install JPEXS FFDec.');
     }
 
-    const requestedSwfs = new Set((args.swfs.length ? args.swfs : TARGETS).map((entry) => resolvePath(repoRoot, entry)));
-    const selectedSwfs = TARGETS
-        .map((entry) => resolvePath(repoRoot, entry))
-        .filter((swfPath) => requestedSwfs.has(swfPath));
+    // An explicit --swf is used by the asset-recovery harness to prove a
+    // rewrite on a disposable copy before touching the served client. The old
+    // filter silently ignored every custom path and made that safety workflow
+    // impossible.
+    const selectedSwfs = [...new Set((args.swfs.length ? args.swfs : TARGETS)
+        .map((entry) => resolvePath(repoRoot, entry)))];
 
     if (!selectedSwfs.length) {
         throw new Error('No matching SWFs selected for patching.');

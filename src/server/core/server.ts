@@ -9,6 +9,9 @@ export class GameServer {
     private port: number;
     private host: string;
     private router: PacketRouter;
+    private readonly sockets = new Set<net.Socket>();
+    private readonly connectionsByAddress = new Map<string, number>();
+    private stopPromise: Promise<void> | null = null;
 
     constructor(port: number = 8080, router: PacketRouter, host: string = Config.BIND_HOST) {
         this.port = port;
@@ -38,27 +41,80 @@ export class GameServer {
     }
 
     public stop(): Promise<void> {
-        if (!this.server.listening) {
-            return Promise.resolve();
+        if (this.stopPromise) {
+            return this.stopPromise;
         }
 
-        return new Promise((resolve, reject) => {
+        this.stopPromise = new Promise((resolve) => {
+            let settled = false;
+            const finish = (): void => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            const deadline = setTimeout(() => {
+                for (const socket of this.sockets) socket.destroy();
+                finish();
+            }, Config.SHUTDOWN_GRACE_MS);
+            deadline.unref?.();
+
+            if (!this.server.listening) {
+                clearTimeout(deadline);
+                for (const socket of this.sockets) socket.destroy();
+                finish();
+                return;
+            }
+
             this.server.close((error) => {
                 if (error) {
-                    reject(error);
-                    return;
+                    console.error('[GameServer] Stop error:', error);
                 }
-
-                resolve();
+                clearTimeout(deadline);
+                finish();
             });
         });
+        return this.stopPromise;
     }
 
     private handleConnection(socket: net.Socket): void {
-        // Create Client wrapper
+        const remoteAddress = GlobalState.normalizeRemoteAddress(socket.remoteAddress) || 'unknown';
+        const addressConnections = this.connectionsByAddress.get(remoteAddress) ?? 0;
+        if (
+            this.sockets.size >= Config.MAX_GAME_CONNECTIONS ||
+            addressConnections >= Config.MAX_GAME_CONNECTIONS_PER_IP
+        ) {
+            console.warn(
+                `[GameServer] Refused connection address=${remoteAddress} ` +
+                `active=${this.sockets.size} addressActive=${addressConnections}`
+            );
+            socket.destroy();
+            return;
+        }
+
+        this.sockets.add(socket);
+        this.connectionsByAddress.set(remoteAddress, addressConnections + 1);
         socket.setNoDelay(true);
         socket.setKeepAlive(true);
+        socket.setTimeout(Config.GAME_SOCKET_IDLE_TIMEOUT_MS, () => {
+            console.warn(`[GameServer] Closing idle connection address=${remoteAddress}`);
+            socket.destroy();
+        });
         const client = new Client(socket, this.router);
+        const authDeadline = setTimeout(() => {
+            if (!client.authenticated && !socket.destroyed) {
+                console.warn(`[GameServer] Closing unauthenticated connection address=${remoteAddress}`);
+                socket.destroy();
+            }
+        }, Config.GAME_AUTH_TIMEOUT_MS);
+        authDeadline.unref?.();
+
+        socket.once('close', () => {
+            clearTimeout(authDeadline);
+            this.sockets.delete(socket);
+            const remaining = Math.max(0, (this.connectionsByAddress.get(remoteAddress) ?? 1) - 1);
+            if (remaining === 0) this.connectionsByAddress.delete(remoteAddress);
+            else this.connectionsByAddress.set(remoteAddress, remaining);
+        });
         GlobalState.clients.add(client);
         const addr = `${socket.remoteAddress}:${socket.remotePort}`;
         console.log(`[GameServer] Client connected: ${addr}`);

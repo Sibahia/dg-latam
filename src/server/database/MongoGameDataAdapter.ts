@@ -2,6 +2,7 @@ import { Collection, Document, Filter, MongoClient } from 'mongodb';
 import { normalizeAccountIdentifier, PasswordRecord } from '../auth/PasswordAuth';
 import {
     Character,
+    CharacterCreateResult,
     DiscordAccountProfile,
     GearCatalogEntry,
     IDatabase,
@@ -11,9 +12,21 @@ import {
 } from './Database';
 
 type MongoAccountDocument = Document & UserAccount & { _id: string; createdAt?: Date; updatedAt?: Date };
-type MongoSaveDocument = Document & UserSaveData & { _id: string; createdAt?: Date; updatedAt?: Date };
+type MongoSaveDocument = Document & UserSaveData & {
+    _id: string;
+    revision?: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+};
 type MongoCounterDocument = Document & { _id: string; value: number; createdAt?: Date; updatedAt?: Date };
 type MongoGearDocument = Document & GearCatalogEntry & { _id: number; createdAt?: Date; updatedAt?: Date };
+type MongoCharacterNameDocument = Document & {
+    _id: string;
+    normalizedName: string;
+    userId: number;
+    characterName: string;
+    createdAt: Date;
+};
 
 export interface GameDataPersistenceAdapter extends IDatabase {
     connect(): Promise<void>;
@@ -21,6 +34,8 @@ export interface GameDataPersistenceAdapter extends IDatabase {
     loadAllCharacterRecords(): Promise<UserSaveData[]>;
     loadCharacterRecordsByGuild(guildName: string): Promise<UserSaveData[]>;
     getAccountIdByCharName(charName: string): Promise<number | null>;
+    saveCharacterSnapshot?(userId: number, character: Character): Promise<Character[]>;
+    createCharacter?(userId: number, character: Character, maxCharacters: number): Promise<CharacterCreateResult>;
 }
 
 function normalizeDiscordId(value: unknown): string {
@@ -75,6 +90,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
     private saves: Collection<MongoSaveDocument> | null = null;
     private counters: Collection<MongoCounterDocument> | null = null;
     private gear: Collection<MongoGearDocument> | null = null;
+    private characterNames: Collection<MongoCharacterNameDocument> | null = null;
     private connectPromise: Promise<void> | null = null;
 
     constructor(
@@ -105,6 +121,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
             const saves = db.collection<MongoSaveDocument>(this.savesCollectionName);
             const counters = db.collection<MongoCounterDocument>(this.countersCollectionName);
             const gear = db.collection<MongoGearDocument>(this.gearCollectionName);
+            const characterNames = db.collection<MongoCharacterNameDocument>(`${this.savesCollectionName}_character_names`);
 
             await Promise.all([
                 accounts.createIndex({ email: 1 }, { unique: true, name: 'account_email_unique' }),
@@ -118,7 +135,8 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
                 // Backs loadCharacterRecordsByGuild, which runs on every region change and
                 // every guild chat message for guilded players.
                 saves.createIndex({ 'characters.guild.name': 1 }, { name: 'save_character_guild_name' }),
-                gear.createIndex({ id: 1 }, { unique: true, name: 'gear_catalog_id_unique' })
+                gear.createIndex({ id: 1 }, { unique: true, name: 'gear_catalog_id_unique' }),
+                characterNames.createIndex({ normalizedName: 1 }, { unique: true, name: 'character_name_unique' })
             ]);
 
             this.client = client;
@@ -126,6 +144,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
             this.saves = saves;
             this.counters = counters;
             this.gear = gear;
+            this.characterNames = characterNames;
         })().catch((error) => {
             this.connectPromise = null;
             void client.close().catch(() => undefined);
@@ -142,6 +161,7 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         this.saves = null;
         this.counters = null;
         this.gear = null;
+        this.characterNames = null;
         this.connectPromise = null;
         await client?.close();
     }
@@ -151,12 +171,19 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
         saves: Collection<MongoSaveDocument>;
         counters: Collection<MongoCounterDocument>;
         gear: Collection<MongoGearDocument>;
+        characterNames: Collection<MongoCharacterNameDocument>;
     }> {
         await this.connect();
-        if (!this.accounts || !this.saves || !this.counters || !this.gear) {
+        if (!this.accounts || !this.saves || !this.counters || !this.gear || !this.characterNames) {
             throw new Error('Mongo game-data collections are not initialized.');
         }
-        return { accounts: this.accounts, saves: this.saves, counters: this.counters, gear: this.gear };
+        return {
+            accounts: this.accounts,
+            saves: this.saves,
+            counters: this.counters,
+            gear: this.gear,
+            characterNames: this.characterNames
+        };
     }
 
     private assertUsableDiscordProfile(
@@ -438,21 +465,247 @@ export class MongoGameDataAdapter implements GameDataPersistenceAdapter {
     public async saveCharacters(userId: number, characters: Character[]): Promise<void> {
         const normalizedUserId = Math.round(Number(userId));
         const { saves } = await this.getCollections();
+        const snapshots = Array.isArray(characters)
+            ? characters.filter((character) => String(character?.name ?? '').trim().length > 0)
+            : [];
+        if (snapshots.length === 0) {
+            return;
+        }
+
+        const now = new Date();
         await saves.updateOne(
             { user_id: normalizedUserId },
-            {
-                $set: {
-                    user_id: normalizedUserId,
-                    characters: Array.isArray(characters) ? characters : [],
-                    updatedAt: new Date()
-                },
-                $setOnInsert: {
-                    _id: String(normalizedUserId),
-                    createdAt: new Date()
+            [
+                {
+                    $set: {
+                        user_id: normalizedUserId,
+                        characters: {
+                            $reduce: {
+                                input: { $literal: snapshots },
+                                initialValue: { $ifNull: ['$characters', []] },
+                                in: {
+                                    $let: {
+                                        vars: {
+                                            incoming: '$$this',
+                                            normalizedIncomingName: {
+                                                $toLower: { $trim: { input: { $ifNull: ['$$this.name', ''] } } }
+                                            }
+                                        },
+                                        in: {
+                                            $cond: [
+                                                {
+                                                    $in: [
+                                                        '$$normalizedIncomingName',
+                                                        {
+                                                            $map: {
+                                                                input: '$$value',
+                                                                as: 'entry',
+                                                                in: {
+                                                                    $toLower: {
+                                                                        $trim: { input: { $ifNull: ['$$entry.name', ''] } }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    $map: {
+                                                        input: '$$value',
+                                                        as: 'entry',
+                                                        in: {
+                                                            $cond: [
+                                                                {
+                                                                    $eq: [
+                                                                        {
+                                                                            $toLower: {
+                                                                                $trim: {
+                                                                                    input: { $ifNull: ['$$entry.name', ''] }
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                        '$$normalizedIncomingName'
+                                                                    ]
+                                                                },
+                                                                '$$incoming',
+                                                                '$$entry'
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                { $concatArrays: ['$$value', ['$$incoming']] }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        revision: { $add: [{ $ifNull: ['$revision', 0] }, 1] },
+                        updatedAt: now,
+                        createdAt: { $ifNull: ['$createdAt', now] }
+                    }
                 }
-            },
+            ],
             { upsert: true }
         );
+    }
+
+    public async saveCharacterSnapshot(userId: number, character: Character): Promise<Character[]> {
+        const normalizedUserId = Math.round(Number(userId));
+        const normalizedName = String(character?.name ?? '').trim().toLowerCase();
+        if (!normalizedName) {
+            throw new Error('Cannot save a character snapshot without a character name.');
+        }
+
+        const { saves } = await this.getCollections();
+        const now = new Date();
+        await saves.updateOne(
+            { user_id: normalizedUserId },
+            [
+                {
+                    $set: {
+                        user_id: normalizedUserId,
+                        characters: {
+                            $let: {
+                                vars: { existing: { $ifNull: ['$characters', []] } },
+                                in: {
+                                    $cond: [
+                                        {
+                                            $in: [
+                                                normalizedName,
+                                                {
+                                                    $map: {
+                                                        input: '$$existing',
+                                                        as: 'entry',
+                                                        in: { $toLower: { $trim: { input: { $ifNull: ['$$entry.name', ''] } } } }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            $map: {
+                                                input: '$$existing',
+                                                as: 'entry',
+                                                in: {
+                                                    $cond: [
+                                                        { $eq: [{ $toLower: { $trim: { input: { $ifNull: ['$$entry.name', ''] } } } }, normalizedName] },
+                                                        { $literal: character },
+                                                        '$$entry'
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        { $concatArrays: ['$$existing', [{ $literal: character }]] }
+                                    ]
+                                }
+                            }
+                        },
+                        revision: { $add: [{ $ifNull: ['$revision', 0] }, 1] },
+                        updatedAt: now,
+                        createdAt: { $ifNull: ['$createdAt', now] }
+                    }
+                }
+            ],
+            { upsert: true }
+        );
+        return this.loadCharacters(normalizedUserId);
+    }
+
+    public async createCharacter(
+        userId: number,
+        character: Character,
+        maxCharacters: number
+    ): Promise<CharacterCreateResult> {
+        const normalizedUserId = Math.round(Number(userId));
+        const normalizedName = String(character?.name ?? '').trim().toLowerCase();
+        const characterLimit = Math.max(1, Math.round(Number(maxCharacters)));
+        const { accounts, saves, characterNames } = await this.getCollections();
+        const existingCharacters = await this.loadCharacters(normalizedUserId);
+
+        if (!await accounts.findOne({ user_id: normalizedUserId }, { projection: { _id: 1 } })) {
+            return { ok: false, reason: 'account-not-found', characters: existingCharacters };
+        }
+        if (existingCharacters.length >= characterLimit) {
+            return { ok: false, reason: 'character-limit', characters: existingCharacters };
+        }
+        if (existingCharacters.some((entry) => String(entry?.name ?? '').trim().toLowerCase() === normalizedName)) {
+            return { ok: false, reason: 'name-taken', characters: existingCharacters };
+        }
+
+        const reservation: MongoCharacterNameDocument = {
+            _id: normalizedName,
+            normalizedName,
+            userId: normalizedUserId,
+            characterName: String(character.name),
+            createdAt: new Date()
+        };
+        try {
+            await characterNames.insertOne(reservation);
+        } catch (error: any) {
+            if (Number(error?.code) === 11000) {
+                return { ok: false, reason: 'name-taken', characters: await this.loadCharacters(normalizedUserId) };
+            }
+            throw error;
+        }
+
+        try {
+            await saves.updateOne(
+                { user_id: normalizedUserId },
+                {
+                    $setOnInsert: {
+                        _id: String(normalizedUserId),
+                        user_id: normalizedUserId,
+                        characters: [],
+                        createdAt: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+            const result = await saves.updateOne(
+                {
+                    user_id: normalizedUserId,
+                    $expr: {
+                        $and: [
+                            { $lt: [{ $size: { $ifNull: ['$characters', []] } }, characterLimit] },
+                            {
+                                $not: [{
+                                    $in: [
+                                        normalizedName,
+                                        {
+                                            $map: {
+                                                input: { $ifNull: ['$characters', []] },
+                                                as: 'entry',
+                                                in: { $toLower: { $trim: { input: { $ifNull: ['$$entry.name', ''] } } } }
+                                            }
+                                        }
+                                    ]
+                                }]
+                            }
+                        ]
+                    }
+                } as Filter<MongoSaveDocument>,
+                {
+                    $push: { characters: character },
+                    $set: { updatedAt: new Date() },
+                    $inc: { revision: 1 }
+                } as any
+            );
+
+            const characters = await this.loadCharacters(normalizedUserId);
+            if (result.modifiedCount === 1) {
+                return { ok: true, reason: 'ok', characters };
+            }
+
+            await characterNames.deleteOne({ _id: normalizedName, userId: normalizedUserId });
+            return {
+                ok: false,
+                reason: characters.length >= characterLimit ? 'character-limit' : 'name-taken',
+                characters
+            };
+        } catch (error) {
+            await characterNames.deleteOne({ _id: normalizedName, userId: normalizedUserId }).catch(() => undefined);
+            throw error;
+        }
     }
 
     public async isCharacterNameTaken(name: string): Promise<boolean> {

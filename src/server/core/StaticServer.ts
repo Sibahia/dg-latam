@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import type { Server as HttpServer } from 'http';
+import type { Socket } from 'net';
 import * as path from 'path';
 import type { Request } from 'express';
 import { Config } from './config';
@@ -12,13 +13,11 @@ import { SocialHandler } from '../handlers/SocialHandler';
 import { GlobalState } from './GlobalState';
 import { DiscordAccountLinkService } from '../integrations/DiscordAccountLinkService';
 import { JsonAdapter } from '../database/JsonAdapter';
-import { UserAccount } from '../database/Database';
 import {
     hashPlaintextPasswordForClient,
     isValidRegistrationPassword,
     normalizeAccountIdentifier
 } from '../auth/PasswordAuth';
-import { LoginHandler } from '../handlers/LoginHandler';
 
 function resolveContentDir(relativeContentPath: string): string {
     const candidates = [
@@ -47,9 +46,8 @@ function escapeHtml(value: string | null | undefined): string {
         .replace(/'/g, '&#39;');
 }
 
-// Keyed on the socket address, not X-Forwarded-For: resolveRequesterAddress trusts
-// that header for logging, but a spoofable key would let one caller evade the limit
-// (and hand out other players' buckets) on the auth routes.
+// Keyed on the socket address, not forwarded headers: a spoofable key would let one
+// caller evade the limit (and hand out other players' buckets) on auth routes.
 // ponytail: in-process counters, per-instance. Move to a shared store if the game
 // server is ever run as more than one process behind a balancer.
 function ipRateLimit(windowMs: number, limit: number, message: string) {
@@ -80,6 +78,8 @@ const pollRateLimit = () => ipRateLimit(60 * 1000, 90, 'Too many requests. Slow 
 export class StaticServer {
     private app: express.Application;
     private server: HttpServer | null;
+    private readonly sockets = new Set<Socket>();
+    private stopPromise: Promise<void> | null = null;
     private port: number;
     private contentDir: string;
     private host: string;
@@ -130,7 +130,11 @@ export class StaticServer {
     ) {
         this.port = port;
         this.host = host;
+        if (Config.ALLOW_DEV_PASSWORD_RESET && !['localhost', '127.0.0.1', '::1'].includes(host.trim().toLowerCase())) {
+            throw new Error('Development password reset requires a loopback HTTP bind.');
+        }
         this.app = express();
+        this.app.set('trust proxy', Config.TRUST_PROXY_HEADERS ? Config.TRUSTED_PROXY_ADDRESSES : false);
         this.server = null;
         this.selectedSwfCache = null;
         this.discordAccountLinks = new DiscordAccountLinkService();
@@ -225,51 +229,6 @@ export class StaticServer {
         );
 
         return locales.size === 1 ? [...locales][0] ?? null : null;
-    }
-
-    private resolveRequesterAccountEmail(req: Request): string {
-        const remoteAddress = this.normalizeRemoteAddress(this.resolveRequesterAddress(req));
-        if (!remoteAddress) {
-            return '';
-        }
-
-        const sessions = Array.from(GlobalState.sessionsByToken.values()).filter((client) => {
-            return this.normalizeRemoteAddress(client.socket.remoteAddress) === remoteAddress;
-        });
-        const activeSessions = sessions.filter((client) => client.playerSpawned);
-        const candidates = activeSessions.length > 0 ? activeSessions : sessions;
-        const emails = new Set(
-            candidates
-                .map((client) => String(client.account?.email ?? '').trim().toLowerCase())
-                .filter(Boolean)
-        );
-
-        return emails.size === 1 ? [...emails][0] ?? '' : '';
-    }
-
-    private async authenticateRequesterLoginClient(req: Request, account: UserAccount): Promise<boolean> {
-        const remoteAddress = this.normalizeRemoteAddress(this.resolveRequesterAddress(req));
-        if (!remoteAddress || !account.user_id) {
-            return false;
-        }
-
-        const candidates = Array.from(GlobalState.clients).filter((client) =>
-            this.normalizeRemoteAddress(client.socket.remoteAddress) === remoteAddress &&
-            !client.authenticated &&
-            GlobalState.isClientConnectionOpen(client)
-        );
-        const client = candidates[candidates.length - 1];
-        if (!client) {
-            return false;
-        }
-
-        client.userId = account.user_id;
-        client.account = account;
-        client.authenticated = true;
-        client.characters = await this.db.loadCharacters(account.user_id);
-        LoginHandler.sendCharacterList(client);
-        console.log(`[DiscordOAuth] Authenticated active game client for ${account.email}`);
-        return true;
     }
 
     private resolveGameSwzLocale(req: Request): 'en' | 'tr' {
@@ -426,16 +385,31 @@ try {
     }
 
     private resolveRequesterAddress(req: Request): string {
-        const forwardedFor = req.headers['x-forwarded-for'];
-        if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
-            return forwardedFor.split(',')[0]?.trim() ?? '';
-        }
+        return req.ip || req.socket.remoteAddress || '';
+    }
 
-        if (Array.isArray(forwardedFor) && forwardedFor.length > 0) {
-            return String(forwardedFor[0] ?? '').trim();
+    private isSameOriginFormRequest(req: Request): boolean {
+        const origin = String(req.headers.origin ?? '').trim();
+        if (!origin) {
+            return true;
         }
+        try {
+            return new URL(origin).host === String(req.headers.host ?? '').trim();
+        } catch {
+            return false;
+        }
+    }
 
-        return req.socket.remoteAddress ?? '';
+    private consumePresenceServiceTicket(
+        req: Request,
+        audience: 'presence:read' | 'presence:join'
+    ): { subject: string } | null {
+        const authorization = String(req.headers.authorization ?? '').trim();
+        const bearer = authorization.toLowerCase().startsWith('bearer ')
+            ? authorization.slice('bearer '.length).trim()
+            : '';
+        const explicit = String(req.headers['x-dungeonblitz-service-ticket'] ?? '').trim();
+        return PresenceService.consumeServiceTicket(bearer || explicit, audience);
     }
 
     private setupRoutes(): void {
@@ -530,6 +504,12 @@ try {
 
         this.app.post('/lostpw', async (req, res) => {
             res.setHeader('Cache-Control', 'no-store');
+            if (!this.isSameOriginFormRequest(req)) {
+                res.status(403).type('text/html').send(
+                    this.renderLostPasswordPage('Cross-site password reset requests are not allowed.', true)
+                );
+                return;
+            }
             const body = req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {};
             const email = normalizeAccountIdentifier(body.email);
             const password = typeof body.password === 'string' ? body.password : '';
@@ -626,13 +606,9 @@ try {
         });
 
         this.app.get('/api/auth/discord/pending', (req, res) => {
-            const pending = GlobalState.peekDiscordOAuthLogin(this.resolveRequesterAddress(req));
             res.setHeader('Cache-Control', 'no-store');
             res.json({
-                pending: Boolean(pending),
-                email: pending?.account.email ?? null,
-                userId: pending?.account.user_id ?? null,
-                expiresAt: pending?.expiresAt ?? null
+                pending: false
             });
         });
 
@@ -725,25 +701,12 @@ try {
                 return;
             }
 
-            const didAuthenticateClient = await this.authenticateRequesterLoginClient(req, result.account);
-            const pendingClient = didAuthenticateClient
-                ? false
-                : GlobalState.rememberDiscordOAuthLogin(
-                    this.resolveRequesterAddress(req),
-                    result.account
-                );
-            console.log(
-                `[DiscordOAuth] Login succeeded for ${result.account.email}; ` +
-                `activeClient=${didAuthenticateClient} pendingClient=${pendingClient}`
-            );
+            console.log(`[DiscordOAuth] Login identity verified for ${result.account.email}`);
             res.type('text/html').send(
                 this.renderDiscordOAuthPage(
                     'Discord Login Successful',
-                    didAuthenticateClient
-                        ? 'Discord login successful. Return to the game.'
-                        : 'Discord login successful. Return to the game; the next login connection will be authenticated automatically.',
-                    false,
-                    true
+                    'Discord identity verified. Return to the game and sign in with your account password.',
+                    false
                 )
             );
         });
@@ -825,6 +788,10 @@ try {
         });
 
         this.app.get('/api/presence/sessions', (req, res) => {
+            if (!this.consumePresenceServiceTicket(req, 'presence:read')) {
+                res.status(401).json({ ok: false, reason: 'service-ticket-required' });
+                return;
+            }
             const requestedCharacter = String(req.query.character ?? '').trim();
             const sessions = PresenceService.listSessions().filter((session) => {
                 if (!requestedCharacter) {
@@ -842,6 +809,10 @@ try {
         });
 
         this.app.get('/api/presence/discord-target', (req, res) => {
+            if (!this.consumePresenceServiceTicket(req, 'presence:read')) {
+                res.status(401).json({ ok: false, reason: 'service-ticket-required' });
+                return;
+            }
             const requestedCharacter = String(req.query.character ?? '').trim();
             const selection = PresenceService.selectDiscordTarget(requestedCharacter);
             const statusCode =
@@ -857,6 +828,10 @@ try {
         });
 
         this.app.get('/api/presence/self', (req, res) => {
+            if (!this.consumePresenceServiceTicket(req, 'presence:read')) {
+                res.status(401).json({ ok: false, reason: 'service-ticket-required' });
+                return;
+            }
             const selection = PresenceService.selectRequesterSession(this.resolveRequesterAddress(req));
             const statusCode =
                 selection.reason === 'ok' ? 200 : selection.reason === 'ambiguous' ? 409 : 404;
@@ -872,53 +847,18 @@ try {
         });
 
         this.app.get('/discord/link', async (req, res) => {
-            const requestedEmail = String(req.query.email ?? '').trim() || this.resolveRequesterAccountEmail(req);
-            const result = await this.discordAccountLinks.createAuthorizeUrl(requestedEmail);
-            if (result.ok && result.reason === 'already-linked' && result.link) {
-                const discordName = result.link.discordGlobalName || result.link.discordUsername || result.link.discordId || 'Discord';
-                res.type('text/html').send(
-                    `<h1>Discord already linked</h1><p>${escapeHtml(discordName)} is already linked to ${escapeHtml(result.link.email)}.</p>`
-                );
-                return;
-            }
-
-            if (!result.ok || !result.authorizeUrl) {
-                res.status(result.reason === 'not-configured' ? 503 : 400).type('text/plain').send(result.message ?? result.reason);
-                return;
-            }
-
-            res.redirect(result.authorizeUrl);
+            res.status(410).type('text/plain').send(
+                'Public account linking is disabled. Link accounts through an authenticated account-management flow.'
+            );
         });
 
         this.app.get('/api/discord/link/start', async (req, res) => {
-            const requestedEmail = String(req.query.email ?? '').trim() || this.resolveRequesterAccountEmail(req);
-            const result = await this.discordAccountLinks.createAuthorizeUrl(requestedEmail);
-            const statusCode = result.ok ? 200 : result.reason === 'not-configured' ? 503 : 400;
-
             res.setHeader('Cache-Control', 'no-store');
-            if (result.ok && result.reason === 'already-linked' && result.link) {
-                res.status(200).json({
-                    ok: true,
-                    reason: result.reason,
-                    message: result.message,
-                    link: {
-                        email: result.link.email,
-                        userId: result.link.user_id,
-                        discordId: result.link.discordId,
-                        discordUsername: result.link.discordUsername,
-                        discordGlobalName: result.link.discordGlobalName,
-                        discordLinkedAt: result.link.discordLinkedAt
-                    }
-                });
-                return;
-            }
-
-            if (result.ok && result.authorizeUrl && req.query.redirect === '1') {
-                res.redirect(result.authorizeUrl);
-                return;
-            }
-
-            res.status(statusCode).json(result);
+            res.status(401).json({
+                ok: false,
+                reason: 'authenticated-account-required',
+                message: 'Public account linking is disabled.'
+            });
         });
 
         this.app.get('/api/discord/link/callback', async (req, res) => {
@@ -949,9 +889,17 @@ try {
         });
 
         this.app.post('/api/presence/discord-join', (req, res) => {
+            const serviceTicket = this.consumePresenceServiceTicket(req, 'presence:join');
+            if (!serviceTicket) {
+                res.status(401).json({
+                    ok: false,
+                    reason: 'service-ticket-required',
+                    message: 'A valid Discord bridge service ticket is required.'
+                });
+                return;
+            }
             const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
             const secret = String(body.secret ?? '').trim();
-            const requesterName = String(body.requesterName ?? '').trim();
             const decodedSecret = PresenceService.resolveDiscordJoinSecret(secret);
 
             if (!decodedSecret) {
@@ -963,10 +911,7 @@ try {
                 return;
             }
 
-            const resolvedRequesterName =
-                requesterName ||
-                PresenceService.selectRequesterSession(this.resolveRequesterAddress(req)).snapshot?.characterName ||
-                '';
+            const resolvedRequesterName = serviceTicket.subject;
 
             if (!resolvedRequesterName) {
                 res.status(404).json({
@@ -1012,6 +957,9 @@ try {
     public start(): void {
         this.server = this.app.listen(this.port, this.host, () => {
             console.log(`[StaticServer] Password reset URL: ${Config.PASSWORD_RESET_URL}`);
+            if (Config.ALLOW_DEV_PASSWORD_RESET) {
+                console.warn('[StaticServer] DEVELOPMENT PASSWORD RESET ENABLED (loopback-only).');
+            }
             console.log(
                 `[StaticServer] Discord OAuth login: ${this.discordAccountLinks.isConfigured() ? 'configured' : 'disabled'}`
             );
@@ -1033,6 +981,10 @@ try {
         // each on a remote host. headersTimeout must stay above keepAliveTimeout.
         this.server.keepAliveTimeout = 65_000;
         this.server.headersTimeout = 70_000;
+        this.server.on('connection', (socket) => {
+            this.sockets.add(socket);
+            socket.once('close', () => this.sockets.delete(socket));
+        });
 
         this.server.on('error', (error) => {
             const socketError = error as NodeJS.ErrnoException;
@@ -1051,19 +1003,44 @@ try {
     }
 
     public stop(): Promise<void> {
-        if (!this.server || !this.server.listening) {
-            return this.discordAccountLinks.close();
+        if (this.stopPromise) {
+            return this.stopPromise;
         }
 
-        return new Promise((resolve, reject) => {
-            this.server?.close((error) => {
-                if (error) {
-                    reject(error);
-                    return;
+        this.stopPromise = new Promise((resolve) => {
+            let settled = false;
+            const finish = async (): Promise<void> => {
+                if (settled) return;
+                settled = true;
+                try {
+                    await this.discordAccountLinks.close();
+                } catch (error) {
+                    console.error('[StaticServer] Integration stop error:', error);
                 }
+                resolve();
+            };
+            const deadline = setTimeout(() => {
+                for (const socket of this.sockets) socket.destroy();
+                void finish();
+            }, Config.SHUTDOWN_GRACE_MS);
+            deadline.unref?.();
 
-                this.discordAccountLinks.close().then(resolve, reject);
+            if (!this.server || !this.server.listening) {
+                clearTimeout(deadline);
+                for (const socket of this.sockets) socket.destroy();
+                void finish();
+                return;
+            }
+
+            this.server.close((error) => {
+                if (error) {
+                    console.error('[StaticServer] Stop error:', error);
+                }
+                clearTimeout(deadline);
+                void finish();
             });
+            this.server.closeIdleConnections?.();
         });
+        return this.stopPromise;
     }
 }

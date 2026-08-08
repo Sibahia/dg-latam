@@ -74,10 +74,21 @@ export interface AbcParseResult {
   uintValues: number[];
   doubleValues: number[];
   doubleValuePositions: number[];
+  stringCount: number;
+  stringCountPos: number;
+  stringPoolEnd: number;
   stringValues: string[];
   stringLenPositions: number[];
   stringDataPositions: number[];
+  namespaceKinds: number[];
+  namespaceNameIndices: number[];
+  namespaceSets: number[][];
+  multinameCount: number;
+  multinameCountPos: number;
+  multinamePoolEnd: number;
   multinameNames: string[];
+  multinameKinds: number[];
+  multinameNamespaceSetIndices: number[];
   instances: InstanceInfo[];
   classTraits: TraitInfo[][];
   methodBodies: Map<number, MethodBodyInfo>;
@@ -153,25 +164,24 @@ export function readU30(data: Buffer, start: number, ctx: string): [number, numb
 }
 
 function readS32(data: Buffer, start: number, ctx: string): [number, number] {
-  let pos = start;
-  let value = 0;
-  let shift = 0;
-  let last = 0;
-  for (let i = 0; i < 5; i += 1) {
-    requireBounds(data, pos, 1, ctx);
-    const byte = data[pos];
-    pos += 1;
-    last = byte;
-    value |= (byte & 0x7f) << shift;
-    shift += 7;
-    if ((byte & 0x80) === 0) {
-      break;
+    let pos = start;
+    let value = 0;
+    let shift = 0;
+    for (let i = 0; i < 5; i += 1) {
+        requireBounds(data, pos, 1, ctx);
+        const byte = data[pos];
+        pos += 1;
+        value |= (byte & 0x7f) << shift;
+        if ((byte & 0x80) === 0) {
+            // AVM2's s32 pool values use the same variable-length bit
+            // representation as u32. Sign comes from bit 31, not bit 6 of
+            // the final encoded byte. Sign-extending that byte made valid
+            // values such as 9000 decode as -7384.
+            return [value | 0, pos];
+        }
+        shift += 7;
     }
-  }
-  if (shift < 32 && (last & 0x40) !== 0) {
-    value |= -(1 << shift);
-  }
-  return [value, pos];
+    return [value | 0, pos];
 }
 
 function readS24(data: Buffer, pos: number, ctx: string): [number, number] {
@@ -214,20 +224,19 @@ export function writeU30(value: number): Buffer {
 }
 
 export function writeS32(value: number): Buffer {
-  const out: number[] = [];
-  let rest = value | 0;
-  let more = true;
-  while (more) {
-    let byte = rest & 0x7f;
-    rest >>= 7;
-    const signBitSet = (byte & 0x40) !== 0;
-    more = !((rest === 0 && !signBitSet) || (rest === -1 && signBitSet));
-    if (more) {
-      byte |= 0x80;
+    const out: number[] = [];
+    let rest = value >>> 0;
+    while (true) {
+        let byte = rest & 0x7f;
+        rest >>>= 7;
+        if (rest !== 0) {
+            byte |= 0x80;
+        }
+        out.push(byte);
+        if (rest === 0) {
+            return Buffer.from(out);
+        }
     }
-    out.push(byte);
-  }
-  return Buffer.from(out);
 }
 
 export function parseSwf(filePath: string): SwfContext {
@@ -387,6 +396,7 @@ export function parseAbc(ctx: SwfContext): AbcParseResult {
     pos += 8;
   }
 
+  const stringCountPos = pos;
   let stringCount: number;
   [stringCount, pos] = readU30(data, pos, "abc.string_count");
   const stringValues = [""];
@@ -403,32 +413,48 @@ export function parseAbc(ctx: SwfContext): AbcParseResult {
     stringDataPositions.push(dataPos);
     pos += strlen;
   }
+  const stringPoolEnd = pos;
 
   [count, pos] = readU30(data, pos, "abc.namespace_count");
+  const namespaceKinds = [0];
+  const namespaceNameIndices = [0];
   for (let i = 1; i < count; i += 1) {
     requireBounds(data, pos, 1, `abc.namespace[${i}].kind`);
+    const kind = data[pos];
     pos += 1;
-    [, pos] = readU30(data, pos, `abc.namespace[${i}].name`);
+    let nameIdx: number;
+    [nameIdx, pos] = readU30(data, pos, `abc.namespace[${i}].name`);
+    namespaceKinds.push(kind);
+    namespaceNameIndices.push(nameIdx);
   }
 
   [count, pos] = readU30(data, pos, "abc.ns_set_count");
+  const namespaceSets: number[][] = [[]];
   for (let i = 1; i < count; i += 1) {
     let nsCount: number;
     [nsCount, pos] = readU30(data, pos, `abc.ns_set[${i}].count`);
+    const namespaces: number[] = [];
     for (let j = 0; j < nsCount; j += 1) {
-      [, pos] = readU30(data, pos, `abc.ns_set[${i}][${j}]`);
+      let namespaceIdx: number;
+      [namespaceIdx, pos] = readU30(data, pos, `abc.ns_set[${i}][${j}]`);
+      namespaces.push(namespaceIdx);
     }
+    namespaceSets.push(namespaces);
   }
 
+  const multinameCountPos = pos;
   let multinameCount: number;
   [multinameCount, pos] = readU30(data, pos, "abc.multiname_count");
   const multinameNames = [""];
+  const multinameKinds = [0];
+  const multinameNamespaceSetIndices = [0];
   for (let i = 1; i < multinameCount; i += 1) {
     requireBounds(data, pos, 1, `abc.mn[${i}].kind`);
     const kind = data[pos];
     pos += 1;
     let name = "";
     let nameIdx = 0;
+    let namespaceSetIdx = 0;
     if (kind === 0x07 || kind === 0x0d) {
       [, pos] = readU30(data, pos, `abc.mn[${i}].ns`);
       [nameIdx, pos] = readU30(data, pos, `abc.mn[${i}].name`);
@@ -438,7 +464,7 @@ export function parseAbc(ctx: SwfContext): AbcParseResult {
       nameIdx = 0;
     } else if (kind === 0x09 || kind === 0x0e) {
       [nameIdx, pos] = readU30(data, pos, `abc.mn[${i}].name`);
-      [, pos] = readU30(data, pos, `abc.mn[${i}].nsset`);
+      [namespaceSetIdx, pos] = readU30(data, pos, `abc.mn[${i}].nsset`);
     } else if (kind === 0x1b || kind === 0x1c) {
       [nameIdx, pos] = readU30(data, pos, `abc.mn[${i}].name`);
     } else if (kind === 0x1d) {
@@ -455,7 +481,10 @@ export function parseAbc(ctx: SwfContext): AbcParseResult {
       name = stringValues[nameIdx];
     }
     multinameNames.push(name);
+    multinameKinds.push(kind);
+    multinameNamespaceSetIndices.push(namespaceSetIdx);
   }
+  const multinamePoolEnd = pos;
 
   let methodCount: number;
   [methodCount, pos] = readU30(data, pos, "abc.method_count");
@@ -619,10 +648,21 @@ export function parseAbc(ctx: SwfContext): AbcParseResult {
     uintValues,
     doubleValues,
     doubleValuePositions,
+    stringCount,
+    stringCountPos,
+    stringPoolEnd,
     stringValues,
     stringLenPositions,
     stringDataPositions,
+    namespaceKinds,
+    namespaceNameIndices,
+    namespaceSets,
+    multinameCount,
+    multinameCountPos,
+    multinamePoolEnd,
     multinameNames,
+    multinameKinds,
+    multinameNamespaceSetIndices,
     instances,
     classTraits,
     methodBodies,
@@ -636,6 +676,25 @@ export function disassemble(code: Buffer, ctx: string): Instruction[] {
     const offset = pos;
     const opcode = code[pos];
     pos += 1;
+    // lookupswitch has a variable operand layout: one default s24, a u30 case
+    // count, then one s24 for every case (including the default index).  Keep
+    // every offset in the instruction so byte-patch callers can relocate it.
+    if (opcode === 0x1b) {
+      const operands: Array<[OperandKind, number]> = [];
+      let defaultOffset: number;
+      [defaultOffset, pos] = readS24(code, pos, `${ctx}@${offset}.default`);
+      operands.push(["s24", defaultOffset]);
+      let caseCount: number;
+      [caseCount, pos] = readU30(code, pos, `${ctx}@${offset}.case_count`);
+      operands.push(["u30", caseCount]);
+      for (let index = 0; index <= caseCount; index += 1) {
+        let caseOffset: number;
+        [caseOffset, pos] = readS24(code, pos, `${ctx}@${offset}.case[${index}]`);
+        operands.push(["s24", caseOffset]);
+      }
+      instructions.push({ offset, opcode, operands, size: pos - offset });
+      continue;
+    }
     const signature = OPCODE_INFO.get(opcode);
     if (signature === undefined) {
       throw new PatchError(`Unsupported opcode 0x${opcode.toString(16)} in ${ctx} at ${offset}`);

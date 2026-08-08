@@ -8,6 +8,8 @@ import { MovementAuthority } from '../core/MovementAuthority';
 import { CombatHandler } from '../handlers/CombatHandler';
 import { LevelHandler } from '../handlers/LevelHandler';
 import { BitBuffer } from '../network/protocol/bitBuffer';
+import { Config } from '../core/config';
+import { EntityHandler } from '../handlers/EntityHandler';
 
 function buildPowerCastPayload(sourceId: number, powerId: number): Buffer {
     const bb = new BitBuffer(false);
@@ -32,12 +34,36 @@ function buildMovementPayload(entityId: number, deltaX: number, deltaY: number):
     return bb.toBuffer();
 }
 
-function buildPowerHitPayload(targetId: number, sourceId: number, damage: number): Buffer {
+function buildFullUpdate(entity: any): Buffer {
+    return Buffer.concat([
+        (EntityHandler as any).buildEntityFullUpdatePayload({
+            v: 0,
+            team: entity.isPlayer ? 1 : 2,
+            renderDepthOffset: 0,
+            characterName: '',
+            dramaAnim: '',
+            sleepAnim: '',
+            summonerId: 0,
+            powerId: 0,
+            entState: EntityState.ACTIVE,
+            facingLeft: false,
+            running: false,
+            jumping: false,
+            dropping: false,
+            backpedal: false,
+            roomId: 1,
+            ...entity
+        }),
+        Buffer.from([0])
+    ]);
+}
+
+function buildPowerHitPayload(targetId: number, sourceId: number, damage: number, powerId: number = 100): Buffer {
     const bb = new BitBuffer(false);
     bb.writeMethod4(targetId);
     bb.writeMethod4(sourceId);
     bb.writeMethod24(damage);
-    bb.writeMethod4(100);
+    bb.writeMethod4(powerId);
     bb.writeMethod15(false);
     bb.writeMethod15(false);
     bb.writeMethod15(false);
@@ -236,6 +262,56 @@ async function main(): Promise<void> {
 
         await CombatHandler.handlePowerHit(client, buildPowerHitPayload(hostile.id, 99_999, 100));
         assert.equal(hostile.hp, 100, 'unknown combat source damaged a server-known entity');
+
+        MovementAuthority.reset(client, 'full-update-check', ownEntity.x, ownEntity.y, Date.now());
+        EntityHandler.handleEntityFullUpdate(client, buildFullUpdate({
+            id: client.clientEntID,
+            name: client.character.name,
+            isPlayer: true,
+            x: ownEntity.x + 20_000,
+            y: ownEntity.y
+        }));
+        assert.equal(client.entities.get(client.clientEntID).x, ownEntity.x, 'mid-session full update bypassed movement authority');
+        EntityHandler.handleEntityFullUpdate(client, buildFullUpdate({
+            id: remote.clientEntID,
+            name: remote.character.name,
+            isPlayer: true,
+            x: 999,
+            y: 999
+        }));
+        assert.equal(remoteEntity.x, 100, 'foreign player full update changed canonical position');
+        EntityHandler.handleEntityFullUpdate(client, buildFullUpdate({
+            id: 77_777_777,
+            name: 'ForgedUnknownHostileType',
+            isPlayer: false,
+            x: 0,
+            y: 0
+        }));
+        assert.equal(client.entities.has(77_777_777), false, 'unknown hostile full update injected an entity');
+
+        const previousMultiplayerMode = Config.MULTIPLAYER_MODE;
+        (Config as any).MULTIPLAYER_MODE = true;
+        try {
+            await CombatHandler.handlePowerHit(client, buildPowerHitPayload(hostile.id, client.clientEntID, 50));
+            assert.equal(hostile.hp, 100, 'a player hit without a server-observed cast changed HP');
+
+            await CombatHandler.handlePowerCast(client, buildPowerCastPayload(client.clientEntID, 100));
+            await CombatHandler.handlePowerHit(client, buildPowerHitPayload(hostile.id, client.clientEntID, 99_999));
+            assert.equal(hostile.hp, 100, 'forged damage above the server ceiling changed HP');
+
+            await CombatHandler.handlePowerHit(client, buildPowerHitPayload(hostile.id, client.clientEntID, 50));
+            const hpAfterAuthoritativeHit = hostile.hp;
+            assert.ok(hpAfterAuthoritativeHit > 0 && hpAfterAuthoritativeHit < 100, 'a legal cast-bound hit did not apply');
+            assert.notEqual(hpAfterAuthoritativeHit, 50, 'the server applied the client-authored damage value');
+            await CombatHandler.handlePowerHit(client, buildPowerHitPayload(hostile.id, client.clientEntID, 50));
+            assert.equal(hostile.hp, hpAfterAuthoritativeHit, 'a duplicate hit for one cast changed HP');
+
+            await CombatHandler.handlePowerCast(client, buildPowerCastPayload(client.clientEntID, 101));
+            await CombatHandler.handlePowerHit(client, buildPowerHitPayload(remote.clientEntID, client.clientEntID, 50, 101));
+            assert.equal(remote.authoritativeCurrentHp ?? 0, 0, 'a player damaged another player without a PvP rule');
+        } finally {
+            (Config as any).MULTIPLAYER_MODE = previousMultiplayerMode;
+        }
     } finally {
         GlobalState.levelEntities.delete(scope);
         GlobalState.sessionsByToken.delete(client.token);

@@ -25,3 +25,8 @@ Replace the repository's separate npm installs and lockfiles with one pnpm works
 - Immutable pnpm install, server typecheck, production build, production-startup regression, JavaScript syntax checks, macOS launcher syntax, and diff validation passed.
 - The full regression suite completed with four existing failures, and client-patch verification remains blocked by unavailable FFDec plus existing patch-state failures.
 - Docker is installed on the host but its Linux engine was unavailable, so the production image could not be built locally.
+
+## Alpha integration verification
+
+- After merging `origin/alpha`, the immutable pnpm install, typecheck, and production build passed.
+- The expanded regression suite passed 98 of 100 tests. The remaining failures require client-asset remediation (`forge_tutorial_persistence_regression`) and a local FFDec installation (`tutorial_party_progress_regression`).
