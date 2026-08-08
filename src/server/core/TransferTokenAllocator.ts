@@ -1,10 +1,32 @@
+import * as crypto from 'crypto';
 import { GlobalState } from './GlobalState';
 import { LevelConfig } from './LevelConfig';
 import { getScopeLevelName } from './LevelScope';
 
 export class TransferTokenAllocator {
-    private static readonly TOKEN_SPACE_SIZE = 0x10000;
-    private static readonly RANDOM_ATTEMPTS = 128;
+    // The legacy packet field supports at most 32 bits. Use the complete field
+    // with a CSPRNG and bind/expire the pending transfer separately.
+    private static readonly TOKEN_SPACE_SIZE = 0x100000000;
+    private static readonly RANDOM_ATTEMPTS = 1024;
+
+    static createLoginChallenge(): { value: string; hash: string } {
+        const value = crypto.randomBytes(32).toString('hex');
+        return {
+            value,
+            hash: crypto.createHash('sha256').update(value, 'utf8').digest('hex')
+        };
+    }
+
+    static verifyLoginChallenge(expectedHash: string | null | undefined, value: string | null | undefined): boolean {
+        const normalizedHash = String(expectedHash ?? '').trim().toLowerCase();
+        const presentedValue = String(value ?? '');
+        if (!/^[0-9a-f]{64}$/.test(normalizedHash) || !/^[0-9a-f]{64}$/.test(presentedValue)) {
+            return false;
+        }
+        const actualHash = crypto.createHash('sha256').update(presentedValue, 'utf8').digest();
+        const expected = Buffer.from(normalizedHash, 'hex');
+        return expected.length === actualHash.length && crypto.timingSafeEqual(expected, actualHash);
+    }
 
     private static normalizeTargetLevel(targetLevel: string | null | undefined): string {
         return LevelConfig.normalizeLevelName(String(targetLevel ?? '')) || String(targetLevel ?? '');
@@ -68,14 +90,8 @@ export class TransferTokenAllocator {
     static allocate(targetLevel: string | null | undefined): number {
         const blockedIds = TransferTokenAllocator.collectBlockedIds(targetLevel);
         for (let attempt = 0; attempt < TransferTokenAllocator.RANDOM_ATTEMPTS; attempt++) {
-            const candidate = Math.floor(Math.random() * TransferTokenAllocator.TOKEN_SPACE_SIZE);
+            const candidate = crypto.randomInt(1, TransferTokenAllocator.TOKEN_SPACE_SIZE);
             if (candidate > 0 && !blockedIds.has(candidate)) {
-                return candidate;
-            }
-        }
-
-        for (let candidate = 1; candidate < TransferTokenAllocator.TOKEN_SPACE_SIZE; candidate++) {
-            if (!blockedIds.has(candidate)) {
                 return candidate;
             }
         }

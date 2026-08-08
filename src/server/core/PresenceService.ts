@@ -55,6 +55,10 @@ interface PartySnapshot {
 const PARTY_MAX_MEMBERS = 4;
 
 export class PresenceService {
+    private static readonly SERVICE_TICKET_TTL_MS = 30_000;
+    private static readonly DISCORD_JOIN_SECRET_TTL_MS = 10 * 60_000;
+    private static readonly consumedServiceTicketNonces = new Map<string, number>();
+    private static readonly consumedJoinSecretNonces = new Map<string, number>();
     private static readonly LEVEL_DISPLAY_NAMES: Record<string, string> = {
         NewbieRoad: "Wolf's End",
         CraftTown: 'Home',
@@ -140,7 +144,9 @@ export class PresenceService {
             return null;
         }
 
-        const payload = `db-party:${Math.round(Number(partyId))}:${normalizedLeader}`;
+        const expiresAt = Date.now() + PresenceService.DISCORD_JOIN_SECRET_TTL_MS;
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const payload = `db-party:v2:${Math.round(Number(partyId))}:${normalizedLeader}:${expiresAt}:${nonce}`;
         const signature = crypto.createHmac('sha256', Config.SECRET).update(payload).digest('hex').slice(0, 32);
         return PresenceService.encodeSecret(`${payload}:${signature}`);
     }
@@ -159,24 +165,87 @@ export class PresenceService {
         }
 
         const parts = decoded.split(':');
-        if (parts.length !== 4 || parts[0] !== 'db-party') {
+        if (parts.length !== 7 || parts[0] !== 'db-party' || parts[1] !== 'v2') {
             return null;
         }
 
-        const partyId = Math.round(Number(parts[1]));
-        const partyLeader = normalizeCharacterKey(parts[2]);
-        const signature = parts[3] ?? '';
-        if (!Number.isFinite(partyId) || partyId <= 0 || !partyLeader || !signature) {
+        const partyId = Math.round(Number(parts[2]));
+        const partyLeader = normalizeCharacterKey(parts[3]);
+        const expiresAt = Math.round(Number(parts[4]));
+        const nonce = String(parts[5] ?? '');
+        const signature = String(parts[6] ?? '');
+        if (
+            !Number.isFinite(partyId) ||
+            partyId <= 0 ||
+            !partyLeader ||
+            !Number.isFinite(expiresAt) ||
+            expiresAt <= Date.now() ||
+            !nonce ||
+            !signature ||
+            PresenceService.consumedJoinSecretNonces.has(nonce)
+        ) {
             return null;
         }
 
-        const payload = `db-party:${partyId}:${partyLeader}`;
+        const payload = `db-party:v2:${partyId}:${partyLeader}:${expiresAt}:${nonce}`;
         const expectedSignature = crypto.createHmac('sha256', Config.SECRET).update(payload).digest('hex').slice(0, 32);
-        if (signature !== expectedSignature) {
+        if (!PresenceService.signaturesMatch(signature, expectedSignature)) {
             return null;
         }
 
+        PresenceService.cleanupConsumedNonces(PresenceService.consumedJoinSecretNonces);
+        PresenceService.consumedJoinSecretNonces.set(nonce, expiresAt);
         return { partyId, partyLeader };
+    }
+
+    static buildServiceTicket(audience: 'presence:read' | 'presence:join', subject?: string): string {
+        const normalizedSubject = normalizeCharacterKey(subject);
+        const expiresAt = Date.now() + PresenceService.SERVICE_TICKET_TTL_MS;
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const payload = `db-service:v1:${audience}:${expiresAt}:${nonce}:${normalizedSubject}`;
+        const signature = crypto.createHmac('sha256', Config.SECRET).update(payload).digest('hex');
+        return PresenceService.encodeSecret(`${payload}:${signature}`);
+    }
+
+    static consumeServiceTicket(
+        ticket: string | null | undefined,
+        audience: 'presence:read' | 'presence:join'
+    ): { subject: string } | null {
+        let decoded = '';
+        try {
+            decoded = PresenceService.decodeSecret(String(ticket ?? '').trim());
+        } catch {
+            return null;
+        }
+        const parts = decoded.split(':');
+        if (parts.length !== 8 || parts[0] !== 'db-service' || parts[1] !== 'v1') {
+            return null;
+        }
+        const tokenAudience = `${parts[2]}:${parts[3]}`;
+        const expiresAt = Math.round(Number(parts[4]));
+        const nonce = String(parts[5] ?? '');
+        const subject = normalizeCharacterKey(parts[6]);
+        const signature = String(parts[7] ?? '');
+        if (
+            tokenAudience !== audience ||
+            !Number.isFinite(expiresAt) ||
+            expiresAt <= Date.now() ||
+            !nonce ||
+            !signature ||
+            PresenceService.consumedServiceTicketNonces.has(nonce) ||
+            (audience === 'presence:join' && !subject)
+        ) {
+            return null;
+        }
+        const payload = `db-service:v1:${tokenAudience}:${expiresAt}:${nonce}:${subject}`;
+        const expectedSignature = crypto.createHmac('sha256', Config.SECRET).update(payload).digest('hex');
+        if (!PresenceService.signaturesMatch(signature, expectedSignature)) {
+            return null;
+        }
+
+        PresenceService.cleanupConsumedNonces(PresenceService.consumedServiceTicketNonces);
+        PresenceService.consumedServiceTicketNonces.set(nonce, expiresAt);
+        return { subject };
     }
 
     static selectDiscordTarget(preferredCharacterName: string | null | undefined): DiscordTargetSelection {
@@ -500,5 +569,20 @@ export class PresenceService {
         const padLength = (4 - (normalized.length % 4)) % 4;
         const padded = normalized + '='.repeat(padLength);
         return Buffer.from(padded, 'base64').toString('utf8');
+    }
+
+    private static cleanupConsumedNonces(nonces: Map<string, number>): void {
+        const now = Date.now();
+        for (const [nonce, expiresAt] of nonces) {
+            if (expiresAt <= now) {
+                nonces.delete(nonce);
+            }
+        }
+    }
+
+    private static signaturesMatch(actual: string, expected: string): boolean {
+        const actualBuffer = Buffer.from(actual, 'utf8');
+        const expectedBuffer = Buffer.from(expected, 'utf8');
+        return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
     }
 }

@@ -657,7 +657,10 @@ function testTagUgoDoesNotRegenWhenPlayerRevivedWithStaleZeroHp(): void {
     canonicalBoss.x = 22695;
     canonicalBoss.y = 2959;
 
-    client.authoritativeCurrentHp = 0;
+    // The server still knows this player is alive; only the local/scoped
+    // snapshots are stale after the transition. A zero/unknown authoritative
+    // HP must not be repairable by an untrusted full update.
+    client.authoritativeCurrentHp = 1000;
     client.enemyDeathRegenArmed = true;
     const activePlayerEntity = {
         id: client.clientEntID,
@@ -709,7 +712,10 @@ function testTagUgoDoesNotRegenAfterActiveMovementWithStaleSavedPositionAndZeroH
     canonicalBoss.x = 22695;
     canonicalBoss.y = 2959;
 
-    client.authoritativeCurrentHp = 0;
+    // The server has already confirmed this player is alive; only the local
+    // and scoped entity snapshots are stale after the transition. A client
+    // full update must never resurrect a zero/unknown authoritative HP value.
+    client.authoritativeCurrentHp = 1000;
     client.enemyDeathRegenArmed = true;
     const activePlayerEntity = {
         id: client.clientEntID,
@@ -766,7 +772,10 @@ function testTagUgoDoesNotRegenAfterActiveSelfFullUpdateWithStaleDeadState(): vo
     canonicalBoss.x = 22695;
     canonicalBoss.y = 2959;
 
-    client.authoritativeCurrentHp = 0;
+    // The server has already confirmed this player is alive; only the local
+    // and scoped entity snapshots are stale after the transition. A client
+    // full update must never resurrect a zero/unknown authoritative HP value.
+    client.authoritativeCurrentHp = 1000;
     client.enemyDeathRegenArmed = true;
     const staleDeadPlayerEntity = {
         id: client.clientEntID,
@@ -788,7 +797,7 @@ function testTagUgoDoesNotRegenAfterActiveSelfFullUpdateWithStaleDeadState(): vo
         buildPlayerFullUpdate(client, 22600, 2950)
     );
 
-    assert.equal(client.authoritativeCurrentHp > 0, true, 'active owner full-update did not repair stale zero player HP');
+    assert.equal(client.authoritativeCurrentHp > 0, true, 'active owner full-update lost the server-confirmed player HP');
     assert.equal(client.enemyDeathRegenArmed, false, 'active owner full-update should clear stale player-death regen arm');
     assert.equal(client.entities.get(client.clientEntID)?.dead, false, 'local player entity should be active after owner full-update');
     assert.equal(GlobalState.levelEntities.get(scope)?.get(client.clientEntID)?.dead, false, 'scoped player entity should be active after owner full-update');

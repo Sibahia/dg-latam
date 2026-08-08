@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.27.2",
+  "version": "1.27.3",
 
   "description": "",
   "main": "index.js",
@@ -10,6 +10,7 @@
     "dev:discord-bridge:built": "node dist/tools/discordLocalBridge.js discord-bridge.dev.config.json",
     "multiplayer:pm2": "node tools/deployMultiplayer.js",
     "verify:client-patches": "node tools/verifyClientPatches.js",
+    "verify:client-patch-provenance": "node tools/verifyClientPatchProvenance.js",
     "patch:power-mana-costs": "ts-node scripts/patch_gameswz_power_mana_costs.ts",
     "prebuild": "npm run patch:power-mana-costs",
     "build": "tsc",

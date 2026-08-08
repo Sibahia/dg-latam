@@ -52,6 +52,10 @@ function parseNumberEnv(name: string, fallback: number): number {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseBoundedNumberEnv(name: string, fallback: number, minimum: number, maximum: number): number {
+    return Math.max(minimum, Math.min(maximum, parseNumberEnv(name, fallback)));
+}
+
 function parseStringEnv(name: string, fallback: string): string {
     const raw = process.env[name];
     if (raw == null) {
@@ -60,6 +64,39 @@ function parseStringEnv(name: string, fallback: string): string {
 
     const trimmed = raw.trim();
     return trimmed || fallback;
+}
+
+function parseCsvEnv(name: string, fallback: string[] = []): string[] {
+    const raw = process.env[name];
+    if (raw == null) {
+        return [...fallback];
+    }
+
+    return raw
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+}
+
+export function isLoopbackHost(host: string | null | undefined): boolean {
+    const normalized = String(host ?? '').trim().toLowerCase();
+    return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+}
+
+export function resolveDevPasswordResetEnabled(
+    multiplayerMode: boolean,
+    bindHost: string,
+    explicitlyRequested: boolean
+): boolean {
+    if (!explicitlyRequested) {
+        return false;
+    }
+    if (multiplayerMode || !isLoopbackHost(bindHost)) {
+        throw new Error(
+            'ALLOW_DEV_PASSWORD_RESET may only be enabled in single-player mode on a loopback bind.'
+        );
+    }
+    return true;
 }
 
 function parseHexEnv(name: string): string | null {
@@ -148,10 +185,20 @@ function scoreInterfaceName(name: string): number {
     return 0;
 }
 
-function resolveDefaultMultiplayerHost(): string {
+export function resolveDefaultMultiplayerHost(
+    enumerateInterfaces: typeof os.networkInterfaces = os.networkInterfaces
+): string {
     const candidates: Array<{ name: string; address: string; score: number }> = [];
 
-    for (const [name, entries] of Object.entries(os.networkInterfaces())) {
+    let interfaces: NodeJS.Dict<os.NetworkInterfaceInfo[]>;
+    try {
+        interfaces = enumerateInterfaces();
+    } catch (error) {
+        console.warn('[Config] Could not enumerate network interfaces; using localhost.', error);
+        return 'localhost';
+    }
+
+    for (const [name, entries] of Object.entries(interfaces)) {
         for (const entry of entries ?? []) {
             if (entry.family !== 'IPv4' || entry.internal) {
                 continue;
@@ -172,10 +219,18 @@ function resolveDefaultMultiplayerHost(): string {
 
 const MULTIPLAYER_MODE = parseBooleanEnv('MULTIPLAYER_MODE', false);
 const LOCAL_HOST = 'localhost';
-const MULTIPLAYER_HOST = normalizeHostValue(
-    parseStringEnv('MULTIPLAYER_BASE_IP', resolveDefaultMultiplayerHost()),
-    LOCAL_HOST
-);
+const EXPLICIT_MULTIPLAYER_HOST = String(process.env.MULTIPLAYER_BASE_IP ?? '').trim();
+export function resolveMultiplayerHost(
+    multiplayerMode: boolean,
+    explicitHost: string | undefined,
+    resolveDefault: () => string = resolveDefaultMultiplayerHost
+): string {
+    const requestedHost = String(explicitHost ?? '').trim();
+    if (requestedHost) return normalizeHostValue(requestedHost, LOCAL_HOST);
+    if (!multiplayerMode) return LOCAL_HOST;
+    return normalizeHostValue(resolveDefault(), LOCAL_HOST);
+}
+const MULTIPLAYER_HOST = resolveMultiplayerHost(MULTIPLAYER_MODE, EXPLICIT_MULTIPLAYER_HOST);
 const DEFAULT_STATIC_PORT = MULTIPLAYER_MODE ? 80 : 8000;
 const DEFAULT_GAME_PORT = 8080;
 const DEFAULT_POLICY_PORT = 843;
@@ -212,17 +267,64 @@ const SPONSOR_DISCORD_ID_FIELDS = parseStringEnv(
 );
 const SPONSOR_STATUS_FIELD = parseStringEnv('SPONSOR_STATUS_FIELD', 'isSponsor');
 const SPONSOR_ACCOUNT_CREATION_REQUIRED = parseBooleanEnv('SPONSOR_ACCOUNT_CREATION_REQUIRED', true);
+const BIND_HOST = MULTIPLAYER_MODE ? '0.0.0.0' : '127.0.0.1';
+const ALLOW_DEV_PASSWORD_RESET_REQUESTED = parseBooleanEnv('ALLOW_DEV_PASSWORD_RESET', false);
+const ALLOW_DEV_PASSWORD_RESET = resolveDevPasswordResetEnabled(
+    MULTIPLAYER_MODE,
+    BIND_HOST,
+    ALLOW_DEV_PASSWORD_RESET_REQUESTED
+);
+const TRUST_PROXY_HEADERS = parseBooleanEnv('TRUST_PROXY_HEADERS', false);
+const TRUSTED_PROXY_ADDRESSES = parseCsvEnv('TRUSTED_PROXY_ADDRESSES', ['loopback']);
+const MAX_GAME_CONNECTIONS = parseBoundedNumberEnv('MAX_GAME_CONNECTIONS', MULTIPLAYER_MODE ? 500 : 64, 1, 10_000);
+const MAX_GAME_CONNECTIONS_PER_IP = parseBoundedNumberEnv(
+    'MAX_GAME_CONNECTIONS_PER_IP',
+    MULTIPLAYER_MODE ? 20 : 8,
+    1,
+    MAX_GAME_CONNECTIONS
+);
+const GAME_AUTH_TIMEOUT_MS = parseBoundedNumberEnv('GAME_AUTH_TIMEOUT_MS', 30_000, 1_000, 10 * 60_000);
+const GAME_SOCKET_IDLE_TIMEOUT_MS = parseBoundedNumberEnv(
+    'GAME_SOCKET_IDLE_TIMEOUT_MS',
+    10 * 60_000,
+    10_000,
+    24 * 60 * 60_000
+);
+const SHUTDOWN_GRACE_MS = parseBoundedNumberEnv('SHUTDOWN_GRACE_MS', 5_000, 10, 60_000);
+const SHUTDOWN_TIMEOUT_MS = parseBoundedNumberEnv(
+    'SHUTDOWN_TIMEOUT_MS',
+    SHUTDOWN_GRACE_MS + 5_000,
+    SHUTDOWN_GRACE_MS,
+    120_000
+);
+const SOCKET_POLICY_DOMAINS = Array.from(new Set(
+    parseCsvEnv('SOCKET_POLICY_DOMAINS', [MULTIPLAYER_MODE ? MULTIPLAYER_HOST : LOCAL_HOST])
+        .filter((domain) => domain !== '*')
+        .map((domain) => normalizeHostValue(domain, ''))
+        .filter(Boolean)
+));
+
+if (TRUST_PROXY_HEADERS && TRUSTED_PROXY_ADDRESSES.length === 0) {
+    throw new Error('TRUST_PROXY_HEADERS requires at least one TRUSTED_PROXY_ADDRESSES entry.');
+}
 
 export const Config = {
     MULTIPLAYER_MODE,
     LOCAL_HOST,
     MULTIPLAYER_HOST,
     HOST: MULTIPLAYER_MODE ? MULTIPLAYER_HOST : LOCAL_HOST,
-    BIND_HOST: MULTIPLAYER_MODE ? '0.0.0.0' : '127.0.0.1',
+    BIND_HOST,
     STATIC_PORT: parseNumberEnv('STATIC_PORT', DEFAULT_STATIC_PORT),
     PORTS: [parseNumberEnv('GAME_PORT', DEFAULT_GAME_PORT)],
     POLICY_PORT: parseNumberEnv('POLICY_PORT', DEFAULT_POLICY_PORT),
     ENABLE_POLICY_SERVER: parseBooleanEnv('ENABLE_POLICY_SERVER', MULTIPLAYER_MODE),
+    MAX_GAME_CONNECTIONS,
+    MAX_GAME_CONNECTIONS_PER_IP,
+    GAME_AUTH_TIMEOUT_MS,
+    GAME_SOCKET_IDLE_TIMEOUT_MS,
+    SHUTDOWN_GRACE_MS,
+    SHUTDOWN_TIMEOUT_MS,
+    SOCKET_POLICY_DOMAINS,
     MONGODB_URI,
     MONGODB_DB_NAME,
     MONGODB_ACCOUNTS_COLLECTION: parseStringEnv('MONGODB_ACCOUNTS_COLLECTION', 'accounts'),
@@ -234,7 +336,9 @@ export const Config = {
     DATA_DIR: resolveServerDataDir(),
     PUBLIC_BASE_URL,
     PASSWORD_RESET_URL,
-    ALLOW_DEV_PASSWORD_RESET: parseBooleanEnv('ALLOW_DEV_PASSWORD_RESET', process.env.NODE_ENV !== 'production'),
+    ALLOW_DEV_PASSWORD_RESET,
+    TRUST_PROXY_HEADERS,
+    TRUSTED_PROXY_ADDRESSES,
     DISCORD_CLIENT_ID,
     DISCORD_CLIENT_SECRET,
     DISCORD_REDIRECT_URI,

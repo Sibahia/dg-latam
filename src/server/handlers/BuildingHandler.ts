@@ -274,22 +274,19 @@ export class BuildingHandler {
         if (!client.userId || !client.character) return;
         if (BuildingHandler.rejectVisitedHomeMutation(client, 'claim')) return;
 
-        const upgrade = client.character.buildingUpgrade;
-        const buildingId = Number(upgrade?.buildingID ?? 0);
-        const rank = Number(upgrade?.rank ?? 0);
-
-        if (buildingId > 0 && rank > 0) {
-            if (!client.character.magicForge) {
-                client.character.magicForge = { stats_by_building: {} };
+        const completed = BuildingHandler.applyCompletedBuildingUpgradeIfNeeded(client.character);
+        if (!completed) {
+            if (client.playerSpawned && client.currentLevel === 'CraftTown') {
+                BuildingHandler.sendBuildingUpdate(client);
             }
-            if (!client.character.magicForge.stats_by_building) {
-                client.character.magicForge.stats_by_building = {};
-            }
-            client.character.magicForge.stats_by_building[buildingId.toString()] = rank;
+            return;
         }
 
-        client.character.buildingUpgrade = { buildingID: 0, rank: 0, ReadyTime: 0 };
         await BuildingHandler.saveCharacter(client);
+        BuildingHandler.sendBuildingComplete(client, completed.buildingId, completed.rank);
+        if (client.playerSpawned && client.currentLevel === 'CraftTown') {
+            BuildingHandler.sendBuildingUpdate(client);
+        }
     }
 
     static async handleBuildingCancel(client: Client, _data: Buffer): Promise<void> {

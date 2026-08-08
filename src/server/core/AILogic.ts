@@ -289,7 +289,19 @@ export class AILogic {
         }
 
         if (players.length === 0) {
-            return { players: 0, npcs: 0 };
+            let resetNpcs = 0;
+            for (const npc of levelEntities.values()) {
+                if (!npc || npc.isPlayer || npc.team !== 2 || npc.clientSpawned) {
+                    continue;
+                }
+                if (npc.hp !== undefined && npc.hp <= 0) {
+                    continue;
+                }
+                if (AILogic.resetHomeAndIdleDebounced(npc, levelScope, nowMs)) {
+                    resetNpcs += 1;
+                }
+            }
+            return { players: 0, npcs: resetNpcs };
         }
 
         CombatHandler.processOutOfCombatRegen(levelScope, nowMs);

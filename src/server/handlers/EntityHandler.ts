@@ -3895,6 +3895,62 @@ export class EntityHandler {
         const charNameNorm = EntityHandler.normalizeIdentityName(client.character?.name);
         const isSelfPacket = Boolean(isPlayer && entNameNorm && charNameNorm && entNameNorm === charNameNorm);
 
+        if (isPlayer && !isSelfPacket) {
+            return;
+        }
+
+        const existingLocalEntityForAuthority = client.entities.get(rawEntityId);
+        const existingEntityForAuthority = existingLocalEntityForAuthority ?? existingLevelMap?.get(rawEntityId);
+        if (!isPlayer) {
+            // Scope-level entities can be canonical copies owned by a party
+            // peer. They are not permission grants for this client, but they
+            // must not suppress the client's own cue/alias for a shared
+            // hostile. Enforce ownership only for an already-local entity.
+            const existingOwnerToken = Math.max(0, Math.round(Number(existingLocalEntityForAuthority?.ownerToken ?? 0)));
+            if (existingOwnerToken > 0 && existingOwnerToken !== client.token) {
+                return;
+            }
+
+            const now = Date.now();
+            const budget = ((client as any).clientFullUpdateBudget ??= {
+                windowStartedAt: now,
+                count: 0
+            }) as { windowStartedAt: number; count: number };
+            if (now - budget.windowStartedAt >= 1_000) {
+                budget.windowStartedAt = now;
+                budget.count = 0;
+            }
+            budget.count += 1;
+            const ownedClientEntities = Array.from(client.entities.values()).filter((entity: any) =>
+                !entity?.isPlayer &&
+                Boolean(entity?.clientSpawned) &&
+                Math.max(0, Math.round(Number(entity?.ownerToken ?? 0))) === client.token
+            ).length;
+            if (budget.count > 64 || (!existingEntityForAuthority && ownedClientEntities >= 256)) {
+                return;
+            }
+
+            const knownEntityType = Boolean(GameData.getEntType(entName));
+            const tutorialObject = TutorialDungeonMechanics.isTutorialDungeon(levelName);
+            // Some legacy client-authority capstone encounters expose only a
+            // marker name (for example NephitSpireMarker), not an EntTypes
+            // record.  Permit precisely an authored required boss in that
+            // narrow compatibility path; arbitrary unknown hostiles remain
+            // rejected before they can enter local or shared state.
+            const authoredRequiredBoss = Boolean(
+                levelName &&
+                LevelConfig.isDungeonLevel(levelName) &&
+                DungeonCompletionConditions.isRequiredBoss(
+                    levelName,
+                    { name: entName, team },
+                    getClientLevelScope(client)
+                )
+            );
+            if (!knownEntityType && !tutorialObject && !authoredRequiredBoss) {
+                return;
+            }
+        }
+
         if (isPlayer && levelName && isSelfPacket) {
             const levelScope = getClientLevelScope(client);
             const canonicalEntityId = EntityHandler.allocateCanonicalPlayerEntityId(client, levelScope, rawEntityId);
@@ -3925,8 +3981,10 @@ export class EntityHandler {
                     x: posX,
                     y: posY,
                     v: velocityX,
-                team,
-                entState,
+                team: EntityTeam.PLAYER,
+                entState: existingEntityForAuthority && client.playerSpawned
+                    ? Number(existingEntityForAuthority.entState ?? EntityState.ACTIVE)
+                    : EntityState.ACTIVE,
                 facingLeft: bLeft,
                 running: bRunning,
                 jumping: bJumping,
@@ -3979,6 +4037,39 @@ export class EntityHandler {
                 roomId: client.currentRoomId
                 // bRunning etc are flags
             };
+
+        const isMidSessionSelfUpdate = Boolean(ownsThisPlayerPacket && client.playerSpawned && existingEntityForAuthority);
+        // A server-confirmed live player can retain a stale dead local snapshot
+        // after a level/cutscene transition.  Accept one full-state resync from
+        // that already-live authority record; a zero/unknown authoritative HP
+        // still follows the normal movement and respawn guards.
+        const serverConfirmedLiveStaleSelf = Boolean(
+            isMidSessionSelfUpdate &&
+            (Boolean(existingEntityForAuthority?.dead) ||
+                Number(existingEntityForAuthority?.entState ?? EntityState.ACTIVE) === EntityState.DEAD) &&
+            Math.round(Number(client.authoritativeCurrentHp ?? 0)) > 0
+        );
+        if (serverConfirmedLiveStaleSelf) {
+            // This is not client-authorized resurrection: positive health was
+            // already recorded by server authority. Repair only the stale
+            // entity snapshots so presence, aggro, and movement agree with it.
+            props.entState = EntityState.ACTIVE;
+            (props as any).dead = false;
+        }
+        if (isMidSessionSelfUpdate && !serverConfirmedLiveStaleSelf) {
+            const validation = MovementAuthority.validateIncrementalMovement(
+                client,
+                existingEntityForAuthority,
+                posX - Number(existingEntityForAuthority.x ?? 0),
+                posY - Number(existingEntityForAuthority.y ?? 0),
+                MovementAuthority.nowMs(),
+                [posX, posY, velocityX]
+            );
+            if (!validation.accepted) {
+                EntityHandler.sendEntity(client, existingEntityForAuthority);
+                return;
+            }
+        }
 
         EntityHandler.applyRuntimeDungeonEntityLevel(client, levelName, props);
 
@@ -4053,7 +4144,9 @@ export class EntityHandler {
 
         client.entities.set(entityId, props);
         if (ownsThisPlayerPacket) {
-            MovementAuthority.reset(client, 'entity_full_update_self', props.x, props.y);
+            if (!isMidSessionSelfUpdate) {
+                MovementAuthority.reset(client, 'entity_full_update_spawn', props.x, props.y);
+            }
             if (Number(props.entState ?? EntityState.ACTIVE) !== EntityState.DEAD && !Boolean((props as any).dead)) {
                 const { CombatHandler } = require('./CombatHandler') as typeof import('./CombatHandler');
                 CombatHandler.notePlayerActiveMovementState(client, Date.now(), true);

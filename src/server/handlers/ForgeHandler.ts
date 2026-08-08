@@ -54,6 +54,8 @@ export class ForgeHandler {
     private static readonly FREE_SPEEDUP_CLOCK_GRACE_SECONDS = SpeedupPricing.CLOCK_GRACE_SECONDS;
     private static readonly FREE_SPEEDUP_REASON_TUTORIAL_CHARM: FreeSpeedupReason = 'tutorial_charm';
     private static readonly FORGE_XP_CAP = 159_948;
+    private static readonly MAX_CRAFT_TALENT_POINTS = 50;
+    private static readonly MAX_CRAFT_TALENT_POINTS_PER_NODE = 10;
     private static readonly DEFAULT_FORGE_XP_GAIN = 4000;
     private static readonly completionTimers = new Map<string, NodeJS.Timeout>();
     private static readonly PRIMARY_TYPE_TO_SECONDARY: Record<string, number> = {
@@ -970,7 +972,29 @@ export class ForgeHandler {
 
         const br = new BitReader(data);
         const packedPoints = br.readMethod9();
-        client.character.craftTalentPoints = Array.from({ length: 5 }, (_, index) => (packedPoints >> (index * 4)) & 0xF);
+        const requestedPoints = Array.from(
+            { length: 5 },
+            (_, index) => (packedPoints >> (index * 4)) & 0xF
+        );
+        const requestedTotal = requestedPoints.reduce((total, points) => total + points, 0);
+        const earnedPoints = Math.max(
+            0,
+            Math.min(
+                ForgeHandler.MAX_CRAFT_TALENT_POINTS,
+                Math.floor(
+                    (Math.max(0, Number(client.character.craftXP ?? 0)) / ForgeHandler.FORGE_XP_CAP) *
+                    ForgeHandler.MAX_CRAFT_TALENT_POINTS
+                )
+            )
+        );
+        if (
+            requestedPoints.some((points) => points > ForgeHandler.MAX_CRAFT_TALENT_POINTS_PER_NODE) ||
+            requestedTotal > earnedPoints
+        ) {
+            return;
+        }
+
+        client.character.craftTalentPoints = requestedPoints;
         await ForgeHandler.saveCharacter(client);
     }
 
