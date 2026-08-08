@@ -1,0 +1,77 @@
+name: Build and Deploy Alpha
+
+on:
+  push:
+    branches: [alpha]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/sibahia/dg-latam
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/server/package-lock.json
+
+      - name: Install, build and patch alpha client ports
+        working-directory: src/server
+        run: |
+          npm ci
+          npm run build
+          node dist/scripts/patch-dungeonblitz-alpha-ports.js
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (alpha tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Container/Containerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:alpha
+            ${{ env.IMAGE }}:alpha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy alpha via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/dungeon-blitz-r-alpha
+            git pull --ff-only origin alpha
+            sudo -E bash /opt/dungeon-blitz-r-alpha/Container/deploy-alpha.sh
