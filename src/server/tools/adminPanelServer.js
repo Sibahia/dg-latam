@@ -2,7 +2,11 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { MongoClient } = require('mongodb');
 
 function readArg(name, fallback) {
     const index = process.argv.indexOf(name);
@@ -15,8 +19,28 @@ const targetBase = new URL(readArg('--server', process.env.ADMIN_SERVER_URL || p
 const secret = String(readArg('--secret', process.env.ADMIN_API_SECRET || process.env.DISCORD_MAINTENANCE_API_SECRET || '')).trim();
 const webDir = path.resolve(__dirname, 'admin-panel');
 
+const jwtSecret = String(process.env.ADMIN_JWT_SECRET || '').trim();
+const mongoUri = String(process.env.GAME_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017').trim();
+const mongoDbName = String(process.env.GAME_MONGODB_DB_NAME || 'dungeonblitz').trim();
+const cookieSecure = String(process.env.ADMIN_COOKIE_SECURE ?? '1').trim() !== '0';
+
+function parseDuration(value, fallbackMs) {
+    const text = String(value ?? '').trim().toLowerCase();
+    const match = text.match(/^(\d+)(ms|s|m|h|d)?$/);
+    if (!match) return fallbackMs;
+    const unit = match[2] || 'ms';
+    const multipliers = { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    return Number(match[1]) * (multipliers[unit] || 1);
+}
+const accessTokenTtlMs = parseDuration(process.env.ADMIN_ACCESS_TTL, 4 * 3600000); // 4h
+const refreshTokenTtlMs = parseDuration(process.env.ADMIN_REFRESH_TTL, 7 * 86400000); // 7d
+
 if (!secret) {
     console.error('[AdminPanel] ADMIN_API_SECRET or DISCORD_MAINTENANCE_API_SECRET is required.');
+    process.exit(1);
+}
+if (!jwtSecret) {
+    console.error('[AdminPanel] ADMIN_JWT_SECRET is required.');
     process.exit(1);
 }
 
@@ -26,6 +50,194 @@ const contentTypes = {
     '.js': 'text/javascript; charset=utf-8',
     '.svg': 'image/svg+xml'
 };
+
+let mongoClient = null;
+async function getDb() {
+    if (!mongoClient) {
+        mongoClient = new MongoClient(mongoUri, { ignoreUndefined: true });
+        await mongoClient.connect();
+    }
+    return mongoClient.db(mongoDbName);
+}
+
+function sha256(value) {
+    return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+// Simple in-memory login rate limiter (20 attempts / 15 minutes per IP).
+const loginAttempts = new Map();
+function consumeLoginAttempt(ip) {
+    const now = Date.now();
+    const windowMs = 15 * 60000;
+    const entry = loginAttempts.get(ip) || { count: 0, first: now };
+    if (now - entry.first > windowMs) {
+        entry.count = 0;
+        entry.first = now;
+    }
+    entry.count += 1;
+    loginAttempts.set(ip, entry);
+    return entry.count > 20;
+}
+
+function refreshCookieHeader(token) {
+    const secure = cookieSecure ? '; Secure' : '';
+    return `admin_refresh=${token}; HttpOnly; SameSite=Strict; Path=/api/admin${secure}; Max-Age=${Math.floor(refreshTokenTtlMs / 1000)}`;
+}
+
+function readCookie(req, name) {
+    const header = String(req.headers.cookie || '');
+    const match = header.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1].trim()) : '';
+}
+
+function isAuthenticated(req) {
+    const authorization = String(req.headers.authorization || '');
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+    if (!token) {
+        return false;
+    }
+    try {
+        jwt.verify(token, jwtSecret);
+        return true;
+    } catch (_error) {
+        return false;
+    }
+}
+
+function signAccessToken(username) {
+    return jwt.sign({ sub: username, role: 'admin' }, jwtSecret, {
+        expiresIn: Math.floor(accessTokenTtlMs / 1000)
+    });
+}
+
+async function createRefreshSession(username) {
+    const db = await getDb();
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + refreshTokenTtlMs);
+    await db.collection('admin_sessions').insertOne({
+        tokenHash: sha256(token),
+        username,
+        expiresAt,
+        createdAt: new Date(),
+        revokedAt: null
+    });
+    return { token, expiresAt, username };
+}
+
+async function rotateRefreshSession(refreshToken) {
+    const db = await getDb();
+    const tokenHash = sha256(refreshToken);
+    const session = await db.collection('admin_sessions').findOne({ tokenHash });
+    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
+        return null;
+    }
+    await db.collection('admin_sessions').updateOne({ tokenHash }, { $set: { revokedAt: new Date() } });
+    return createRefreshSession(session.username);
+}
+
+async function revokeRefreshSession(refreshToken) {
+    if (!refreshToken) {
+        return;
+    }
+    try {
+        const db = await getDb();
+        await db.collection('admin_sessions').updateOne(
+            { tokenHash: sha256(refreshToken), revokedAt: null },
+            { $set: { revokedAt: new Date() } }
+        );
+    } catch (_error) {
+        // Logout must never fail the response.
+    }
+}
+
+async function handleLogin(req, res) {
+    const ip = String(req.socket.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+    if (consumeLoginAttempt(ip)) {
+        res.writeHead(429, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Demasiados intentos. Espera unos minutos.' }));
+        return;
+    }
+
+    let body = '';
+    for await (const chunk of req) {
+        body += chunk;
+    }
+    let payload = {};
+    try {
+        payload = JSON.parse(body || '{}');
+    } catch (_error) {
+        // invalid json -> invalid credentials path below
+    }
+    const username = String(payload.username || '').trim();
+    const password = String(payload.password || '');
+    if (!username || !password) {
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Usuario y contraseña requeridos.' }));
+        return;
+    }
+
+    try {
+        const db = await getDb();
+        const user = await db.collection('admin_users').findOne({ username });
+        const valid = Boolean(user) && await bcrypt.compare(password, user.passwordHash);
+        if (!valid) {
+            res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'Credenciales inválidas.' }));
+            return;
+        }
+
+        const accessToken = signAccessToken(username);
+        const session = await createRefreshSession(username);
+        res.writeHead(200, {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'no-store',
+            'set-cookie': refreshCookieHeader(session.token)
+        });
+        res.end(JSON.stringify({ accessToken, expiresIn: Math.floor(accessTokenTtlMs / 1000) }));
+    } catch (error) {
+        res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Error interno: ' + error.message }));
+    }
+}
+
+async function handleRefresh(req, res) {
+    const refreshToken = readCookie(req, 'admin_refresh');
+    if (!refreshToken) {
+        res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'No hay sesión activa.' }));
+        return;
+    }
+
+    try {
+        const session = await rotateRefreshSession(refreshToken);
+        if (!session) {
+            res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'Sesión expirada o revocada.' }));
+            return;
+        }
+        const accessToken = signAccessToken(session.username);
+        res.writeHead(200, {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'no-store',
+            'set-cookie': refreshCookieHeader(session.token)
+        });
+        res.end(JSON.stringify({ accessToken, expiresIn: Math.floor(accessTokenTtlMs / 1000) }));
+    } catch (error) {
+        res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Error interno: ' + error.message }));
+    }
+}
+
+async function handleLogout(req, res) {
+    const refreshToken = readCookie(req, 'admin_refresh');
+    await revokeRefreshSession(refreshToken);
+    const secure = cookieSecure ? '; Secure' : '';
+    res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'set-cookie': `admin_refresh=; HttpOnly; SameSite=Strict; Path=/api/admin${secure}; Max-Age=0`
+    });
+    res.end(JSON.stringify({ ok: true }));
+}
 
 function sanitizeApiSuffix(pathname) {
     const rawSuffix = pathname.slice(5);
@@ -77,25 +289,8 @@ function targetRequest(req, res, targetPath, stream = false) {
     else req.pipe(upstream);
 }
 
-const server = http.createServer((req, res) => {
-    const url = new URL(req.url || '/', `http://${panelHost}:${panelPort}`);
-    if (url.pathname === '/events') {
-        targetRequest(req, res, '/api/admin/control/events', true);
-        return;
-    }
-    if (url.pathname.startsWith('/api/')) {
-        const sanitizedSuffix = sanitizeApiSuffix(url.pathname);
-        if (!sanitizedSuffix) {
-            res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ error: 'Invalid API path.' }));
-            return;
-        }
-        targetRequest(req, res, `/api/admin/control/${sanitizedSuffix}${url.search}`);
-        return;
-    }
-
-    const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
-    const filePath = path.resolve(webDir, requested);
+function serveFile(res, name) {
+    const filePath = path.resolve(webDir, name);
     if (!filePath.startsWith(`${webDir}${path.sep}`) && filePath !== path.join(webDir, 'index.html')) {
         res.writeHead(403).end('Forbidden');
         return;
@@ -111,12 +306,58 @@ const server = http.createServer((req, res) => {
         });
         res.end(contents);
     });
+}
+
+const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url || '/', `http://${panelHost}:${panelPort}`);
+
+    if (url.pathname === '/api/admin/login') {
+        await handleLogin(req, res);
+        return;
+    }
+    if (url.pathname === '/api/admin/refresh') {
+        await handleRefresh(req, res);
+        return;
+    }
+    if (url.pathname === '/api/admin/logout') {
+        await handleLogout(req, res);
+        return;
+    }
+
+    if (url.pathname === '/events' || url.pathname.startsWith('/api/')) {
+        if (!isAuthenticated(req)) {
+            res.writeHead(401, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+            res.end(JSON.stringify({ error: 'Unauthorized.' }));
+            return;
+        }
+        if (url.pathname === '/events') {
+            targetRequest(req, res, '/api/admin/control/events', true);
+            return;
+        }
+        const sanitizedSuffix = sanitizeApiSuffix(url.pathname);
+        if (!sanitizedSuffix) {
+            res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'Invalid API path.' }));
+            return;
+        }
+        targetRequest(req, res, `/api/admin/control/${sanitizedSuffix}${url.search}`);
+        return;
+    }
+
+    // Static pages: only the authenticated panel, everyone else gets the login page.
+    if (!isAuthenticated(req)) {
+        serveFile(res, 'login.html');
+        return;
+    }
+    const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+    serveFile(res, requested);
 });
 
 server.listen(panelPort, panelHost, () => {
     const panelUrl = `http://${panelHost}:${panelPort}`;
     console.log(`[AdminPanel] ${panelUrl}`);
     console.log(`[AdminPanel] Active server: ${targetBase.origin}`);
+    console.log(`[AdminPanel] Mongo: ${mongoUri}/${mongoDbName} | access TTL ${Math.floor(accessTokenTtlMs / 1000)}s | refresh TTL ${Math.floor(refreshTokenTtlMs / 1000)}s | cookie Secure=${cookieSecure}`);
     if (!process.argv.includes('--no-open')) {
         const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
         const args = process.platform === 'win32' ? ['/c', 'start', '', panelUrl] : [panelUrl];
