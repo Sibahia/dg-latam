@@ -1,0 +1,105 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body.login-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(1200px 600px at 20% -10%, #23324d 0%, #141b2b 55%, #0d121d 100%);
+    color: #dbe3f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    padding: 24px;
+}
+
+.login-form {
+    width: 100%;
+    max-width: 380px;
+    background: #1b2434;
+    border: 1px solid #2c3a52;
+    border-radius: 14px;
+    padding: 34px 32px 30px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.login-form h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #f2f6fc;
+    margin-bottom: 6px;
+}
+
+.login-hint {
+    font-size: 13px;
+    color: #8fa2c0;
+    margin-bottom: 22px;
+    line-height: 1.45;
+}
+
+.login-form label {
+    display: block;
+    font-size: 13px;
+    color: #aebcd4;
+    margin-bottom: 14px;
+}
+
+.login-form label input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #eef3fb;
+    background: #131b2a;
+    border: 1px solid #2e3e59;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form label input:focus {
+    border-color: #4f7dff;
+    box-shadow: 0 0 0 3px rgba(79, 125, 255, 0.18);
+}
+
+.login-form button {
+    width: 100%;
+    margin-top: 6px;
+    padding: 11px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: #3d6bff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.login-form button:hover {
+    background: #335cd8;
+}
+
+.login-form button:active {
+    transform: translateY(1px);
+}
+
+.login-form button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.login-error {
+    min-height: 18px;
+    font-size: 13px;
+    color: #ff7d7d;
+    margin-bottom: 8px;
+}
