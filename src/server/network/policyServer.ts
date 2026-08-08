@@ -1,21 +1,19 @@
 import * as net from 'net';
 import { Config } from '../core/config';
-
-const POLICY_XML = `<?xml version="1.0"?>
-<!DOCTYPE cross-domain-policy SYSTEM
-  "http://www.adobe.com/xml/dtds/cross-domain-policy.dtd">
-<cross-domain-policy>
-  <allow-access-from domain="*" to-ports="1-65535" secure="false"/>
-</cross-domain-policy>\0`;
+import { buildSocketPolicy } from './socketPolicy';
 
 export class PolicyServer {
     private server: net.Server;
     private port: number;
     private host: string;
+    private readonly sockets = new Set<net.Socket>();
+    private readonly policyXml: string;
+    private stopPromise: Promise<void> | null = null;
 
     constructor(port: number = 843, host: string = Config.BIND_HOST) {
         this.port = port;
         this.host = host;
+        this.policyXml = buildSocketPolicy(Config.PORTS[0], Config.SOCKET_POLICY_DOMAINS);
         this.server = net.createServer((socket) => this.handleConnection(socket));
     }
 
@@ -38,23 +36,44 @@ export class PolicyServer {
     }
 
     public stop(): Promise<void> {
-        if (!this.server.listening) {
-            return Promise.resolve();
+        if (this.stopPromise) {
+            return this.stopPromise;
         }
 
-        return new Promise((resolve, reject) => {
+        this.stopPromise = new Promise((resolve) => {
+            let settled = false;
+            const finish = (): void => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            const deadline = setTimeout(() => {
+                for (const socket of this.sockets) socket.destroy();
+                finish();
+            }, Config.SHUTDOWN_GRACE_MS);
+            deadline.unref?.();
+
+            if (!this.server.listening) {
+                clearTimeout(deadline);
+                for (const socket of this.sockets) socket.destroy();
+                finish();
+                return;
+            }
+
             this.server.close((error) => {
                 if (error) {
-                    reject(error);
-                    return;
+                    console.error('[Policy] Stop error:', error);
                 }
-
-                resolve();
+                clearTimeout(deadline);
+                finish();
             });
         });
+        return this.stopPromise;
     }
 
     private handleConnection(socket: net.Socket): void {
+        this.sockets.add(socket);
+        socket.once('close', () => this.sockets.delete(socket));
         socket.setTimeout(3000); // 3 seconds timeout
         socket.setEncoding('utf8');
 
@@ -62,7 +81,7 @@ export class PolicyServer {
             const strData = data.toString();
             if (strData.includes('<policy-file-request/>')) {
                 // console.log(`[Policy] Sending policy to ${socket.remoteAddress}`);
-                socket.write(POLICY_XML);
+                socket.write(this.policyXml);
             }
             socket.end();
         });

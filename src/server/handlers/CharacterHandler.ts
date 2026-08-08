@@ -43,9 +43,12 @@ import {
 } from '../core/LevelScope';
 import { getCharacterRuntimeLevel, getPartyRuntimeLevelForClient } from '../core/RuntimeLevel';
 
-const db = new JsonAdapter();
-
 export class CharacterHandler {
+    public static db: JsonAdapter = new JsonAdapter();
+    private static readonly MAX_CHARACTERS = 8;
+    private static readonly TRANSFER_LOGIN_TTL_MS = 60 * 1000;
+    private static readonly CHARACTER_NAME_PATTERN = /^[\p{Script=Latin}\p{M}\p{N}]+(?:[ '\-][\p{Script=Latin}\p{M}\p{N}]+)*$/u;
+    private static readonly LOOK_ASSET_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
     private static readonly DYE_GOLD_COST = [0, 455, 550, 595, 650, 735, 795, 890, 965, 1075, 1155, 1285, 1385, 1520, 1685, 1810, 1985, 2180, 2380, 2600, 2845, 3090, 3375, 3710, 4025, 4410, 4790, 5225, 5705, 6215, 6750, 7340, 8020, 8690, 9455, 10300, 11230, 12185, 13255, 14405, 15635, 17010, 18475, 20050, 21725, 23650, 25640, 27835, 30165, 32730, 35540] as const;
     private static readonly DYE_IDOLS_COST = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 11, 12, 13, 14, 16, 17] as const;
 
@@ -74,7 +77,7 @@ export class CharacterHandler {
             return;
         }
 
-        client.characters = await db.saveCharacterSnapshot(client.userId, client.character);
+        client.characters = await CharacterHandler.db.saveCharacterSnapshot(client.userId, client.character);
     }
 
     private static resolveTransferTokenAlias(token: number): number {
@@ -96,7 +99,8 @@ export class CharacterHandler {
 
     private static resolvePendingGameLogin(
         client: Client,
-        loginToken: number
+        loginToken: number,
+        loginChallenge: string
     ): { token: number; entry: PendingTransfer; source: string } | null {
         const normalizedToken = Math.max(0, Math.round(Number(loginToken) || 0));
         if (normalizedToken <= 0) {
@@ -104,14 +108,14 @@ export class CharacterHandler {
         }
 
         const directEntry = GlobalState.pendingWorld.get(normalizedToken);
-        if (directEntry) {
+        if (directEntry && CharacterHandler.claimPendingGameLogin(client, normalizedToken, directEntry, loginChallenge)) {
             return { token: normalizedToken, entry: directEntry, source: 'direct' };
         }
 
         const aliasedToken = CharacterHandler.resolveTransferTokenAlias(normalizedToken);
         if (aliasedToken !== normalizedToken) {
             const aliasedEntry = GlobalState.pendingWorld.get(aliasedToken);
-            if (aliasedEntry) {
+            if (aliasedEntry && CharacterHandler.claimPendingGameLogin(client, aliasedToken, aliasedEntry, loginChallenge)) {
                 return { token: aliasedToken, entry: aliasedEntry, source: `alias:${normalizedToken}->${aliasedToken}` };
             }
         }
@@ -139,7 +143,12 @@ export class CharacterHandler {
             });
 
         const anchorCandidate = anchorCandidates[0];
-        if (!anchorCandidate) {
+        if (!anchorCandidate || !CharacterHandler.claimPendingGameLogin(
+            client,
+            anchorCandidate[0],
+            anchorCandidate[1],
+            loginChallenge
+        )) {
             return null;
         }
 
@@ -148,6 +157,34 @@ export class CharacterHandler {
             entry: anchorCandidate[1],
             source: `sync-anchor:${normalizedToken}->${anchorCandidate[0]}`
         };
+    }
+
+    private static claimPendingGameLogin(
+        client: Client,
+        token: number,
+        entry: PendingTransfer,
+        loginChallenge: string
+    ): boolean {
+        const now = Date.now();
+        if (Number(entry.expiresAt ?? 0) > 0 && Number(entry.expiresAt) <= now) {
+            GlobalState.pendingWorld.delete(token);
+            GlobalState.pendingExtended.delete(token);
+            console.warn(`[GameLogin] Rejected expired transfer token ${token}`);
+            return false;
+        }
+
+        if (!TransferTokenAllocator.verifyLoginChallenge(entry.loginChallengeHash, loginChallenge)) {
+            console.warn(`[GameLogin] Rejected transfer token ${token}: invalid connection challenge`);
+            return false;
+        }
+
+        if (entry.claimedByClient && entry.claimedByClient !== client) {
+            console.warn(`[GameLogin] Rejected replayed transfer token ${token}`);
+            return false;
+        }
+
+        entry.claimedByClient = client;
+        return true;
     }
 
     private static initializeFreshCharacterProgress(character: Character): void {
@@ -350,7 +387,7 @@ export class CharacterHandler {
             return;
         }
 
-        const loadedCharacters = await db.loadCharacters(client.userId);
+        const loadedCharacters = await CharacterHandler.db.loadCharacters(client.userId);
         const normalizedName = CharacterHandler.normalizeCharacterName(client.character?.name);
         const loadedCharacter = loadedCharacters.find((entry) =>
             CharacterHandler.normalizeCharacterName(entry?.name) === normalizedName
@@ -362,7 +399,7 @@ export class CharacterHandler {
             PetHandler.normalizePetCollection(client.character);
             client.characters = loadedCharacters;
             if (ensureSigilStoreAlertState(client.character)) {
-                client.characters = await db.saveCharacterSnapshot(client.userId, client.character);
+                client.characters = await CharacterHandler.db.saveCharacterSnapshot(client.userId, client.character);
             }
             return;
         }
@@ -855,39 +892,51 @@ export class CharacterHandler {
         const shirtColor = br.readMethod20(24);
         const pantColor = br.readMethod20(24);
 
-        if (!client.userId) {
-            console.log(`[CharCreate] No userId for client`);
+        const sendRejection = (message: string): void => {
+            const bb = new BitBuffer();
+            bb.writeMethod13(message);
+            bb.writeMethod6(0, 1);
+            client.sendBitBuffer(0x1B, bb);
+        };
+        const normalizedName = String(name ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+        const normalizedGender = normalizeGender(gender);
+        const customization = [head, hair, mouth, face];
+
+        if (!client.authenticated || !client.userId || !client.account) {
+            console.warn('[CharCreate] Rejected unauthenticated character creation');
+            sendRejection('Sign in before creating a character.');
             return;
         }
 
-        // Check if name taken
-        const isTaken = await db.isCharacterNameTaken(name);
-        if (isTaken) {
-             // Send Popup
-             const bb = new BitBuffer();
-             bb.writeMethod13("Character name is unavailable.");
-             bb.writeMethod6(0, 1); // Disconnect = false
-             client.sendBitBuffer(0x1B, bb);
-             return;
+        if (
+            normalizedName.length < 3 ||
+            normalizedName.length > 20 ||
+            !CharacterHandler.CHARACTER_NAME_PATTERN.test(normalizedName)
+        ) {
+            sendRejection('Use 3-20 Latin letters or numbers, with single spaces, apostrophes, or hyphens.');
+            return;
         }
 
-        // Create Character Object from Template
-        let newChar = CharacterTemplates.get(className);
-        
+        const newChar = CharacterTemplates.get(className);
         if (!newChar) {
-             console.error(`[CharCreate] No template found for class ${className}, using fallback.`);
-             newChar = {
-                class: className,
-                level: 1,
-                xp: 0,
-                gold: 0,
-                // ... minimal defaults ...
-             };
+            console.warn(`[CharCreate] Rejected unknown class template '${className}'`);
+            sendRejection('That character class is unavailable.');
+            return;
+        }
+
+        if (!['Male', 'Female'].includes(normalizedGender)) {
+            sendRejection('That character gender is unavailable.');
+            return;
+        }
+
+        if (customization.some((value) => !CharacterHandler.LOOK_ASSET_PATTERN.test(String(value ?? '')))) {
+            sendRejection('One or more appearance selections are unavailable.');
+            return;
         }
 
         // Apply Customization
-        newChar.name = name;
-        newChar.gender = normalizeGender(gender);
+        newChar.name = normalizedName;
+        newChar.gender = normalizedGender;
         newChar.headSet = head;
         newChar.hairSet = hair;
         newChar.mouthSet = mouth;
@@ -905,11 +954,25 @@ export class CharacterHandler {
         if (!newChar.inventoryGears) newChar.inventoryGears = [];
         if (!newChar.friends) newChar.friends = [];
 
-        client.characters.push(newChar);
-        await db.saveCharacters(client.userId, client.characters);
+        const result = await CharacterHandler.db.createCharacter(
+            client.userId,
+            newChar,
+            CharacterHandler.MAX_CHARACTERS
+        );
+        client.characters = result.characters;
+        if (!result.ok) {
+            const message = result.reason === 'name-taken'
+                ? 'Character name is unavailable.'
+                : result.reason === 'character-limit'
+                    ? 'You already have the maximum number of characters.'
+                    : 'Your account could not create a character.';
+            sendRejection(message);
+            return;
+        }
+
         client.character = newChar;
 
-        console.log(`[CharCreate] Created char ${name} for user ${client.userId}`);
+        console.log(`[CharCreate] Created char ${normalizedName} for user ${client.userId}`);
 
         // Enter World
         CharacterHandler.sendEnterWorld(client, newChar);
@@ -924,7 +987,7 @@ export class CharacterHandler {
             return;
         }
 
-        client.characters = await db.loadCharacters(client.userId);
+        client.characters = await CharacterHandler.db.loadCharacters(client.userId);
         const requestedName = CharacterHandler.normalizeCharacterName(charName);
         let char = client.characters.find((entry) => CharacterHandler.normalizeCharacterName(entry.name) === requestedName);
 
@@ -961,7 +1024,7 @@ export class CharacterHandler {
         }
         if (didRepairUnsafeLocation) {
             client.characters = CharacterHandler.upsertCharacterList(client.characters, char);
-            await db.saveCharacters(client.userId, client.characters);
+            await CharacterHandler.db.saveCharacters(client.userId, client.characters);
         }
 
         client.character = char;
@@ -999,6 +1062,7 @@ export class CharacterHandler {
 
         // Generate Transfer Token
         const token = CharacterHandler.allocateTransferToken(currentLevelName);
+        const transferLoginChallenge = TransferTokenAllocator.createLoginChallenge();
         
         // Store Pending State
         if (client.userId) {
@@ -1116,7 +1180,12 @@ export class CharacterHandler {
                 levelInstanceId: levelInstanceId || undefined,
                 previousLevel: previousLevelName,
                 userId: client.userId,
+                account: client.account ?? undefined,
                 accountEmail: client.account?.email,
+                sourceRemoteAddress: GlobalState.normalizeRemoteAddress(client.socket?.remoteAddress),
+                pendingSince: Date.now(),
+                expiresAt: Date.now() + CharacterHandler.TRANSFER_LOGIN_TTL_MS,
+                loginChallengeHash: transferLoginChallenge.hash,
                 newX: spawn.x,
                 newY: spawn.y,
                 newHasCoord: spawn.hasCoord,
@@ -1145,7 +1214,9 @@ export class CharacterHandler {
 
         const pkt = WorldEnter.buildEnterWorldPacket(
             token,
-            0, "", false, 0, 0,
+            // LinkUpdater stores this legacy old-SWF field in Game.var_1274 and
+            // echoes it in PKTTYPE_GAMESERVER_LOGIN; target loading uses newLevelSwf.
+            0, transferLoginChallenge.value, false, 0, 0,
             Config.HOST,
             Config.PORTS[0],
             levelSpec.swf,
@@ -1177,7 +1248,7 @@ export class CharacterHandler {
         const firstLogin = br.readMethod15();
         const isDev = br.readMethod15();
 
-        const pendingLogin = CharacterHandler.resolvePendingGameLogin(client, loginToken);
+        const pendingLogin = CharacterHandler.resolvePendingGameLogin(client, loginToken, levelSwf);
         if (!pendingLogin) {
             console.log(`[GameLogin] Invalid token ${loginToken}`);
             return;
@@ -1186,7 +1257,6 @@ export class CharacterHandler {
         if (token !== loginToken) {
             console.log(`[GameLogin] Resolved login token ${loginToken} -> pending token ${token} (${pendingLogin.source})`);
         }
-
         const pendingExtended = Boolean(GlobalState.pendingExtended.get(token));
         const sendExtended = CharacterHandler.shouldSendExtendedPlayerData(firstLogin, pendingExtended, entry);
 
@@ -1196,9 +1266,10 @@ export class CharacterHandler {
             : null;
         PetHandler.normalizeMountState(client.character);
         client.userId = entry.userId;
-        client.account = entry.accountEmail
+        client.account = entry.account ?? (entry.accountEmail
             ? { email: entry.accountEmail, user_id: entry.userId }
-            : null;
+            : null);
+        client.authenticated = true;
         client.token = token;
         client.clientEntID = 0;
         client.currentLevel = entry.targetLevel;
@@ -1291,13 +1362,9 @@ export class CharacterHandler {
         const socialRepairDidMutate = ensureCharacterSocialState(client.character);
         const abilityRepairDidMutate = AbilityHandler.repairCharacterAbilityState(client.character);
         const storyRepair = MissionHandler.repairEarlyStoryOnLogin(client.character, entry.targetLevel);
-        const expectedLevelSwf = LevelConfig.get(entry.targetLevel).swf;
         if ((companionRepairDidMutate || socialRepairDidMutate || abilityRepairDidMutate || storyRepair.didMutate) && client.userId) {
             client.characters = CharacterHandler.upsertCharacterList(client.characters, client.character);
-            void db.saveCharacters(client.userId, client.characters);
-        }
-
-        if (levelSwf !== expectedLevelSwf) {
+            void CharacterHandler.db.saveCharacters(client.userId, client.characters);
         }
 
         CharacterHandler.purgeSameCharacterGhosts(client, entry.userId, entry.character.name);
@@ -1313,6 +1380,9 @@ export class CharacterHandler {
             character: liveCharacter,
             craftTownHostCharacter: client.craftTownHostCharacter ?? undefined,
             userId: entry.userId,
+            account: entry.account,
+            accountEmail: entry.accountEmail,
+            sourceRemoteAddress: entry.sourceRemoteAddress,
             targetLevel: entry.targetLevel,
             levelInstanceId: client.levelInstanceId || undefined,
             previousLevel: entry.previousLevel,

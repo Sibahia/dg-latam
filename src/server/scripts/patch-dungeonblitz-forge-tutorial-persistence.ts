@@ -37,6 +37,7 @@ const GAME_INITIALIZE_METHOD = "method_1435";
 const TUTORIAL_CLASS = "class_89";
 const TUTORIAL_COMPLETE_METHOD = "method_345";
 const TUTORIAL_CHECK_METHOD = "CheckCompletedTutorials";
+const TUTORIAL_STORAGE_PROPERTY = "dbTutorialsCompleted";
 
 type ParsedMethod = {
   body: MethodBodyInfo;
@@ -48,8 +49,9 @@ type PatchSymbols = {
   var304: number;
   data: number;
   tutorialsCompleted: number;
+  tutorialStorage: number;
   currentTutorial: number;
-  flush: number;
+  storeGameInfo: number;
 };
 
 type Args = {
@@ -136,7 +138,7 @@ function requireReferencedMultiname(
   return [...referenced][0];
 }
 
-function getSymbols(ctx: SwfContext, abc: AbcParseResult): PatchSymbols {
+function getSymbols(ctx: SwfContext, abc: AbcParseResult, tutorialStorage: number): PatchSymbols {
   const game = getMethod(ctx, abc, GAME_CLASS, GAME_INITIALIZE_METHOD);
   const tutorial = getMethod(ctx, abc, TUTORIAL_CLASS, TUTORIAL_COMPLETE_METHOD);
   return {
@@ -168,6 +170,7 @@ function getSymbols(ctx: SwfContext, abc: AbcParseResult): PatchSymbols {
       new Set([0x66, 0x61]),
       `${TUTORIAL_CLASS}.${TUTORIAL_COMPLETE_METHOD}`,
     ),
+    tutorialStorage,
     currentTutorial: requireReferencedMultiname(
       abc,
       tutorial.code,
@@ -175,7 +178,83 @@ function getSymbols(ctx: SwfContext, abc: AbcParseResult): PatchSymbols {
       new Set([0x66]),
       `${TUTORIAL_CLASS}.${TUTORIAL_COMPLETE_METHOD}`,
     ),
-    flush: requireMultiname(abc, "flush"),
+    storeGameInfo: requireMultiname(abc, "StoreGameInfo"),
+  };
+}
+
+function findPublicDynamicMultiname(abc: AbcParseResult, name: string): number | null {
+  const matches = abc.multinameNames
+    .map((candidate, index) => ({ candidate, index }))
+    .filter(({ candidate, index }) => {
+      if (candidate !== name || (abc.multinameKinds[index] !== 0x09 && abc.multinameKinds[index] !== 0x0e)) {
+        return false;
+      }
+      const namespaces = abc.namespaceSets[abc.multinameNamespaceSetIndices[index]] ?? [];
+      return namespaces.some((namespaceIndex) => abc.namespaceKinds[namespaceIndex] === 0x16);
+    })
+    .map(({ index }) => index);
+  if (matches.length > 1) {
+    throw new PatchError(`Expected at most one public dynamic multiname ${name}, found ${matches.length}`);
+  }
+  return matches[0] ?? null;
+}
+
+function getTutorialStorageMultiname(ctx: SwfContext, abc: AbcParseResult): {
+  index: number;
+  poolPatches: BytePatch[];
+} {
+  const existing = findPublicDynamicMultiname(abc, TUTORIAL_STORAGE_PROPERTY);
+  if (existing !== null) {
+    return { index: existing, poolPatches: [] };
+  }
+
+  // SharedObject.data is a dynamic object. The original patch reused the
+  // package-internal Game slot QName, which can fail dynamic lookup at world
+  // entry. Create a public dynamic multiname using the exact namespace set of
+  // an existing db* SharedObject field instead.
+  const template = findPublicDynamicMultiname(abc, "dbShowGroupFloaters");
+  if (template === null) {
+    throw new PatchError("Could not find a public SharedObject data-property multiname template");
+  }
+  const namespaceSet = abc.multinameNamespaceSetIndices[template];
+  const [stringCount, stringCountEnd] = readU30(ctx.body, abc.stringCountPos, "abc.string_count");
+  const [multinameCount, multinameCountEnd] = readU30(ctx.body, abc.multinameCountPos, "abc.multiname_count");
+  if (stringCount !== abc.stringCount || multinameCount !== abc.multinameCount) {
+    throw new PatchError("ABC constant-pool count changed while preparing tutorial storage property");
+  }
+  const propertyBytes = Buffer.from(TUTORIAL_STORAGE_PROPERTY, "utf8");
+  return {
+    index: abc.multinameCount,
+    poolPatches: [
+      {
+        key: "forge-tutorial-storage-string-count",
+        start: abc.stringCountPos,
+        end: stringCountEnd,
+        data: writeU30(abc.stringCount + 1),
+        detail: "extend the ABC string pool for the tutorial SharedObject key",
+      },
+      {
+        key: "forge-tutorial-storage-string",
+        start: abc.stringPoolEnd,
+        end: abc.stringPoolEnd,
+        data: Buffer.concat([writeU30(propertyBytes.length), propertyBytes]),
+        detail: "add the public tutorial SharedObject key",
+      },
+      {
+        key: "forge-tutorial-storage-multiname-count",
+        start: abc.multinameCountPos,
+        end: multinameCountEnd,
+        data: writeU30(abc.multinameCount + 1),
+        detail: "extend the ABC multiname pool for the tutorial SharedObject key",
+      },
+      {
+        key: "forge-tutorial-storage-multiname",
+        start: abc.multinamePoolEnd,
+        end: abc.multinamePoolEnd,
+        data: Buffer.concat([Buffer.from([0x09]), writeU30(abc.stringCount), writeU30(namespaceSet)]),
+        detail: "add the public dynamic tutorial SharedObject multiname",
+      },
+    ],
   };
 }
 
@@ -257,10 +336,11 @@ function persistenceBody(symbols: PatchSymbols): Buffer {
     op(0x66, symbols.data), // getproperty data
     op(0x60, symbols.var1), // getlex var_1
     op(0x66, symbols.tutorialsCompleted), // getproperty completed mask
-    op(0x61, symbols.tutorialsCompleted), // data.mTutorialsCompletedList = mask
+    op(0x61, symbols.tutorialStorage), // data.dbTutorialsCompleted = mask
+    // Delegate the actual SharedObject flush to Game's existing guarded
+    // StoreGameInfo implementation, which already catches storage errors.
     op(0x60, symbols.var1), // getlex var_1
-    op(0x66, symbols.var304), // getproperty saved-game SharedObject
-    op(0x4f, symbols.flush, 0), // callpropvoid flush, 0
+    op(0x4f, symbols.storeGameInfo, 0), // callpropvoid StoreGameInfo, 0
   ]);
 }
 
@@ -273,7 +353,7 @@ function restoreBody(symbols: PatchSymbols): Buffer {
     op(0x60, symbols.var1), // getlex var_1 (Game)
     op(0x66, symbols.var304), // saved-game SharedObject
     op(0x66, symbols.data),
-    op(0x66, symbols.tutorialsCompleted), // persisted mask (undefined => uint(0))
+    op(0x66, symbols.tutorialStorage), // persisted mask (undefined => uint(0))
     Buffer.from([0xa9]), // bitor, retaining any already-completed bits
     op(0x61, symbols.tutorialsCompleted),
   ]);
@@ -463,14 +543,23 @@ function hasUnguardedSequences(
 ): boolean {
   const restore = restoreBody(symbols);
   const persistence = persistenceBody(symbols);
+  const legacySymbols = { ...symbols, tutorialStorage: symbols.tutorialsCompleted };
+  const legacyRestore = restoreBody(legacySymbols);
+  const legacyPersistence = persistenceBody(legacySymbols);
   return tutorialCheck.code.subarray(restoreInsertAt, restoreInsertAt + restore.length).equals(restore) ||
-    tutorial.code.subarray(tutorialInsertAt, tutorialInsertAt + persistence.length).equals(persistence);
+    tutorial.code.subarray(tutorialInsertAt, tutorialInsertAt + persistence.length).equals(persistence) ||
+    tutorialCheck.code.subarray(restoreInsertAt, restoreInsertAt + legacyRestore.length).equals(legacyRestore) ||
+    tutorial.code.subarray(tutorialInsertAt, tutorialInsertAt + legacyPersistence.length).equals(legacyPersistence);
 }
 
 function verifySwf(swfPath: string): void {
   const ctx = parseSwf(swfPath);
   const abc = parseAbc(ctx);
-  const symbols = getSymbols(ctx, abc);
+  const storage = getTutorialStorageMultiname(ctx, abc);
+  if (storage.poolPatches.length > 0) {
+    throw new PatchError(`Forge tutorial persistence is missing public ${TUTORIAL_STORAGE_PROPERTY} storage metadata`);
+  }
+  const symbols = getSymbols(ctx, abc, storage.index);
   const status = patchStatus(ctx, abc, symbols);
 
   if (status.hasUnguarded) {
@@ -521,10 +610,10 @@ function verifySwf(swfPath: string): void {
  * live session sends thousands. It reproduced in CraftTown and in BridgeTownHard.
  *
  * Ruled out, so nobody re-treads them: the unguarded SharedObject dereference (guarding it
- * changed nothing, and the guard decompiles correctly in both places); max_stack (7 and 5
- * declared against the 2 and 3 the inserted code needs); and the multiname namespaces
- * (Game.var_304 is internal in the root package, so class_89 can reach it, and every index
- * the patch reuses is the one the surrounding code already uses).
+ * changed nothing, and the guard decompiles correctly in both places) and max_stack (7 and 5
+ * declared against the 2 and 3 the inserted code needs). The old patch also reused the
+ * package-internal Game slot QName on SharedObject.data; this version uses a dedicated public
+ * dynamic property, which is the correct namespace for serialized SharedObject data.
  *
  * What is left needs an AVM2 error, which means a debug Flash player -- the client dies
  * before it can send its own 0x7C crash report. Until then this refuses to run, because a
@@ -543,7 +632,8 @@ function patchSwf(swfPath: string): void {
 
   const ctx = parseSwf(swfPath);
   const abc = parseAbc(ctx);
-  const symbols = getSymbols(ctx, abc);
+  const storage = getTutorialStorageMultiname(ctx, abc);
+  const symbols = getSymbols(ctx, abc, storage.index);
   const status = patchStatus(ctx, abc, symbols);
 
   if (status.hasUnguarded) {
@@ -577,6 +667,7 @@ function patchSwf(swfPath: string): void {
   );
 
   const patches: BytePatch[] = [
+    ...storage.poolPatches,
     {
       key: "forge-tutorial-load-code",
       start: status.tutorialCheck.body.codeStart,

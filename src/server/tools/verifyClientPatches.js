@@ -15,11 +15,25 @@ const serverDir = path.resolve(__dirname, '..');
 // Deploys run this on the live box while players are connected, so leave a core for the game
 // server rather than saturating every one of them for the ~2 minutes the sweep takes.
 const concurrency = Math.max(1, Math.min(8, os.cpus().length - 1));
+const requireFfdec = process.env.REQUIRE_FFDEC === '1';
+
+function loadSupersededScripts() {
+    const ledger = JSON.parse(fs.readFileSync(path.join(__dirname, 'client-patch-baseline.json'), 'utf8'));
+    const replacements = Object.values(ledger.superseded ?? {});
+    for (const replacement of replacements) {
+        if (typeof replacement !== 'string' || !fs.existsSync(path.join(scriptsDir, replacement))) {
+            throw new Error(`Superseded client patch references missing replacement ${String(replacement)}.`);
+        }
+    }
+    return new Set(Object.keys(ledger.superseded ?? {}));
+}
 
 function discoverVerifiableScripts() {
+    const superseded = loadSupersededScripts();
     return fs
         .readdirSync(scriptsDir)
         .filter((name) => /^patch.*\.(ts|js)$/.test(name))
+        .filter((name) => !superseded.has(name))
         .filter((name) => {
             try {
                 return fs.readFileSync(path.join(scriptsDir, name), 'utf8').includes('--verify');
@@ -43,7 +57,8 @@ function runVerify(name) {
             // Some verifiers shell out to FFDec to disassemble Levels*.swz. A missing FFDec means
             // the check could not run at all, which is not the same as the patch being gone --
             // report it separately rather than failing a build over a missing local tool.
-            const unavailable = Boolean(error) && /FFDec not found|ffdec/i.test(output);
+            const unavailable = Boolean(error) &&
+                /FFDec (?:CLI )?not found|Pass --ffdec|install JPEXS FFDec/i.test(output);
             resolve({
                 name,
                 ok: !error,
@@ -81,17 +96,11 @@ async function main() {
     console.log(`[verify-patches] Checking ${names.length} client patches (concurrency ${concurrency})...`);
     const results = await runAll(names);
 
-    // 22 patches already failed when this gate was introduced -- some are deliberate reverts
-    // (destroy-entity-without-brain, matching the `revert-destroy-brainless` client revision),
-    // others are genuinely dropped. Failing the build on those would block every build before
-    // anyone could triage them, so the gate only reacts to changes against that baseline.
-    const baseline = new Set(loadBaseline());
-
     // Under concurrency JPEXS' decompiler worker can time out (it drops a com.jpexs stack trace and
     // a truncated .as export), which makes a patch that is actually present verify as missing.
     // Re-check anything we are about to call lost one at a time before believing it: a starved
     // decompiler passes on the second look, a real loss still fails.
-    const suspects = results.filter((result) => !result.ok && !result.skipped && !baseline.has(result.name));
+    const suspects = results.filter((result) => !result.ok && !result.skipped);
     if (suspects.length > 0) {
         console.warn(`[verify-patches] ${suspects.length} patch(es) failed; re-checking them serially...`);
         for (const suspect of suspects) {
@@ -103,33 +112,25 @@ async function main() {
     const skipped = results.filter((result) => result.skipped);
 
     if (skipped.length > 0) {
-        console.warn(
+        const log = requireFfdec ? console.error : console.warn;
+        log(
             `[verify-patches] ${skipped.length} patch(es) could not be checked (FFDec unavailable): ` +
             skipped.map((entry) => entry.name).sort().join(', ')
         );
     }
 
-    const regressions = failures.filter((result) => !baseline.has(result.name));
-    const recovered = results.filter((result) => result.ok && baseline.has(result.name));
+    const regressions = [...failures, ...(requireFfdec ? skipped : [])];
 
-    if (recovered.length > 0) {
-        console.error(
-            `[verify-patches] ${recovered.length} baseline patch(es) now pass and must be removed from\n` +
-            `[verify-patches] tools/client-patch-baseline.json: ${recovered.map((entry) => entry.name).sort().join(', ')}`
-        );
-    }
-
-    if (regressions.length === 0 && recovered.length === 0) {
+    if (regressions.length === 0) {
         const checked = results.length - skipped.length;
         console.log(
-            `[verify-patches] ${checked - failures.length}/${checked} checkable patches present; ` +
-            `${failures.length} known-failing (baseline). No new losses.`
+            `[verify-patches] ${checked}/${checked} checkable patches present. No losses.`
         );
         return;
     }
 
     if (regressions.length > 0) {
-        console.error(`[verify-patches] ${regressions.length} client patch(es) were LOST since the baseline:`);
+        console.error(`[verify-patches] ${regressions.length} client patch(es) are missing from the served assets:`);
         for (const failure of regressions.sort((left, right) => left.name.localeCompare(right.name))) {
             console.error(`\n  ---- ${failure.name} ----`);
             console.error(failure.output.split('\n').slice(-12).map((line) => `  ${line}`).join('\n'));
@@ -141,17 +142,6 @@ async function main() {
     }
 
     process.exitCode = 1;
-}
-
-function loadBaseline() {
-    const baselinePath = path.resolve(__dirname, 'client-patch-baseline.json');
-    try {
-        const parsed = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
-        return Array.isArray(parsed?.knownFailing) ? parsed.knownFailing : [];
-    } catch {
-        console.warn('[verify-patches] No baseline found; every failing patch counts as a regression.');
-        return [];
-    }
 }
 
 main().catch((error) => {

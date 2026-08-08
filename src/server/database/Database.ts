@@ -88,6 +88,14 @@ export interface UserSaveData {
     characters: Character[];
 }
 
+export type CharacterCreateResult =
+    | { ok: true; reason: 'ok'; characters: Character[] }
+    | {
+        ok: false;
+        reason: 'name-taken' | 'character-limit' | 'account-not-found';
+        characters: Character[];
+    };
+
 export interface GearCatalogEntry {
     id: number;
     name: string;

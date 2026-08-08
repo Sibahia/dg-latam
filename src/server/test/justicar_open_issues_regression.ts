@@ -33,6 +33,9 @@ async function testJusticarPointFiftyCanBeBought(): Promise<void> {
         currentLevel: 'CraftTown',
         talentResearchTimer: null,
         character: {
+            class: 'paladin',
+            MasterClass: 5,
+            magicForge: { stats_by_building: { '3': 10 } },
             talentPoints: { '1': 50, '2': 49, '3': 50 },
             talentResearch: { classIndex: null, ReadyTime: 0 },
             mammothIdols: 0,
@@ -46,15 +49,22 @@ async function testJusticarPointFiftyCanBeBought(): Promise<void> {
 
     try {
         await TalentHandler.handleTrainTalentPoint(client as never, trainTalentPacket(2, false));
+
+        assert.equal(client.character.talentPoints['2'], 49, 'non-instant research must not complete before its timer');
+        assert.equal(client.character.gold, 0, 'the rank-50 Gold cost must be charged once');
+        assert.equal(client.character.talentResearch.classIndex, 2);
+        assert.ok(client.character.talentResearch.ReadyTime > Math.floor(Date.now() / 1000));
+        assert.equal(saves, 1, 'the pending research must be persisted once');
+        assert.deepEqual(sentPackets, [], 'completion must not be announced before the timer');
+
+        client.character.talentResearch.ReadyTime = Math.floor(Date.now() / 1000) - 1;
+        await TalentHandler.handleTalentClaim(client as never, Buffer.alloc(0));
+        assert.equal(client.character.talentPoints['2'], 50, 'a ready Justicar point must advance from 49 to 50');
+        assert.deepEqual(client.character.talentResearch, { classIndex: null, ReadyTime: 0 });
+        assert.equal(saves, 2, 'the completed point must be persisted once after the pending save');
     } finally {
         JsonAdapter.prototype.saveCharacterSnapshot = originalSave;
     }
-
-    assert.equal(client.character.talentPoints['2'], 50, 'Justicar must advance from 49 to 50');
-    assert.equal(client.character.gold, 0, 'the rank-50 Gold cost must be charged once');
-    assert.deepEqual(client.character.talentResearch, { classIndex: null, ReadyTime: 0 });
-    assert.equal(saves, 1, 'the completed point must be persisted once');
-    assert.deepEqual(sentPackets, [0xD5], 'the completion packet must be sent');
 }
 
 function testJusticarPreviewUsesAxeFlurryIcon(): void {

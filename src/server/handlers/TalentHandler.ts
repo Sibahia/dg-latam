@@ -120,6 +120,8 @@ export class TalentHandler {
         const previousAllocatedPoints = TalentHandler.countAllocatedTalentPoints(previousNodes);
         const slots = TalentConfig.buildEmptyTalentNodes();
         let incomingAllocatedPoints = 0;
+        const seenNodeIds = new Set<number>();
+        let invalidAllocation = false;
 
         for (let index = 0; index < TalentConfig.NUM_TALENT_SLOTS; index += 1) {
             const hasNode = br.readMethod15();
@@ -129,6 +131,15 @@ export class TalentHandler {
 
             const nodeID = br.readMethod6(6);
             const points = br.readMethod6(TalentConfig.getSlotBitWidth(index)) + 1;
+            if (
+                nodeID < 1 ||
+                nodeID > TalentConfig.MAX_TALENT_NODE_ID ||
+                seenNodeIds.has(nodeID) ||
+                points > TalentConfig.getMaxPointsForSlotIndex(index)
+            ) {
+                invalidAllocation = true;
+            }
+            seenNodeIds.add(nodeID);
             slots[index] = {
                 nodeID,
                 points,
@@ -146,7 +157,21 @@ export class TalentHandler {
             }
         }
 
-        if (incomingAllocatedPoints === 0 && previousAllocatedPoints > 0) {
+        const earnedPoints = TalentHandler.getEarnedTalentPoints(
+            client.character,
+            Number(client.character.MasterClass ?? 0)
+        );
+        if (
+            invalidAllocation ||
+            incomingAllocatedPoints > earnedPoints ||
+            !TalentConfig.isAuthoredAllocationValid(slots) ||
+            (incomingAllocatedPoints === 0 && previousAllocatedPoints > 0)
+        ) {
+            TalentHandler.sendActiveTalentTreeData(
+                client,
+                client.clientEntID,
+                Number(client.character.MasterClass ?? 0)
+            );
             return;
         }
 
@@ -179,6 +204,15 @@ export class TalentHandler {
         if (currentPoints >= TalentHandler.MAX_TALENT_POINTS_PER_CLASS) {
             return;
         }
+        const activeMasterClass = Number(client.character.MasterClass ?? 0);
+        if (TalentHandler.getTalentClassIndex(activeMasterClass) !== classIndex) {
+            return;
+        }
+        const towerBuildingId = WorldEnter.getBuildingIdForMasterClass(activeMasterClass);
+        const towerRank = Number(client.character.magicForge?.stats_by_building?.[String(towerBuildingId)] ?? 0);
+        if (towerBuildingId <= 0 || currentPoints >= Math.max(0, towerRank) * 5) {
+            return;
+        }
 
         const durationIndex = currentPoints + 1;
         const goldCost = Number(TalentConfig.RESEARCH_COSTS[durationIndex] ?? 0);
@@ -206,11 +240,10 @@ export class TalentHandler {
         }
 
         client.character.gold = gold - goldCost;
-        TalentHandler.setPendingCompletedResearch(client.character, classIndex, now);
-
-        await TalentHandler.completeTalentResearch(client, classIndex, false);
+        const readyTime = now + Math.max(0, Number(TalentConfig.RESEARCH_DURATIONS[durationIndex] ?? 0));
+        TalentHandler.setPendingCompletedResearch(client.character, classIndex, readyTime);
+        await TalentHandler.saveCharacter(client);
         TalentHandler.syncResearchTimer(client);
-        TalentHandler.sendTalentResearchComplete(client, classIndex);
     }
 
     static async handleTalentSpeedup(client: Client, data: Buffer): Promise<void> {
@@ -225,7 +258,6 @@ export class TalentHandler {
         if (classIndex < 0) {
             return;
         }
-
         const authoritativeCost = SpeedupPricing.reconcile(research.ReadyTime, idolCost);
         if (authoritativeCost > 0) {
             const idols = Number(client.character.mammothIdols ?? 0);
@@ -289,8 +321,21 @@ export class TalentHandler {
         const entityId = br.readMethod4();
         const masterClassId = br.readMethod6(4);
 
+        const buildingId = WorldEnter.getBuildingIdForMasterClass(masterClassId);
+        const className = String(client.character.class ?? '').trim().toLowerCase();
+        const validMasterClasses = className === 'rogue'
+            ? new Set([1, 2, 3])
+            : className === 'paladin'
+                ? new Set([4, 5, 6])
+                : className === 'mage'
+                    ? new Set([7, 8, 9])
+                    : new Set<number>();
+        const towerRank = Number(client.character.magicForge?.stats_by_building?.[String(buildingId)] ?? 0);
+        if (!validMasterClasses.has(masterClassId) || buildingId <= 0 || towerRank < 1) {
+            return;
+        }
+
         client.character.MasterClass = masterClassId;
-        WorldEnter.ensureSelectedDisciplineTower(client.character);
         await TalentHandler.saveCharacter(client);
 
         const response = new BitBuffer();
@@ -349,6 +394,27 @@ export class TalentHandler {
         return nodes.reduce((total, node) => total + (node.filled ? Number(node.points ?? 0) : 0), 0);
     }
 
+    private static getTalentClassIndex(masterClassId: number): number {
+        if (!Number.isInteger(masterClassId) || masterClassId < 1 || masterClassId > 9) {
+            return 0;
+        }
+        return ((masterClassId - 1) % 3) + 1;
+    }
+
+    private static getEarnedTalentPoints(character: Record<string, any>, masterClassId: number): number {
+        const classIndex = TalentHandler.getTalentClassIndex(masterClassId);
+        if (!classIndex) {
+            return 0;
+        }
+        return Math.max(
+            0,
+            Math.min(
+                TalentHandler.MAX_TALENT_POINTS_PER_CLASS,
+                Math.floor(Number(character.talentPoints?.[String(classIndex)] ?? 0))
+            )
+        );
+    }
+
     private static getTalentResearch(character: Record<string, unknown>): TalentResearchRecord {
         const research = character.talentResearch;
         if (!research || typeof research !== 'object' || Array.isArray(research)) {
@@ -375,6 +441,9 @@ export class TalentHandler {
 
         const research = TalentHandler.getTalentResearch(client.character);
         if (Number(research.classIndex ?? -1) !== classIndex) {
+            return false;
+        }
+        if (Number(research.ReadyTime ?? 0) > Math.floor(Date.now() / 1000)) {
             return false;
         }
 

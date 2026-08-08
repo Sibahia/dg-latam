@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as fssync from 'fs';
 import * as path from 'path';
-import { IDatabase, Character, DiscordAccountProfile, GearCatalogEntry, SponsorAccountMetadata, UserAccount, UserSaveData } from './Database';
+import { IDatabase, Character, CharacterCreateResult, DiscordAccountProfile, GearCatalogEntry, SponsorAccountMetadata, UserAccount, UserSaveData } from './Database';
 import { Config } from '../core/config';
 import { GameData } from '../core/GameData';
 import { normalizeAccountIdentifier, PasswordRecord } from '../auth/PasswordAuth';
@@ -222,6 +222,25 @@ export class JsonAdapter implements IDatabase {
         }
     }
 
+    private async enqueueSaveOperation<T>(savePath: string, operation: () => Promise<T>): Promise<T> {
+        const previousWrite = JsonAdapter.saveQueues.get(savePath) ?? Promise.resolve();
+        let resolveQueue!: () => void;
+        const queueEntry = new Promise<void>((resolve) => {
+            resolveQueue = resolve;
+        });
+        JsonAdapter.saveQueues.set(savePath, queueEntry);
+
+        try {
+            await previousWrite.catch(() => undefined);
+            return await operation();
+        } finally {
+            resolveQueue();
+            if (JsonAdapter.saveQueues.get(savePath) === queueEntry) {
+                JsonAdapter.saveQueues.delete(savePath);
+            }
+        }
+    }
+
     private mergeLiveSessionCharacter(userId: number, characters: Character[]): Character[] {
         const nextCharacters = Array.isArray(characters)
             ? characters.map((entry) => this.normalizeCharacterProgress(entry) as Character)
@@ -261,6 +280,16 @@ export class JsonAdapter implements IDatabase {
         }
 
         await pendingSave.catch(() => undefined);
+    }
+
+    private async loadCharactersUnqueued(userId: number): Promise<Character[]> {
+        const characters = JsonAdapter.mongoGameData
+            ? await JsonAdapter.mongoGameData.loadCharacters(userId)
+            : (await this.readSaveFile(userId))?.characters;
+        if (!Array.isArray(characters)) {
+            return [];
+        }
+        return characters.map((entry) => this.normalizeCharacterProgress(entry) as Character);
     }
 
     private normalizeEmailAliases(value: unknown): string[] {
@@ -603,13 +632,7 @@ export class JsonAdapter implements IDatabase {
 
     public async loadCharacters(userId: number): Promise<Character[]> {
         await JsonAdapter.waitForQueuedSave(path.join(this.savesDir, `${userId}.json`));
-        const characters = JsonAdapter.mongoGameData
-            ? await JsonAdapter.mongoGameData.loadCharacters(userId)
-            : (await this.readSaveFile(userId))?.characters;
-        if (!Array.isArray(characters)) {
-            return [];
-        }
-        return characters.map((entry) => this.normalizeCharacterProgress(entry) as Character);
+        return this.loadCharactersUnqueued(userId);
     }
 
     public async loadAllCharacterRecords(): Promise<UserSaveData[]> {
@@ -677,37 +700,91 @@ export class JsonAdapter implements IDatabase {
 
     public async saveCharacters(userId: number, characters: Character[]): Promise<void> {
         const savePath = path.join(this.savesDir, `${userId}.json`);
-        const previousWrite = JsonAdapter.saveQueues.get(savePath) ?? Promise.resolve();
-        const currentWrite = previousWrite
-            .catch(() => undefined)
-            .then(() => this.performSaveCharacters(userId, characters, savePath));
-
-        JsonAdapter.saveQueues.set(savePath, currentWrite);
-
-        try {
-            await currentWrite;
-        } finally {
-            if (JsonAdapter.saveQueues.get(savePath) === currentWrite) {
-                JsonAdapter.saveQueues.delete(savePath);
-            }
-        }
+        await this.enqueueSaveOperation(savePath, () =>
+            this.performSaveCharacters(userId, characters, savePath)
+        );
     }
 
     public async saveCharacterSnapshot(userId: number, character: Character): Promise<Character[]> {
-        const characters = await this.loadCharacters(userId);
+        const savePath = path.join(this.savesDir, `${userId}.json`);
+        return this.enqueueSaveOperation(savePath, async () => {
+            if (JsonAdapter.mongoGameData?.saveCharacterSnapshot) {
+                return JsonAdapter.mongoGameData.saveCharacterSnapshot(userId, character);
+            }
+
+            const characters = await this.loadCharactersUnqueued(userId);
+            const normalizedName = this.normalizeCharacterName(character?.name);
+            const index = characters.findIndex((entry) =>
+                this.normalizeCharacterName(entry?.name) === normalizedName
+            );
+
+            if (index >= 0) {
+                characters[index] = character;
+            } else {
+                characters.push(character);
+            }
+
+            await this.performSaveCharacters(userId, characters, savePath);
+            return characters;
+        });
+    }
+
+    public async createCharacter(
+        userId: number,
+        character: Character,
+        maxCharacters: number
+    ): Promise<CharacterCreateResult> {
+        const normalizedUserId = Math.round(Number(userId));
         const normalizedName = this.normalizeCharacterName(character?.name);
-        const index = characters.findIndex((entry) =>
-            this.normalizeCharacterName(entry?.name) === normalizedName
-        );
+        const characterLimit = Math.max(1, Math.round(Number(maxCharacters)));
+        const globalCreateQueueKey = path.join(this.savesDir, '.character-create');
 
-        if (index >= 0) {
-            characters[index] = character;
-        } else {
-            characters.push(character);
-        }
+        return this.enqueueSaveOperation(globalCreateQueueKey, async () => {
+            if (JsonAdapter.mongoGameData?.createCharacter) {
+                return JsonAdapter.mongoGameData.createCharacter(
+                    normalizedUserId,
+                    character,
+                    characterLimit
+                );
+            }
+            if (JsonAdapter.mongoGameData) {
+                throw new Error('Configured Mongo game-data adapter does not support atomic character creation.');
+            }
 
-        await this.saveCharacters(userId, characters);
-        return characters;
+            const account = await this.getAccountById(normalizedUserId);
+            const currentCharacters = await this.loadCharacters(normalizedUserId);
+            if (!account) {
+                return { ok: false, reason: 'account-not-found', characters: currentCharacters };
+            }
+            if (currentCharacters.length >= characterLimit) {
+                return { ok: false, reason: 'character-limit', characters: currentCharacters };
+            }
+
+            const allSaves = await this.loadAllCharacterRecords();
+            const nameTaken = allSaves.some((save) =>
+                (Array.isArray(save.characters) ? save.characters : []).some((entry) =>
+                    this.normalizeCharacterName(entry?.name) === normalizedName
+                )
+            );
+            if (nameTaken) {
+                return { ok: false, reason: 'name-taken', characters: currentCharacters };
+            }
+
+            const savePath = path.join(this.savesDir, `${normalizedUserId}.json`);
+            return this.enqueueSaveOperation(savePath, async () => {
+                const latestCharacters = await this.loadCharactersUnqueued(normalizedUserId);
+                if (latestCharacters.length >= characterLimit) {
+                    return { ok: false, reason: 'character-limit', characters: latestCharacters };
+                }
+                if (latestCharacters.some((entry) => this.normalizeCharacterName(entry?.name) === normalizedName)) {
+                    return { ok: false, reason: 'name-taken', characters: latestCharacters };
+                }
+
+                const characters = [...latestCharacters, character];
+                await this.performSaveCharacters(normalizedUserId, characters, savePath);
+                return { ok: true, reason: 'ok', characters };
+            });
+        });
     }
 
     public async isCharacterNameTaken(name: string): Promise<boolean> {

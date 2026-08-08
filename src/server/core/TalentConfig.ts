@@ -37,6 +37,16 @@ export class TalentConfig {
 
     static readonly CONST_529 = [5, 2, 3, 5, 5, 3, 2, 3, 2, 5, 2, 3, 5, 5, 3, 2, 3, 2, 5, 2, 3, 5, 5, 3, 2, 3, 2];
 
+    // Extracted from the shipped talent calculator/Game.swz data. The socket graph has two
+    // roots and two progression gates; accepting a disconnected socket lets a caller skip
+    // every prerequisite even when its total point count is otherwise valid.
+    static readonly TALENT_SLOT_CONNECTIONS: readonly (readonly number[])[] = [
+        [2], [3], [0, 4], [1, 5], [2, 5], [3, 4, 6, 7], [5, 8], [5, 8], [6, 7, 9, 10],
+        [8, 11], [8, 12], [9, 13], [10, 14], [11, 14], [12, 13, 15, 16], [14, 17], [14, 17],
+        [15, 16, 18, 19], [17, 20], [17, 21], [18, 22], [19, 23], [20, 23], [21, 22, 24, 25],
+        [23, 26], [23, 26], [24, 25]
+    ];
+
     static indexToNodeId(index: number): number {
         if (index < 0) return 1;
         if (index >= TalentConfig.NUM_TALENT_SLOTS) return TalentConfig.NUM_TALENT_SLOTS;
@@ -54,6 +64,76 @@ export class TalentConfig {
             return 0;
         }
         return TalentConfig.CONST_529[index] ?? 0;
+    }
+
+    static isAuthoredAllocationValid(nodes: TalentNode[]): boolean {
+        if (!Array.isArray(nodes) || nodes.length !== TalentConfig.NUM_TALENT_SLOTS) {
+            return false;
+        }
+
+        const filled = new Set<number>();
+        const nodeIds = new Set<number>();
+        let totalPoints = 0;
+        for (let index = 0; index < nodes.length; index += 1) {
+            const node = nodes[index];
+            if (!node?.filled) {
+                continue;
+            }
+            const nodeId = Math.round(Number(node.nodeID ?? 0));
+            const points = Math.round(Number(node.points ?? 0));
+            if (
+                !Number.isInteger(Number(node.nodeID)) ||
+                nodeId < 1 ||
+                nodeId > TalentConfig.MAX_TALENT_NODE_ID ||
+                nodeIds.has(nodeId) ||
+                !Number.isInteger(Number(node.points)) ||
+                points < 1 ||
+                points > TalentConfig.getMaxPointsForSlotIndex(index)
+            ) {
+                return false;
+            }
+            filled.add(index);
+            nodeIds.add(nodeId);
+            totalPoints += points;
+
+            const tier = Math.ceil(nodeId / 3);
+            if (tier < 1 || tier > 14) {
+                return false;
+            }
+        }
+
+        // Node IDs are authored as three choices per five-point tier. Validate against the
+        // final allocation total because this packet is a complete tree snapshot.
+        for (const index of filled) {
+            const tier = Math.ceil(nodes[index].nodeID / 3);
+            if (totalPoints < (tier - 1) * 5) {
+                return false;
+            }
+        }
+
+        if ([...filled].some((index) => index > 8) && (totalPoints < 20 || !filled.has(8))) {
+            return false;
+        }
+        if ([...filled].some((index) => index > 17) && (totalPoints < 40 || !filled.has(17))) {
+            return false;
+        }
+
+        const reachable = new Set<number>();
+        const pending = [0, 1].filter((index) => filled.has(index));
+        while (pending.length > 0) {
+            const index = pending.pop()!;
+            if (reachable.has(index)) {
+                continue;
+            }
+            reachable.add(index);
+            for (const connection of TalentConfig.TALENT_SLOT_CONNECTIONS[index] ?? []) {
+                if (filled.has(connection) && !reachable.has(connection)) {
+                    pending.push(connection);
+                }
+            }
+        }
+
+        return reachable.size === filled.size;
     }
 
     static buildEmptyTalentNodes(): TalentNode[] {

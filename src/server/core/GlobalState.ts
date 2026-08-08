@@ -59,6 +59,10 @@ export interface PendingTransfer {
     userId: number;
     account?: UserAccount;
     accountEmail?: string;
+    sourceRemoteAddress?: string;
+    expiresAt?: number;
+    loginChallengeHash?: string;
+    claimedByClient?: Client;
     newX?: number;
     newY?: number;
     newHasCoord?: boolean;
@@ -143,7 +147,8 @@ export class GlobalState {
     // Connected clients, including clients that have not authenticated yet.
     static clients: Set<Client> = new Set();
 
-    // Normalized remote address -> pending Discord OAuth account handoff.
+    // Retained as an empty compatibility surface for older tools/tests. OAuth no longer
+    // stores account credentials by source address.
     static pendingDiscordOAuthLogins: Map<string, PendingDiscordOAuthLogin> = new Map();
 
     // Token -> Pending Transfer
@@ -426,62 +431,26 @@ export class GlobalState {
     }
 
     static rememberDiscordOAuthLogin(remoteAddress: string | null | undefined, account: UserAccount): boolean {
-        const normalizedAddress = GlobalState.normalizeRemoteAddress(remoteAddress);
-        if (!normalizedAddress || !account?.user_id) {
-            return false;
-        }
-
-        const now = Date.now();
-        GlobalState.purgeExpiredDiscordOAuthLogins(now);
-        GlobalState.pendingDiscordOAuthLogins.set(normalizedAddress, {
-            account,
-            remoteAddress: normalizedAddress,
-            createdAt: now,
-            expiresAt: now + GlobalState.PENDING_DISCORD_OAUTH_LOGIN_TTL_MS
-        });
-        return true;
+        void remoteAddress;
+        void account;
+        GlobalState.pendingDiscordOAuthLogins.clear();
+        return false;
     }
 
     static consumeDiscordOAuthLogin(
         remoteAddress: string | null | undefined,
         expectedIdentifier?: string | null
     ): PendingDiscordOAuthLogin | null {
-        const normalizedAddress = GlobalState.normalizeRemoteAddress(remoteAddress);
-        if (!normalizedAddress) {
-            return null;
-        }
-
-        const now = Date.now();
-        GlobalState.purgeExpiredDiscordOAuthLogins(now);
-        const pending = GlobalState.pendingDiscordOAuthLogins.get(normalizedAddress);
-        if (!pending || pending.expiresAt <= now) {
-            GlobalState.pendingDiscordOAuthLogins.delete(normalizedAddress);
-            return null;
-        }
-
-        if (expectedIdentifier && !GlobalState.accountMatchesIdentifier(pending.account, expectedIdentifier)) {
-            return null;
-        }
-
-        GlobalState.pendingDiscordOAuthLogins.delete(normalizedAddress);
-        return pending;
+        void remoteAddress;
+        void expectedIdentifier;
+        GlobalState.pendingDiscordOAuthLogins.clear();
+        return null;
     }
 
     static peekDiscordOAuthLogin(remoteAddress: string | null | undefined): PendingDiscordOAuthLogin | null {
-        const normalizedAddress = GlobalState.normalizeRemoteAddress(remoteAddress);
-        if (!normalizedAddress) {
-            return null;
-        }
-
-        const now = Date.now();
-        GlobalState.purgeExpiredDiscordOAuthLogins(now);
-        const pending = GlobalState.pendingDiscordOAuthLogins.get(normalizedAddress);
-        if (!pending || pending.expiresAt <= now) {
-            GlobalState.pendingDiscordOAuthLogins.delete(normalizedAddress);
-            return null;
-        }
-
-        return pending;
+        void remoteAddress;
+        GlobalState.pendingDiscordOAuthLogins.clear();
+        return null;
     }
 
     private static purgeExpiredDiscordOAuthLogins(now: number = Date.now()): void {
