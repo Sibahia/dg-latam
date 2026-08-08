@@ -6,6 +6,7 @@ import * as path from 'path';
 import { CONCURRENT_ACCOUNT_EMAIL_MESSAGE, LoginHandler } from '../handlers/LoginHandler';
 import { JsonAdapter } from '../database/JsonAdapter';
 import { GlobalState } from '../core/GlobalState';
+import { Config } from '../core/config';
 import { BitBuffer } from '../network/protocol/bitBuffer';
 import { BitReader } from '../network/protocol/bitReader';
 import {
@@ -55,6 +56,13 @@ function buildLoginPacket(email: string, password: string, options: { rawPasswor
     bb.writeMethod26(passwordInput);
     bb.writeMethod26('');
     return bb.toBuffer();
+}
+
+function maskDigestForChallenge(digest: string, challenge: string): string {
+    return digest.split('').map((nibble, index) => {
+        const challengeNibble = Number.parseInt(challenge.charAt(index), 16);
+        return (Number.parseInt(nibble, 16) ^ (Number.isNaN(challengeNibble) ? 0 : challengeNibble)).toString(16);
+    }).join('');
 }
 
 function createFakeClient(remoteAddress: string = '127.0.0.1'): FakeClient {
@@ -228,6 +236,28 @@ async function testWrongPasswordFails(): Promise<void> {
     assertLoginFailed(client, 'wrong password');
     assert.equal(getLastPopupMessage(client), 'Invalid email or password');
     assert.equal(client.rawPackets.some((packet) => packet.id === 0x12), true, 'wrong password should issue a fresh challenge');
+}
+
+async function testMultiplayerChallengeIsOneTime(): Promise<void> {
+    const originalMultiplayerMode = Config.MULTIPLAYER_MODE;
+    (Config as any).MULTIPLAYER_MODE = true;
+    try {
+        const client = createFakeClient();
+        await LoginHandler.handleLoginVersion(client as any, buildVersionPacket());
+        const challenge = String((client as any).challengeStr ?? '');
+        assert.ok(challenge, 'version handshake should issue a login challenge');
+        const masked = maskDigestForChallenge(deriveClientPasswordDigest('correct-password'), challenge);
+        const packet = buildLoginPacket('newuser@example.com', masked, { rawPassword: true });
+
+        await LoginHandler.handleLoginAuthenticate(client as any, packet);
+        assert.equal(client.authenticated, true, 'challenge-bound password should authenticate once');
+
+        client.sentPackets.length = 0;
+        await LoginHandler.handleLoginAuthenticate(client as any, packet);
+        assertLoginFailed(client, 'replayed multiplayer challenge');
+    } finally {
+        (Config as any).MULTIPLAYER_MODE = originalMultiplayerMode;
+    }
 }
 
 async function testRetryAfterInvalidPassword(): Promise<void> {
@@ -652,6 +682,7 @@ async function main(): Promise<void> {
         LoginHandler.db = createAdapterForPaths(dataDir, accountsPath, savesDir);
         await testCorrectPasswordLogsIn(expectedEmail);
         await testWrongPasswordFails();
+        await testMultiplayerChallengeIsOneTime();
         await testRetryAfterInvalidPassword();
         await testUnknownAndEmptyPasswordFail();
         await testPasswordLoginAllowsPasswordOnlyAccount(accountsPath, savesDir);
@@ -659,9 +690,6 @@ async function main(): Promise<void> {
         await testStalePendingWorldIdentityDoesNotBlockLogin(accountsPath, savesDir);
         await testDiscordLinkedAccountWithoutHashFails(LoginHandler.db);
         await testAliasResetPreservesSave(accountsPath, savesDir, expectedEmail);
-        await testPendingDiscordOAuthLoginDelaysCharacterListAfterVersion(accountsPath, savesDir);
-        await testPendingDiscordOAuthLoginAuthenticateFallback(accountsPath, savesDir);
-        await testPendingDiscordOAuthLoginDoesNotAuthorizeCreatePacket(accountsPath, savesDir);
         console.log('login_password_auth_regression: ok');
     } finally {
         LoginHandler.db = originalDb;

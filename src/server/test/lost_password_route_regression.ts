@@ -7,6 +7,7 @@ import { StaticServer } from '../core/StaticServer';
 import { JsonAdapter } from '../database/JsonAdapter';
 import { deriveClientPasswordDigest, verifyPassword } from '../auth/PasswordAuth';
 import { DiscordAccountLinkService } from '../integrations/DiscordAccountLinkService';
+import { Config, resolveDevPasswordResetEnabled } from '../core/config';
 
 function createAdapterForPaths(dataDir: string, accountsPath: string, savesDir: string): JsonAdapter {
     const adapter: any = new JsonAdapter();
@@ -65,6 +66,12 @@ async function waitForListening(staticServer: StaticServer): Promise<number> {
 }
 
 async function main(): Promise<void> {
+    assert.equal(resolveDevPasswordResetEnabled(false, '127.0.0.1', false), false);
+    assert.equal(resolveDevPasswordResetEnabled(false, '127.0.0.1', true), true);
+    assert.throws(() => resolveDevPasswordResetEnabled(true, '127.0.0.1', true), /single-player mode/);
+    assert.throws(() => resolveDevPasswordResetEnabled(false, '0.0.0.0', true), /loopback bind/);
+    const originalDevReset = Config.ALLOW_DEV_PASSWORD_RESET;
+    (Config as any).ALLOW_DEV_PASSWORD_RESET = false;
     const { adapter, dataDir, accountsPath } = await createTempAdapter();
     const sentDms: Array<{ discordUserId: string; content: string }> = [];
     const discordAccountLinks = new DiscordAccountLinkService() as any;
@@ -92,6 +99,16 @@ async function main(): Promise<void> {
         assert.match(pageHtml, /Password Reset/, 'reset page should include the form title');
         assert.doesNotMatch(pageHtml, /New password/, 'visible reset form should not ask players to type a new password');
 
+        const crossSiteResponse = await fetch(`${baseUrl}/lostpw`, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded',
+                origin: 'https://attacker.example'
+            },
+            body: new URLSearchParams({ email: 'linked@example.com' })
+        });
+        assert.equal(crossSiteResponse.status, 403, 'cross-site reset form submission should fail');
+
         const mismatchResponse = await fetch(`${baseUrl}/lostpw`, {
             method: 'POST',
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -101,7 +118,8 @@ async function main(): Promise<void> {
                 confirmPassword: 'different-password'
             })
         });
-        assert.equal(mismatchResponse.status, 400, 'mismatched confirmation should fail');
+        assert.equal(mismatchResponse.status, 403, 'manual reset should be disabled by default');
+        (Config as any).ALLOW_DEV_PASSWORD_RESET = true;
 
         const unlinkedDiscordResponse = await fetch(`${baseUrl}/lostpw`, {
             method: 'POST',
@@ -110,7 +128,7 @@ async function main(): Promise<void> {
                 email: ' Legacy@Example.COM '
             })
         });
-        assert.equal(unlinkedDiscordResponse.status, 400, 'email-only reset should require a Discord-linked account');
+        assert.equal(unlinkedDiscordResponse.status, 400, 'explicit local reset should still require a valid replacement password');
 
         const resetResponse = await fetch(`${baseUrl}/lostpw`, {
             method: 'POST',
@@ -144,6 +162,11 @@ async function main(): Promise<void> {
             'wrong password should not verify'
         );
 
+        assert.throws(
+            () => new StaticServer(0, '../client/content/localhost', '0.0.0.0'),
+            /loopback HTTP bind/,
+            'development reset must refuse a public HTTP bind'
+        );
         const manualResponse = await fetch(`${baseUrl}/lostpw`, {
             method: 'POST',
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -164,6 +187,7 @@ async function main(): Promise<void> {
 
         console.log('lost_password_route_regression: ok');
     } finally {
+        (Config as any).ALLOW_DEV_PASSWORD_RESET = originalDevReset;
         await staticServer.stop();
         await fs.rm(dataDir, { recursive: true, force: true });
     }

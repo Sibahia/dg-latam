@@ -17,6 +17,8 @@ type PowerTiming = {
     /** Mean authored cast animation, which is what occupies the caster. */
     castMs: number;
     cooldownMs: number;
+    /** Authored base-damage multiplier. Combo entries use the strongest authored step. */
+    damageMultiplier: number;
 };
 
 /**
@@ -115,12 +117,17 @@ export class CastRateAuthority {
                     .map((value) => Number(value))
                     .filter((value) => Number.isFinite(value) && value >= 0);
                 const cooldown = Number(block.match(/<CoolDownTime>([^<]*)<\/CoolDownTime>/)?.[1] ?? 0);
+                const damageMultipliers = String(block.match(/<BaseDamageMult>([^<]*)<\/BaseDamageMult>/)?.[1] ?? '')
+                    .split(',')
+                    .map((value) => Number(value))
+                    .filter((value) => Number.isFinite(value) && value >= 0);
 
                 timings.set(powerId, {
                     castMs: castTimes.length > 0
                         ? castTimes.reduce((total, value) => total + value, 0) / castTimes.length
                         : 0,
-                    cooldownMs: Number.isFinite(cooldown) ? Math.max(0, cooldown) : 0
+                    cooldownMs: Number.isFinite(cooldown) ? Math.max(0, cooldown) : 0,
+                    damageMultiplier: damageMultipliers.length > 0 ? Math.max(...damageMultipliers) : 0
                 });
             }
             console.log(`[CastRateAuthority] Loaded cast timings for ${timings.size} powers.`);
@@ -146,6 +153,12 @@ export class CastRateAuthority {
         return CastRateAuthority.loadTimings().size === 0;
     }
 
+    /** Returns null for an unknown power so multiplayer hit authority can fail closed. */
+    static getAuthoredDamageMultiplier(powerId: number): number | null {
+        const timing = CastRateAuthority.loadTimings().get(Math.round(Number(powerId) || 0));
+        return timing ? Math.max(0, timing.damageMultiplier) : null;
+    }
+
     /**
      * Charge one cast. False means it arrived faster than the game allows and must not be
      * relayed.
@@ -164,7 +177,11 @@ export class CastRateAuthority {
 
         const id = Math.round(Number(powerId) || 0);
         const now = Math.max(0, Math.round(Number(nowMs) || 0));
-        const timing = CastRateAuthority.loadTimings().get(id) ?? { castMs: 0, cooldownMs: 0 };
+        const timing = CastRateAuthority.loadTimings().get(id) ?? {
+            castMs: 0,
+            cooldownMs: 0,
+            damageMultiplier: 0
+        };
 
         const elapsedMs = state.creditUpdatedAtMs > 0 ? Math.max(0, now - state.creditUpdatedAtMs) : 0;
         state.creditMs = Math.min(CastRateAuthority.MAX_CREDIT_MS, state.creditMs + elapsedMs);

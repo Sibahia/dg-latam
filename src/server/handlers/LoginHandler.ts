@@ -7,12 +7,13 @@ import { JsonAdapter } from '../database/JsonAdapter';
 import { UserAccount } from '../database/Database';
 import { GlobalState, PendingTransfer } from '../core/GlobalState';
 import {
+    hasValidDiscordSync,
+    isClientPasswordDigest,
     isValidPasswordInput,
     normalizeAccountIdentifier,
     unmaskChallengeXorClientPassword,
     verifyClientPasswordInput
 } from '../auth/PasswordAuth';
-import type { PasswordRecord } from '../auth/PasswordAuth';
 
 const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
 const DISCORD_ACCOUNT_CREATE_MESSAGE = "Create your account in Discord with /create-account.";
@@ -31,15 +32,10 @@ interface AccountIdentityConflictSet {
 
 export class LoginHandler {
     public static db: JsonAdapter = new JsonAdapter();
-    private static readonly EMAIL_ONLY_PASSWORD_RECORD: PasswordRecord = {
-        passwordKdf: 'scrypt',
-        passwordSalt: '',
-        passwordHash: '',
-        passwordParams: { N: 16384, r: 8, p: 1, keylen: 64 }
-    };
-    private static readonly discordOAuthAutoAuthenticatedClients = new WeakSet<Client>();
-    private static readonly DISCORD_OAUTH_CHARACTER_LIST_RETRY_MS = 500;
     private static readonly PENDING_WORLD_LOGIN_LOCK_TTL_MS = 60 * 1000;
+    private static readonly MAX_FAILED_PASSWORD_ATTEMPTS = 8;
+    private static readonly FAILED_PASSWORD_ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
+    private static readonly failedPasswordAttempts = new Map<string, number[]>();
 
     private static issueChallenge(client: Client): string {
         const sid = crypto.randomInt(0, 65536);
@@ -73,7 +69,12 @@ export class LoginHandler {
             const password = br.readMethod26();
             br.readMethod26(); // legacyKey
 
-            if (!email) {
+            if (
+                !email ||
+                email.length > 254 ||
+                !/^[^\s@]+@[^\s@]+$/.test(email) ||
+                password.length > 256
+            ) {
                 return null;
             }
 
@@ -82,6 +83,32 @@ export class LoginHandler {
             console.warn(`[Login] Rejected malformed login payload: ${(err as Error).message}`);
             return null;
         }
+    }
+
+    private static getPasswordAttemptKey(client: Client, email: string): string {
+        const remoteAddress = GlobalState.normalizeRemoteAddress(client.socket.remoteAddress) || 'unknown';
+        return `${remoteAddress}:${email}`;
+    }
+
+    private static getRecentFailedPasswordAttempts(key: string, now: number = Date.now()): number[] {
+        const cutoff = now - LoginHandler.FAILED_PASSWORD_ATTEMPT_WINDOW_MS;
+        const recent = (LoginHandler.failedPasswordAttempts.get(key) ?? []).filter((attemptedAt) => attemptedAt > cutoff);
+        if (recent.length > 0) {
+            LoginHandler.failedPasswordAttempts.set(key, recent);
+        } else {
+            LoginHandler.failedPasswordAttempts.delete(key);
+        }
+        return recent;
+    }
+
+    private static isPasswordAttemptRateLimited(key: string): boolean {
+        return LoginHandler.getRecentFailedPasswordAttempts(key).length >= LoginHandler.MAX_FAILED_PASSWORD_ATTEMPTS;
+    }
+
+    private static recordFailedPasswordAttempt(key: string): void {
+        const recent = LoginHandler.getRecentFailedPasswordAttempts(key);
+        recent.push(Date.now());
+        LoginHandler.failedPasswordAttempts.set(key, recent);
     }
 
     private static clearFailedAuthState(client: Client): void {
@@ -333,32 +360,10 @@ export class LoginHandler {
         client.authenticated = true;
         client.characters = await LoginHandler.db.loadCharacters(account.user_id);
 
-        if (reason.startsWith('discord oauth')) {
-            LoginHandler.discordOAuthAutoAuthenticatedClients.add(client);
-        } else {
-            LoginHandler.discordOAuthAutoAuthenticatedClients.delete(client);
-        }
-
         console.log(`[Login] Authenticated ${account.email}: ${reason}`);
         if (sendCharacters) {
             LoginHandler.sendCharacterList(client);
         }
-    }
-
-    private static scheduleDiscordOAuthCharacterListRetry(client: Client, account: UserAccount): void {
-        setTimeout(() => {
-            if (
-                client.socket.destroyed ||
-                client.socket.readyState !== 'open' ||
-                !client.authenticated ||
-                client.userId !== account.user_id
-            ) {
-                return;
-            }
-
-            console.log(`[Login] Sending delayed Discord OAuth character list for ${account.email}`);
-            LoginHandler.sendCharacterList(client);
-        }, LoginHandler.DISCORD_OAUTH_CHARACTER_LIST_RETRY_MS);
     }
 
     private static rejectLogin(
@@ -384,18 +389,6 @@ export class LoginHandler {
 
         console.log(`[Login] Version: ${version}, Challenge: ${challenge}`);
 
-        const pending = GlobalState.peekDiscordOAuthLogin(client.socket.remoteAddress);
-        if (pending) {
-            await LoginHandler.completeAuthentication(
-                client,
-                pending.account,
-                'discord oauth pending version',
-                false,
-                false
-            );
-            LoginHandler.scheduleDiscordOAuthCharacterListRetry(client, pending.account);
-            console.log(`[Login] Discord OAuth pending for ${pending.account.email}; delayed character list scheduled`);
-        }
     }
 
     static async handleLoginCreate(client: Client, data: Buffer): Promise<void> {
@@ -408,15 +401,12 @@ export class LoginHandler {
             return;
         }
 
-        const { email } = payload;
-        console.log(`[Login] Create Account (email-only): ${email}`);
-
-        let account = await LoginHandler.db.getAccount(email);
-        if (!account) {
-            account = await LoginHandler.db.createAccount(email, LoginHandler.EMAIL_ONLY_PASSWORD_RECORD);
-        }
-
-        await LoginHandler.completeAuthentication(client, account, 'login create email-only', true);
+        LoginHandler.rejectLogin(
+            client,
+            payload.email,
+            'direct game account creation is disabled',
+            DISCORD_ACCOUNT_CREATE_MESSAGE
+        );
     }
     static async handleLoginAuthenticate(client: Client, data: Buffer): Promise<void> {
         // 0x14
@@ -426,16 +416,65 @@ export class LoginHandler {
             return;
         }
 
-        const { email } = payload;
-        console.log(`[Login] Authenticate (email-only): ${email}`);
+        const { email, password } = payload;
+        const attemptKey = LoginHandler.getPasswordAttemptKey(client, email);
+        const challenge = String(client.challengeStr ?? '');
+        client.challengeStr = '';
 
-        let account = await LoginHandler.db.getAccount(email);
-        if (!account) {
-            console.log(`[Login] Auto-creating email-only account for ${email}`);
-            account = await LoginHandler.db.createAccount(email, LoginHandler.EMAIL_ONLY_PASSWORD_RECORD);
+        if (LoginHandler.isPasswordAttemptRateLimited(attemptKey)) {
+            LoginHandler.rejectLogin(client, email, 'password attempt rate limit exceeded');
+            return;
         }
 
-        await LoginHandler.completeAuthentication(client, account, 'login authenticate email-only', true);
+        if (!isValidPasswordInput(password)) {
+            LoginHandler.recordFailedPasswordAttempt(attemptKey);
+            LoginHandler.rejectLogin(client, email, 'empty password');
+            return;
+        }
+
+        if (Config.MULTIPLAYER_MODE && (!challenge || !isClientPasswordDigest(password))) {
+            LoginHandler.recordFailedPasswordAttempt(attemptKey);
+            LoginHandler.rejectLogin(client, email, 'missing login challenge or malformed challenge response');
+            return;
+        }
+
+        const account = await LoginHandler.db.getAccount(email);
+        if (!account) {
+            LoginHandler.recordFailedPasswordAttempt(attemptKey);
+            LoginHandler.rejectLogin(client, email, 'unknown account');
+            return;
+        }
+
+        if (!account.passwordHash) {
+            LoginHandler.recordFailedPasswordAttempt(attemptKey);
+            LoginHandler.rejectLogin(
+                client,
+                email,
+                'account has no password record',
+                hasValidDiscordSync(account) ? PASSWORD_NOT_SET_MESSAGE : INVALID_CREDENTIALS_MESSAGE
+            );
+            return;
+        }
+
+        const unmaskedPassword = unmaskChallengeXorClientPassword(password, challenge);
+        let validPassword = false;
+        try {
+            validPassword = await verifyClientPasswordInput(unmaskedPassword, account);
+            if (!validPassword && !Config.MULTIPLAYER_MODE && unmaskedPassword !== password) {
+                validPassword = await verifyClientPasswordInput(password, account);
+            }
+        } catch (err) {
+            console.error(`[Login] Password verification failed internally for ${email}:`, err);
+        }
+
+        if (!validPassword) {
+            LoginHandler.recordFailedPasswordAttempt(attemptKey);
+            LoginHandler.rejectLogin(client, email, 'password mismatch');
+            return;
+        }
+
+        LoginHandler.failedPasswordAttempts.delete(attemptKey);
+        await LoginHandler.completeAuthentication(client, account, 'password verified', true);
     }
     static sendCharacterList(client: Client): void {
         const bb = new BitBuffer();

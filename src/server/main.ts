@@ -259,19 +259,30 @@ function shutdown(signal: string, exitCode: number, onComplete?: () => void): vo
         JsonAdapter.closeMongoGameData()
     ];
 
+    let completed = false;
+    const finish = (): void => {
+        if (completed) return;
+        completed = true;
+        if (onComplete) {
+            onComplete();
+            return;
+        }
+        process.exit(exitCode);
+    };
+    const deadline = setTimeout(() => {
+        console.error(`[System] Shutdown exceeded ${Config.SHUTDOWN_TIMEOUT_MS}ms; forcing exit.`);
+        finish();
+    }, Config.SHUTDOWN_TIMEOUT_MS);
+    deadline.unref?.();
+
     void Promise.allSettled(tasks).then((results) => {
         for (const result of results) {
             if (result.status === 'rejected') {
                 console.error('[System] Shutdown error:', result.reason);
             }
         }
-
-        if (onComplete) {
-            onComplete();
-            return;
-        }
-
-        process.exit(exitCode);
+        clearTimeout(deadline);
+        finish();
     });
 }
 

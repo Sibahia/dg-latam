@@ -28,7 +28,7 @@ import {
  * and the SWF body keep their exact size. `--verify` confirms the alpha port is in place.
  *
  * Usage:
- *   npx tsx src/server/scripts/patch-dungeonblitz-alpha-ports.ts [--verify] [--swf <path>]
+ *   npx tsx src/server/scripts/alpha-client-ports.ts [--verify] [--swf <path>]
  */
 const DEFAULT_SWF = path.resolve(
   __dirname, "..", "..", "client", "content", "localhost", "p", "cbp", "DungeonBlitz.swf",
@@ -137,7 +137,7 @@ if (require.main === module) {
   try {
     main();
   } catch (error) {
-    console.error(`[patch-dungeonblitz-alpha-ports] ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[alpha-client-ports] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   }
 }

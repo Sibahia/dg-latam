@@ -156,6 +156,11 @@ function attachHostile(client: FakeClient, localId: number, name: string, x: num
     EntityHandler.handleEntityFullUpdate(client as never, buildHostileFullUpdate(localId, name, x, y, roomId));
 }
 
+// Client entity admission now rejects invented entity names. Keep this shared
+// hostile fixture on a real catalogued enemy, as production clients must.
+const SHARED_TEST_HOSTILE = 'BanditRogue';
+const POST_DEATH_TEST_HOSTILE = 'GoblinClub';
+
 function buildPowerHitPayload(targetId: number, sourceId: number, damage: number, powerId: number = 77): Buffer {
     const bb = new BitBuffer(false);
     bb.writeMethod4(targetId);
@@ -420,7 +425,7 @@ function testPrematureDeadHpReportDoesNotFinalizeDeath(): void {
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500030, 'SharedBandit', 2800, 1200, 2);
+    attachHostile(rogue, 500030, SHARED_TEST_HOSTILE, 2800, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500030);
     assert.ok(canonical, 'rogue hostile should become the canonical shared hostile');
     canonical.maxHp = 10000;
@@ -428,7 +433,7 @@ function testPrematureDeadHpReportDoesNotFinalizeDeath(): void {
     canonical.dead = true;
     canonical.entState = EntityState.DEAD;
 
-    attachHostile(mage, 600030, 'SharedBandit', 2800, 1200, 2);
+    attachHostile(mage, 600030, SHARED_TEST_HOSTILE, 2800, 1200, 2);
     mage.entities.set(600030, {
         ...mage.entities.get(600030),
         hp: 1000,
@@ -472,7 +477,7 @@ function testLethalHpReportDoesNotMutateCanonicalHostile(): void {
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500040, 'SharedDragon', 3000, 1200, 2);
+    attachHostile(rogue, 500040, SHARED_TEST_HOSTILE, 3000, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500040);
     assert.ok(canonical, 'source hostile should become the canonical shared hostile');
     canonical.maxHp = 10000;
@@ -480,7 +485,7 @@ function testLethalHpReportDoesNotMutateCanonicalHostile(): void {
     canonical.dead = false;
     canonical.entState = EntityState.ACTIVE;
 
-    attachHostile(mage, 600040, 'SharedDragon', 3000, 1200, 2);
+    attachHostile(mage, 600040, SHARED_TEST_HOSTILE, 3000, 1200, 2);
     rogue.entities.set(500040, {
         ...rogue.entities.get(500040),
         hp: 1640,
@@ -524,7 +529,7 @@ async function testPostDeathPacketsAreDropped(): Promise<void> {
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500041, 'SharedDeadLock', 3000, 1200, 2);
+    attachHostile(rogue, 500041, POST_DEATH_TEST_HOSTILE, 3000, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500041);
     assert.ok(canonical, 'source hostile should become the canonical shared hostile');
     canonical.maxHp = 10000;
@@ -533,7 +538,7 @@ async function testPostDeathPacketsAreDropped(): Promise<void> {
     canonical.destroyed = true;
     canonical.entState = EntityState.DEAD;
 
-    attachHostile(mage, 600041, 'SharedDeadLock', 3000, 1200, 2);
+    attachHostile(mage, 600041, POST_DEATH_TEST_HOSTILE, 3000, 1200, 2);
     mage.sentPackets.length = 0;
     CombatHandler.handleCharRegen(mage as never, buildHpDeltaPayload(600041, -5000));
     await CombatHandler.handleAddBuff(mage as never, buildBuffStatePayload(600041, 99, 5000));
@@ -572,7 +577,7 @@ async function testDeadSharedHostilePowerHitCannotKillPlayer(): Promise<void> {
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500050, 'SharedDeadDragon', 3200, 1200, 2);
+    attachHostile(rogue, 500050, SHARED_TEST_HOSTILE, 3200, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500050);
     assert.ok(canonical, 'source hostile should become canonical before death');
     canonical.maxHp = 10000;
@@ -580,7 +585,7 @@ async function testDeadSharedHostilePowerHitCannotKillPlayer(): Promise<void> {
     canonical.dead = true;
     canonical.entState = EntityState.DEAD;
 
-    attachHostile(mage, 600050, 'SharedDeadDragon', 3200, 1200, 2);
+    attachHostile(mage, 600050, SHARED_TEST_HOSTILE, 3200, 1200, 2);
     mage.entities.set(600050, {
         ...mage.entities.get(600050),
         hp: 10000,
@@ -625,7 +630,7 @@ async function testFollowerHostileSourcePowerHitDoesNotDamagePlayer(): Promise<v
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500060, 'SharedOwnerDragon', 3400, 1200, 2);
+    attachHostile(rogue, 500060, SHARED_TEST_HOSTILE, 3400, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500060);
     assert.ok(canonical, 'owner hostile should become canonical');
     canonical.maxHp = 10000;
@@ -633,7 +638,7 @@ async function testFollowerHostileSourcePowerHitDoesNotDamagePlayer(): Promise<v
     canonical.dead = false;
     canonical.entState = EntityState.ACTIVE;
 
-    attachHostile(mage, 600060, 'SharedOwnerDragon', 3400, 1200, 2);
+    attachHostile(mage, 600060, SHARED_TEST_HOSTILE, 3400, 1200, 2);
     mage.authoritativeCurrentHp = 5000;
     mage.entities.set(mage.clientEntID, {
         ...mage.entities.get(mage.clientEntID),
@@ -659,10 +664,10 @@ async function testTimedBuffExpiresWithoutClientRemoveBuff(): Promise<void> {
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(rogue, 500070, 'SharedBuffDragon', 3600, 1200, 2);
+    attachHostile(rogue, 500070, SHARED_TEST_HOSTILE, 3600, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(500070);
     assert.ok(canonical, 'buff target hostile should become canonical');
-    attachHostile(mage, 600070, 'SharedBuffDragon', 3600, 1200, 2);
+    attachHostile(mage, 600070, SHARED_TEST_HOSTILE, 3600, 1200, 2);
 
     rogue.sentPackets.length = 0;
     mage.sentPackets.length = 0;
@@ -690,7 +695,7 @@ function testUnaliasedSharedHostileIncrementalDeathRelaysToViewerLocalId(): void
     GlobalState.sessionsByToken.set(mage.token, mage as never);
 
     const scope = getLevelScopeKey(rogue.currentLevel, rogue.levelInstanceId);
-    attachHostile(mage, 600020, 'SharedSkeleton', 2600, 1200, 2);
+    attachHostile(mage, 600020, SHARED_TEST_HOSTILE, 2600, 1200, 2);
     const canonical = GlobalState.levelEntities.get(scope)?.get(600020);
     assert.ok(canonical, 'mage hostile should become the canonical shared hostile');
     canonical.maxHp = 10000;
@@ -699,7 +704,7 @@ function testUnaliasedSharedHostileIncrementalDeathRelaysToViewerLocalId(): void
     canonical.entState = EntityState.ACTIVE;
     mage.entities.set(600020, { ...mage.entities.get(600020), ...canonical });
 
-    attachHostile(rogue, 500020, 'SharedSkeleton', 2600, 1200, 2);
+    attachHostile(rogue, 500020, SHARED_TEST_HOSTILE, 2600, 1200, 2);
     GlobalState.levelEntities.get(scope)?.delete(500020);
     rogue.entityIdAliases.delete(500020);
     rogue.knownEntityIds.delete(600020);

@@ -75,16 +75,27 @@ function main(): void {
     GlobalState.levelEntities.set(scope, new Map([[mob.id, mob]]));
     client.entities.set(mob.id, { ...mob });
 
-    // The client resolves the kill and reports a destroy while the canonical HP is
-    // still > 0. The server must trust the terminal signal and commit the death so
-    // loot and completion are granted.
+    // A client-side visual destroy cannot finalize a live server-authority mob:
+    // accepting it would let an untrusted client delete any East Wing enemy. The
+    // server corrects that stale visual, then its own terminal transition commits
+    // the death, loot and completion state.
     void (async () => {
         await CombatHandler.handleEntityDestroy(client as never, buildDestroyEntityPayload(mob.id));
-        assert.equal(mob.hp, 0, 'server-authority mob destroy with canonical HP>0 must commit the kill');
-        assert.equal(mob.dead, true, 'server-authority mob destroy must mark the canonical dead');
-        assert.equal(mob.destroyed, true, 'server-authority mob destroy must mark the canonical destroyed');
-        assert.equal(Number(mob.deathFinalizedAt ?? 0) > 0, true, 'server-authority mob destroy must finalize the death (loot path)');
-        assert.equal(mob.lootDropped, true, 'server-authority mob destroy must grant server-side loot');
+        assert.equal(mob.dead, false, 'a client destroy must not kill a live server-authority mob');
+        assert.equal(mob.destroyed, false, 'a client destroy must not finalize a live server-authority mob');
+
+        (CombatHandler as any).finalizeHostileDeath(client, scope, mob.id, mob, {
+            includeAnchor: true,
+            sendHpCorrection: false,
+            destroyLocal: true,
+            reason: 'server_authority_terminal_transition'
+        });
+
+        assert.equal(mob.hp, 0, 'server terminal transition must commit the kill');
+        assert.equal(mob.dead, true, 'server terminal transition must mark the canonical dead');
+        assert.equal(mob.destroyed, true, 'server terminal transition must mark the canonical destroyed');
+        assert.equal(Number(mob.deathFinalizedAt ?? 0) > 0, true, 'server terminal transition must finalize the death (loot path)');
+        assert.equal(mob.lootDropped, true, 'server terminal transition must grant server-side loot');
 
         GlobalState.sessionsByToken.delete(client.token);
         GlobalState.levelEntities.delete(scope);

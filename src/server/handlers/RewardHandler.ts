@@ -914,6 +914,13 @@ export class RewardHandler {
 
         const entType = entName ? GameData.getEntType(entName) : null;
         const entLevel = Math.max(1, Number(entType?.Level ?? 1));
+        if (sourceEntity && (/treasurechest/i.test(entName) || String(entType?.Behavior ?? '') === 'TreasureChest')) {
+            exp = 0;
+            gold = AdminRuntimeSettings.scaleGold(
+                Math.max(1, GameData.calculateNpcGold(entName, entLevel) || (entLevel * 2))
+            );
+            hpGain = 0;
+        }
         const playerClass = String(client.character?.class ?? '');
         const ownedGearTierKeys = RewardHandler.collectOwnedGearTierKeys(client);
         const realm = String(entType?.Realm ?? RewardHandler.DUNGEON_REALM_MAP[client.currentLevel] ?? '');
@@ -1309,13 +1316,12 @@ export class RewardHandler {
         if (!sourceEntity || reason === 'unknown') {
             return;
         }
-        if (
-            RewardHandler.requiresCanonicalHostileLootContext(client.currentLevel, sourceEntity) &&
-            reason === 'legacy_enemy_reward'
-        ) {
+        if (reason === 'legacy_enemy_reward') {
             return;
         }
-
+        if (reason === 'chest_reward' && Boolean(sourceEntity.clientSpawned)) {
+            return;
+        }
         for (const recipient of recipients) {
             if (!recipient.playerSpawned || !areClientsInSameLevelScope(client, recipient)) {
                 continue;
@@ -1325,6 +1331,11 @@ export class RewardHandler {
                 reason,
                 caller
             });
+            while (recipient.processedRewardSources.size > 4_096) {
+                const oldest = recipient.processedRewardSources.values().next().value as string | undefined;
+                if (!oldest) break;
+                recipient.processedRewardSources.delete(oldest);
+            }
         }
     }
 
