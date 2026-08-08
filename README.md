@@ -1,117 +1,107 @@
-# 𝐃𝐮𝐧𝐠𝐞𝐨𝐧 𝐁𝐥𝐢𝐭𝐳: 𝐑
+# Dungeon Blitz R
 
-Open-source fan revival project of Dungeon Blitz developed by The Minesa Studios.
+Dungeon Blitz R is an open-source fan restoration project for the original Dungeon Blitz experience. It provides a local game server, restored client assets, gameplay fixes, optional Discord integrations, and work in progress toward multiplayer support.
 
-## About
+> **Project status:** local play is the supported starting point. Multiplayer and hosting are advanced workflows; read [Hosting](docs/HOSTING.md) and [Security](docs/SECURITY.md) before exposing a server to anyone else.
 
-Dungeon Blitz: R aims to preserve and modernize the Dungeon Blitz experience while improving stability, maintainability, and multiplayer functionality.
+## What you need
 
-The project focuses on:
+- [Node.js 22 LTS](https://nodejs.org/) (the production container uses Node 22). `node` and `npm` must be available on your `PATH`.
+- A Flash-capable browser or standalone player. The launchers support [FlashBrowser](https://github.com/radubirsan/FlashBrowser/releases/tag/v0.8); modern browsers no longer run Flash content.
+- Git is recommended. The macOS and Windows launchers use it to update the checkout, but manual local play does not require it after the repository is available.
 
-* Multiplayer support
-* Bug fixes and stability improvements
-* Localization
-* Gameplay balancing
-* Quality-of-life improvements
-* Community-driven development
+## Quick start: local play
 
-## Project Status
+Clone or download this repository, then use the launcher for your platform:
 
-Active Development
+| Platform | Start command | What it does |
+| --- | --- | --- |
+| macOS | Double-click `dev-mac.command`, or run `./dev-mac.command` in Terminal | Updates the checkout when Git is available, installs dependencies, starts the local server, and opens FlashBrowser when ready. |
+| Windows | Double-click `dev-windows.bat` | Performs the equivalent local setup and prints the Flash player/browser URLs. |
 
-Current priorities:
+The launchers may stash local changes, including untracked files, before pulling updates. If a stash needs attention, inspect it with `git stash list` and restore it with `git stash pop`.
 
-* Multiplayer implementation
-* Region completion
-* Gameplay balancing
-* Performance improvements
+Keep the launcher window open while playing. Closing it stops the server.
 
-## Playing single player
+### Manual start
 
-Everything runs on your own machine — the server, the game files and your saves. No
-account on anyone else's server, no internet connection needed once it is set up.
-
-**You need two things first:**
-
-1. **[Node.js](https://nodejs.org/) (LTS)** — the game server runs on it.
-2. **A Flash-capable browser.** Dungeon Blitz is a Flash game and modern browsers dropped
-   Flash in 2020. The launchers expect
-   [FlashBrowser](https://github.com/radubirsan/FlashBrowser/releases/tag/v0.8); any
-   standalone Flash player pointed at `http://localhost:8000/` also works.
-
-**Then just run the launcher for your system:**
-
-| System | File |
-| --- | --- |
-| macOS | `dev-mac.command` (double-click, or `./dev-mac.command` in Terminal) |
-| Windows | `dev-windows.bat` (double-click) |
-
-The launcher pulls the latest code, stashing your local saves first, installs
-dependencies, starts the server, and opens the game at `http://localhost:8000/` once it
-is listening. Leave the terminal window open while you play — closing it stops the server.
-
-Prefer to drive it yourself?
+From the repository root:
 
 ```bash
 npm install
+npm install --prefix src/server
 npm run dev
 ```
 
-Then point your Flash browser at `http://localhost:8000/`.
+Open `http://localhost:8000/` in your Flash-capable browser after the server is listening. The local development command deliberately binds to loopback, uses JSON storage, and disables multiplayer mode.
 
-**Making a character.** Register any email and password on the login screen — it is your
-local server, so the account is created on the spot and stored in
-`src/server/data/Accounts.json`. Your characters live in `src/server/data/saves/`, which
-git ignores, so updating the project never overwrites your progress.
+## Accounts, characters, and backups
 
-If you would rather skip straight to the content, the seeder below gives you a
-fully-completed character in every class.
+For local play, create an account from the login screen. Account data and character saves are stored only on your computer:
 
-**If it does not start:**
+- `src/server/data/Accounts.json` — local account records
+- `src/server/data/saves/` — character-save files
 
-| Symptom | Cause |
-| --- | --- |
-| `ERROR: Node.js is not installed or not on PATH` | Install Node.js LTS and re-run the launcher. |
-| Browser opens but the page is blank | Flash is not enabled in that browser. Use FlashBrowser or a standalone Flash player. |
-| Port 8000 already in use | Another copy of the server is still running. Close its terminal window. |
-| The launcher stashed your changes and you want them back | `git stash list`, then `git stash pop` — the launcher labels its stashes with a timestamp. |
+Both locations are ignored by Git. They will not be included in normal commits or repository updates, but they are still your responsibility to back up. Stop the server before copying them, and never share account files or save data publicly.
 
-The same walkthrough, starting from the clone, is on the
-[How to play](https://github.com/theminesastudios/dungeon-blitz-r/wiki/How-to-play-Dungeon-Blitz%3F)
-wiki page.
+If you configure MongoDB for a multiplayer-oriented environment, persistence moves to the configured Mongo database instead. See [Hosting](docs/HOSTING.md) before changing storage settings.
 
-## Playtest account
+## Local playtest account
 
-For local testing there is a seeder that creates `test@theminesa.studio` with six
-characters — one fully-completed and one brand new for each of the three classes:
+The optional seeder creates `test@theminesa.studio` with six characters: a level-50 and a level-1 Mage, Paladin, and Rogue.
 
 ```bash
-cd src/server && npm run seed:test-account
+cd src/server
+npm run seed:test-account
 ```
 
-| Character | Class | State |
-| --- | --- | --- |
-| `MaxMage` / `MaxPaladin` / `MaxRogue` | Mage / Paladin / Rogue | Level 50, all 293 missions claimed, all 39 class abilities at rank 10, maxed talents and buildings, every mount, pet, charm, dye and material |
-| `NewMage` / `NewPaladin` / `NewRogue` | Mage / Paladin / Rogue | Level 1, zero of everything |
+The default password is `testtest`. Set `TEST_ACCOUNT_PASSWORD` to use a different local password:
 
-The password defaults to `testtest`; override it with `TEST_ACCOUNT_PASSWORD`. Re-running
-the seeder is safe — it reuses the account and rewrites the six characters.
+```bash
+TEST_ACCOUNT_PASSWORD='choose-a-local-password' npm run seed:test-account
+```
 
-The seeder **refuses to run when `MULTIPLAYER_MODE` is set**. It writes a known password
-and a character holding every unlock in the game, which is local-play-only by nature.
+Re-running the seeder replaces those six test characters. It refuses to run with `MULTIPLAYER_MODE` enabled because its known credentials and all-unlock characters are intended for local testing only.
 
-It writes to `src/server/data/Accounts.json`, which is tracked by git. Leave that change
-out of your commits: the matching save file lives in the untracked `saves/` directory, so
-a committed account row would be an empty account plus a published password hash.
+## Common problems
 
-## Documentation
+| Symptom | What to check |
+| --- | --- |
+| `node` or `npm` is not found | Install Node.js 22 LTS, reopen the terminal, and run the command again. |
+| The game page opens but the game is blank | Use FlashBrowser or another Flash-capable player; modern browsers cannot run the client. |
+| `EADDRINUSE` or the server says a port is already in use | Stop the previous server, or choose another `STATIC_PORT`. Local HTTP defaults to `8000`; the game TCP port defaults to `8080`. |
+| The launcher cannot update | Check your network and Git installation. You can still start the current checkout manually. |
+| A launcher update leaves a stash or reports a conflict | Run `git stash list`, resolve any conflict in the checkout, then restore the stash only after checking the changed files. |
+| A local session crashes | Check the newest file in `src/server/logs/` for the development session log and include the relevant excerpt in a bug report. |
 
-Project documentation can be found in the Wiki.
+## For contributors
 
-## Disclaimer
+Run these commands from the indicated directory:
 
-Dungeon Blitz: R is a fan-made revival project.
+```bash
+# Type-check the server
+(cd src/server && npm run typecheck)
 
-Dungeon Blitz and all original assets, trademarks, artwork, audio, characters, and intellectual property belong to their respective owners.
+# Run all server regressions
+(cd src/server && npm run test:regression)
 
-This repository only licenses original code and modifications created by The Minesa Studios and project contributors.
+# Verify scripted client patches
+npm run verify:client-patches
+
+# Compile the production server output
+npm run build
+```
+
+Keep changes focused and include a regression when fixing server, protocol, gameplay, or client-patch behavior. Read the full [contribution guide](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) for repository workflow, and [SKILL.md](SKILL.md) for gameplay-specific debugging guidance.
+
+## More documentation
+
+- [Hosting and operations](docs/HOSTING.md)
+- [Security policy and deployment boundaries](docs/SECURITY.md)
+- [Optional Discord Social SDK bridge](src/server/native_bridge/README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Project wiki](https://github.com/theminesastudios/dungeon-blitz-r/wiki/How-to-play-Dungeon-Blitz) — community walkthroughs and additional project material
+
+## License and original assets
+
+The original code and modifications in this repository are licensed under the [GNU General Public License v3.0](LICENSE). Dungeon Blitz and its original assets, artwork, audio, characters, trademarks, and other intellectual property remain the property of their respective owners. This is a fan-made restoration project and is not affiliated with the original rights holders.

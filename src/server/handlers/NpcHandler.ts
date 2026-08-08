@@ -189,7 +189,7 @@ export class NpcHandler {
                         client.pendingMissionTurnIns.add(NpcHandler.FIRST_MISSION_ID);
                         delayedFirstMissionTurnIn = true;
                     } else {
-                        // Сначала показываем UI завершения миссии
+                        // Show the mission-completion UI first.
                         const missionDef = MissionLoader.getMissionDef(missionId);
                         const missionEntry = NpcHandler.getMissionEntry(client.character, missionId);
                         NpcHandler.sendMissionCompleteUi(
@@ -199,17 +199,17 @@ export class NpcHandler {
                             NpcHandler.getMissionCompletionScore(missionDef, missionEntry)
                         );
 
-                        // Затем начисляем награды
+                        // Then grant the rewards.
                         if (missionDef) {
                             const expReward = missionDef.ExpRewardValue ?? 0;
                             const goldReward = missionDef.GoldRewardValue ?? 0;
 
-                            // Начисление опыта
+                            // Grant experience.
                             if (expReward > 0) {
                                 RewardHandler.grantExperience(client, expReward);
                             }
 
-                            // Начисление золота
+                            // Grant gold.
                             if (goldReward > 0) {
                                 client.character.gold = Number(client.character.gold ?? 0) + goldReward;
                                 RewardHandler.sendGoldReward(client, goldReward, false);
@@ -222,7 +222,7 @@ export class NpcHandler {
                             NpcHandler.MISSION_CLAIMED
                         );
 
-                        // Сохраняем прогресс
+                        // Save progress.
                         if (client.userId) {
                             NpcHandler.persistCharacter(client, 'npc mission turn-in');
                         }
@@ -858,7 +858,7 @@ export class NpcHandler {
                 return;
             }
 
-            // Сначала показываем UI завершения миссии
+            // Show the mission-completion UI first.
             const missionDef = MissionLoader.getMissionDef(NpcHandler.FIRST_MISSION_ID);
             const missionEntry = NpcHandler.getMissionEntry(client.character, NpcHandler.FIRST_MISSION_ID);
             NpcHandler.sendMissionCompleteUi(
@@ -868,17 +868,17 @@ export class NpcHandler {
                 NpcHandler.getMissionCompletionScore(missionDef, missionEntry)
             );
 
-            // Затем начисляем награды
+            // Then grant the rewards.
             if (missionDef) {
                 const expReward = missionDef.ExpRewardValue ?? 0;
                 const goldReward = missionDef.GoldRewardValue ?? 0;
 
-                // Начисление опыта
+                // Grant experience.
                 if (expReward > 0) {
                     RewardHandler.grantExperience(client, expReward);
                 }
 
-                // Начисление золота
+                // Grant gold.
                 if (goldReward > 0) {
                     client.character.gold = Number(client.character.gold ?? 0) + goldReward;
                     RewardHandler.sendGoldReward(client, goldReward, false);
@@ -891,7 +891,7 @@ export class NpcHandler {
                 NpcHandler.MISSION_CLAIMED
             );
 
-            // Сохраняем прогресс
+            // Save progress.
             if (client.userId) {
                 NpcHandler.persistCharacter(client, 'first mission turn-in');
             }

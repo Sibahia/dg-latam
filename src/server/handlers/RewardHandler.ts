@@ -907,7 +907,7 @@ export class RewardHandler {
 
         const entName = String(sourceEntity?.name ?? '');
 
-        // Target Dummy (Hedefkuklası) - No rewards
+        // Target dummy - no rewards.
         if (entName.startsWith('IntroDummy') || entName === 'EmperorDummy' || entName === 'EmperorDummyHard' || entName.startsWith('HomeDummy')) {
             return { exp: 0, gold: 0, hpGain: 0, materialId: 0, gearId: 0, gearTier: 0, dyeId: 0 };
         }
@@ -951,7 +951,7 @@ export class RewardHandler {
                 rarityWeights: RewardHandler.getDyeRarityWeights(client)
             };
 
-        // Küçük Intro düşmanlar (Minion rank) ve Chains entitylerinden eşya düşmez
+        // Small intro enemies (Minion rank) and Chains entities do not drop items.
         if (realm && materialChance > 0 && Math.random() < materialChance) {
             const rarityResult = RewardHandler.resolveMaterialDropRarityDebug(client);
             materialId = GameData.getRandomMaterialForRealm(realm, [rarityResult.rarity]);
