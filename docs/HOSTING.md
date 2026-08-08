@@ -12,11 +12,13 @@ The container runs the compiled TypeScript server with:
 
 - `MULTIPLAYER_MODE=true`
 - `ENABLE_POLICY_SERVER=true`
-- HTTP on port `80`
+- HTTP on internal port `8000` (normally published as host port `80`)
 - game TCP on port `8080`
-- Flash policy TCP on port `843`
+- Flash policy TCP on internal port `8843` (normally published as host port `843`)
 
-The application serves HTTP and the game protocol over TCP. Although the container metadata also lists UDP ports, this repository does not document a UDP listener; do not open UDP ports unless a separately verified deployment requirement needs them.
+The image runs as numeric UID/GID `10001`, declares only TCP ports, and includes an HTTP healthcheck. The production launcher additionally drops capabilities, enables a read-only root filesystem, uses a private container network, and applies CPU, memory, and PID limits.
+
+The application serves HTTP and the legacy game protocol over TCP. It does not declare or require UDP ports.
 
 For JSON persistence, persist only the mutable account file and saves directory—not a whole source checkout or the entire `src/server/data` directory. A broad bind mount masks the image's required static game data and can prevent startup.
 
@@ -38,14 +40,25 @@ MULTIPLAYER_MODE=true
 ENABLE_POLICY_SERVER=true
 MULTIPLAYER_BASE_IP=play.example.invalid
 PUBLIC_BASE_URL=https://play.example.invalid
-STATIC_PORT=80
+STATIC_PORT=8000
 GAME_PORT=8080
-POLICY_PORT=843
+POLICY_PORT=8843
 
 # Generate once with a cryptographically secure tool and retain it securely.
 # The value must be 32-128 hexadecimal characters and have an even length.
 DUNGEONBLITZ_KEY_HEX=replace-with-a-32-or-more-character-hex-secret
 ADMIN_API_SECRET=replace-with-a-long-random-admin-secret
+
+# Admission, shutdown, socket-policy, and proxy boundaries.
+MAX_GAME_CONNECTIONS=500
+MAX_GAME_CONNECTIONS_PER_IP=20
+GAME_AUTH_TIMEOUT_MS=30000
+GAME_SOCKET_IDLE_TIMEOUT_MS=600000
+SHUTDOWN_GRACE_MS=5000
+SHUTDOWN_TIMEOUT_MS=10000
+SOCKET_POLICY_DOMAINS=play.example.invalid
+TRUST_PROXY_HEADERS=false
+TRUSTED_PROXY_ADDRESSES=loopback
 
 # Use JSON persistence for a private test server.
 ENABLE_MONGO_GAME_DATA=false
@@ -76,22 +89,30 @@ Create dedicated JSON-persistence paths and start the image detached. `Accounts.
 ```bash
 sudo install -d -m 0700 /srv/dungeon-blitz-r/saves
 printf '[]\n' | sudo tee /srv/dungeon-blitz-r/Accounts.json >/dev/null
+sudo chown -R 10001:10001 /srv/dungeon-blitz-r/saves /srv/dungeon-blitz-r/Accounts.json
 sudo chmod 0600 /srv/dungeon-blitz-r/Accounts.json
 
 podman run -d \
   --name dungeon-blitz-r \
   --replace \
   --restart=unless-stopped \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --cap-drop=all \
+  --security-opt=no-new-privileges \
+  --pids-limit=256 \
+  --memory=1g \
+  --cpus=1 \
   --env-file /etc/dungeon-blitz-r/server.env \
   -v /srv/dungeon-blitz-r/Accounts.json:/opt/games/dungeon-blitz-r/src/server/data/Accounts.json:Z \
   -v /srv/dungeon-blitz-r/saves:/opt/games/dungeon-blitz-r/src/server/data/saves:Z \
-  -p 80:80/tcp \
+  -p 80:8000/tcp \
   -p 8080:8080/tcp \
-  -p 843:843/tcp \
+  -p 843:8843/tcp \
   dungeon-blitz-r:local
 ```
 
-For Docker, remove the Podman-specific `:Z` volume label. Rootless Podman or Docker may require different host paths and ownership; verify that the process can read/write the mounted data directory before inviting testers.
+For Docker, remove the Podman-specific `:Z` volume label. Rootless Podman may map UID `10001` differently; verify the effective ownership and confirm that only the two declared persistence paths are writable before inviting testers.
 
 If you use MongoDB for accounts and saves, omit those JSON-persistence mounts and back up MongoDB separately. Add a narrowly scoped persistent mount only for another file-backed feature after confirming its path and recovery requirements; never mount an empty directory over the image's complete `data` directory.
 
@@ -115,8 +136,10 @@ The health endpoint confirms only that the HTTP listener responds. It does not p
 
 - Permit TCP `80`, `8080`, and `843` only if the intended clients need them. Restrict all management and database ports.
 - Put `PUBLIC_BASE_URL` behind HTTPS when OAuth or browser account flows are enabled. The game container itself serves HTTP; terminate TLS at a trusted reverse proxy.
+- Leave `TRUST_PROXY_HEADERS=false` unless every request reaches the application through a controlled proxy. When enabled, list only the immediate proxy hops in `TRUSTED_PROXY_ADDRESSES`; never trust arbitrary internet clients.
 - Set `MULTIPLAYER_BASE_IP` to the public host name or address advertised to clients. Set `PUBLIC_BASE_URL` separately when the external scheme or port differs.
-- Do not rely on unverified proxy-header behavior for identity or authentication. Keep the game server inaccessible except through the proxy where feasible.
+- Set `SOCKET_POLICY_DOMAINS` to the exact host names serving the Flash client. The policy grants access only to `GAME_PORT`; wildcard origins are not accepted.
+- Keep `ALLOW_DEV_PASSWORD_RESET=false` in every multiplayer deployment. Startup refuses the local recovery route when multiplayer or a public bind is active.
 
 ## Backups, upgrades, and rollback
 
@@ -137,4 +160,5 @@ Do not copy a live JSON data directory while the server is writing it. Stop the 
 | `healthz` fails | Confirm port `80` is not occupied and that the container is running. Test from inside the host before checking DNS/proxy configuration. |
 | Client cannot connect | Confirm TCP `8080` is reachable, `MULTIPLAYER_BASE_IP` is correct, and any firewall/NAT rules forward the same port. |
 | Flash policy requests fail | Enable the policy server only when required and confirm TCP `843` is reachable. |
-| Changes disappear after restart | Verify that the intended data directory or MongoDB database is persistent, writable, and included in backups. |
+| Container reports permission errors | Ensure the two JSON persistence mounts are owned by UID/GID `10001`, or use MongoDB and omit those mounts. Do not make the whole application tree writable. |
+| Changes disappear after restart | Verify that the intended JSON files or MongoDB database are persistent, writable, and included in backups. |

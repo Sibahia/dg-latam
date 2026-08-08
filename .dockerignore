@@ -1,0 +1,15 @@
+.git
+.github
+.ai
+build
+node_modules
+src/server/node_modules
+src/server/dist
+src/server/.env
+src/server/data/Accounts.json
+src/server/data/saves
+src/server/data/discord_account_links.json
+src/server/native_bridge/build
+src/server/native_bridge/discord_social_sdk
+*.bak
+*.log
