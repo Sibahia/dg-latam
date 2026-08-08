@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-entity-method1826-null-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-entity-method1826-null-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches Entity.method_1826 so stale/null graphics during ResetEntType",
         "updates are ignored instead of crashing the Flash client.",

@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-entity-method853-null-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-entity-method853-null-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches Entity.method_853 so stale/null render references during high-damage",
         "death ticks are ignored instead of crashing the Flash client.",

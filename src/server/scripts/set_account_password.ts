@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     const password = readArg('password') || process.env.DB_ACCOUNT_PASSWORD;
 
     if (!email || !isValidRegistrationPassword(password)) {
-        console.error('Usage: npm run reset-password -- --email user@example.com --password <6+ chars>');
+        console.error('Usage: pnpm run reset-password -- --email user@example.com --password <6+ chars>');
         console.error('This is a dev/admin-only local reset helper. It never stores or prints plaintext passwords.');
         process.exitCode = 1;
         return;

@@ -6,7 +6,7 @@ Dungeon Blitz R is an open-source fan restoration project for the original Dunge
 
 ## What you need
 
-- [Node.js 22 LTS](https://nodejs.org/) (the production container uses Node 22). `node` and `npm` must be available on your `PATH`.
+- [Node.js 22 LTS](https://nodejs.org/) (the production container uses Node 22). `node` and Corepack must be available on your `PATH`; enable the bundled pnpm shim once with `corepack enable pnpm`.
 - A Flash-capable browser or standalone player. The launchers support [FlashBrowser](https://github.com/radubirsan/FlashBrowser/releases/tag/v0.8); modern browsers no longer run Flash content.
 - Git is recommended. The macOS and Windows launchers use it to update the checkout, but manual local play does not require it after the repository is available.
 
@@ -28,9 +28,9 @@ Keep the launcher window open while playing. Closing it stops the server.
 From the repository root:
 
 ```bash
-npm install
-npm install --prefix src/server
-npm run dev
+corepack enable pnpm
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Open `http://localhost:8000/` in your Flash-capable browser after the server is listening. The local development command deliberately binds to loopback, uses JSON storage, and disables multiplayer mode.
@@ -52,13 +52,13 @@ The optional seeder creates `test@theminesa.studio` with six characters: a level
 
 ```bash
 cd src/server
-npm run seed:test-account
+pnpm --filter server run seed:test-account
 ```
 
 The default password is `testtest`. Set `TEST_ACCOUNT_PASSWORD` to use a different local password:
 
 ```bash
-TEST_ACCOUNT_PASSWORD='choose-a-local-password' npm run seed:test-account
+TEST_ACCOUNT_PASSWORD='choose-a-local-password' pnpm --filter server run seed:test-account
 ```
 
 Re-running the seeder replaces those six test characters. It refuses to run with `MULTIPLAYER_MODE` enabled because its known credentials and all-unlock characters are intended for local testing only.
@@ -67,7 +67,7 @@ Re-running the seeder replaces those six test characters. It refuses to run with
 
 | Symptom | What to check |
 | --- | --- |
-| `node` or `npm` is not found | Install Node.js 22 LTS, reopen the terminal, and run the command again. |
+| `node` or `pnpm` is not found | Install Node.js 22 LTS, reopen the terminal, then run `corepack enable pnpm`. |
 | The game page opens but the game is blank | Use FlashBrowser or another Flash-capable player; modern browsers cannot run the client. |
 | `EADDRINUSE` or the server says a port is already in use | Stop the previous server, or choose another `STATIC_PORT`. Local HTTP defaults to `8000`; the game TCP port defaults to `8080`. |
 | The launcher cannot update | Check your network and Git installation. You can still start the current checkout manually. |
@@ -80,16 +80,16 @@ Run these commands from the indicated directory:
 
 ```bash
 # Type-check the server
-(cd src/server && npm run typecheck)
+pnpm --filter server run typecheck
 
 # Run all server regressions
-(cd src/server && npm run test:regression)
+pnpm --filter server run test:regression
 
 # Verify scripted client patches
-npm run verify:client-patches
+pnpm run verify:client-patches
 
 # Compile the production server output
-npm run build
+pnpm run build
 ```
 
 Keep changes focused and include a regression when fixing server, protocol, gameplay, or client-patch behavior. Read the full [contribution guide](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) for repository workflow, and [SKILL.md](SKILL.md) for gameplay-specific debugging guidance.

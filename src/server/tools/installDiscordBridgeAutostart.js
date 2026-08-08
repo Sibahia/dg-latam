@@ -10,7 +10,7 @@ const LABEL = 'com.dungeonblitz.discordbridge';
 function ensureBuilt() {
     if (!fs.existsSync(BRIDGE_ENTRY)) {
         console.error(`[DiscordBridge] Build output not found: ${BRIDGE_ENTRY}`);
-        console.error('[DiscordBridge] Run `npm run build` first.');
+        console.error('[DiscordBridge] Run `pnpm run build` first.');
         process.exit(1);
     }
 }

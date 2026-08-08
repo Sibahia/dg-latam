@@ -50,7 +50,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-main-method561-restore-scale-clamp.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-main-method561-restore-scale-clamp.ts [--verify] [--swf <path>]",
         "",
         "Restores Main.method_561's legacy 1.25 max-scale clamp so fullscreen",
         "fit does not inflate Flash bitmap/render work on large viewports.",

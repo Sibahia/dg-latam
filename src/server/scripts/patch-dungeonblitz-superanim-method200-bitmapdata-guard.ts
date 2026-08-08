@@ -58,7 +58,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-superanim-method200-bitmapdata-guard.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-superanim-method200-bitmapdata-guard.ts [--verify] [--swf <path>]",
         "",
         "Patches SuperAnimData.method_200 and method_982 so oversized ability",
         "BitmapData allocations are bounded before Flash can crash, and",

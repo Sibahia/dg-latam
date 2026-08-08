@@ -5,7 +5,7 @@
 
 version: 2
 updates:
-  - package-ecosystem: "npm" # Manages dependencies defined in package.json and package-lock.json
+  - package-ecosystem: "npm" # GitHub's Node package ecosystem; manages package.json and pnpm-lock.yaml
     directory: "/src/server" # Location of package manifests
     schedule:
       interval: "weekly"

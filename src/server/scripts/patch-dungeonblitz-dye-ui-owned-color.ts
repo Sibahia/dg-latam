@@ -51,7 +51,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-dye-ui-owned-color.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-dye-ui-owned-color.ts [--verify] [--swf <path>]",
         "",
         "Patches class_121 in DungeonBlitz.swf so character-creation shirt/pants colors",
         "are not displayed as dye bottles unless the player owns the matching dye.",

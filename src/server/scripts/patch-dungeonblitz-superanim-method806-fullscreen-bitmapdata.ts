@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-superanim-method806-fullscreen-bitmapdata.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-superanim-method806-fullscreen-bitmapdata.ts [--verify] [--swf <path>]",
         "",
         "Patches SuperAnimData.method_806 fullscreen entity canvas BitmapData",
         "allocations so fullscreen scale cannot request invalid BitmapData sizes.",

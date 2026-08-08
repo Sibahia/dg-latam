@@ -122,7 +122,7 @@ function watchStream(stream, output) {
     });
 }
 
-const command = process.platform === 'win32' ? 'call npm run dev' : 'npm';
+const command = process.platform === 'win32' ? 'call pnpm run dev' : 'pnpm';
 const args = process.platform === 'win32' ? [] : ['run', 'dev'];
 let child;
 
@@ -134,7 +134,7 @@ try {
         stdio: ['inherit', 'pipe', 'pipe']
     });
 } catch (error) {
-    console.error('[dev-windows] Failed to start npm run dev:', error);
+    console.error('[dev-windows] Failed to start pnpm run dev:', error);
     process.exit(1);
 }
 
@@ -142,7 +142,7 @@ watchStream(child.stdout, process.stdout);
 watchStream(child.stderr, process.stderr);
 
 child.on('error', (error) => {
-    console.error('[dev-windows] Failed to start npm run dev:', error);
+    console.error('[dev-windows] Failed to start pnpm run dev:', error);
     process.exit(1);
 });
 

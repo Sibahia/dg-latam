@@ -48,7 +48,7 @@ for (const [rank, powerName] of pyromaniaPowerNames.entries()) {
   assert.equal(
     manaCostOf(shippedXml, powerName),
     expectedCostByRank[rank],
-    `shipped ${powerName} mana cost is stale -- run npm run patch:power-mana-costs`,
+    `shipped ${powerName} mana cost is stale -- run pnpm run patch:power-mana-costs`,
   );
 }
 

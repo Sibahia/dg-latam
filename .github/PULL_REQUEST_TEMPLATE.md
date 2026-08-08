@@ -6,9 +6,9 @@
 ## Verification
 
 - [ ] Focused regression or reproduction case
-- [ ] `npm run typecheck` (when server TypeScript changed)
-- [ ] `npm run test:regression` (when shared/server behavior changed)
-- [ ] `npm run verify:client-patches` (when client assets or patch scripts changed)
+- [ ] `pnpm --filter server run typecheck` (when server TypeScript changed)
+- [ ] `pnpm --filter server run test:regression` (when shared/server behavior changed)
+- [ ] `pnpm run verify:client-patches` (when client assets or patch scripts changed)
 - [ ] Manual gameplay checks, if applicable (windowed/fullscreen, solo/party, cutscene/boss, persistence)
 
 ## Notes

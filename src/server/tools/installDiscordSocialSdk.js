@@ -45,7 +45,7 @@ function main() {
     const force = hasArg('--force');
     if (fs.existsSync(TARGET_DIR) && !force) {
         console.log(`Discord Social SDK already exists at ${SDK_PATH}.`);
-        console.log('Use npm run install:discord-social-sdk -- --force to reinstall it.');
+        console.log('Use pnpm run install:discord-social-sdk -- --force to reinstall it.');
         return;
     }
 

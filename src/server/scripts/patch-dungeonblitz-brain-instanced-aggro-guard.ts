@@ -24,7 +24,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--swf" || arg === "-s") swfPath = path.resolve(argv[++index] || "");
     else if (arg === "--verify" || arg === "--dry-run") verify = true;
     else if (arg === "--help" || arg === "-h") {
-      console.log("Usage: npm exec tsx src/server/scripts/patch-dungeonblitz-brain-instanced-aggro-guard.ts [--verify] [--swf <path>]\nRemoves the obsolete instanced-dungeon aggro guards; --verify confirms they are absent.");
+      console.log("Usage: pnpm dlx tsx src/server/scripts/patch-dungeonblitz-brain-instanced-aggro-guard.ts [--verify] [--swf <path>]\nRemoves the obsolete instanced-dungeon aggro guards; --verify confirms they are absent.");
       process.exit(0);
     } else throw new Error(`Unknown argument: ${arg}`);
   }

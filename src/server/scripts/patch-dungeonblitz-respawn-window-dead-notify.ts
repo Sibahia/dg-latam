@@ -46,7 +46,7 @@ function parseArgs(argv: string[]): { swfPath: string; verify: boolean } {
     if (arg === "--help" || arg === "-h") {
       console.log([
         "Usage:",
-        "  npm exec tsx src/server/scripts/patch-dungeonblitz-respawn-window-dead-notify.ts [--verify] [--swf <path>]",
+        "  pnpm dlx tsx src/server/scripts/patch-dungeonblitz-respawn-window-dead-notify.ts [--verify] [--swf <path>]",
         "",
         "Patches class_95.OnInitDisplay so opening the defeat/revive window forces",
         "the local entity state to DEAD and sends it to the server via the normal 0x07 update path.",
