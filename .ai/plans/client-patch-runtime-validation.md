@@ -21,6 +21,13 @@ This plan records the work that remains after static recovery of AUD-018 client 
 5. Repeat with an existing `dbSavedGameData` object and with two characters to prove the value is neither rejected nor shared incorrectly.
 6. Capture projector/debug logs, the candidate SHA-256, and a short reproduction record. Only then promote the binary, update provenance, and remove this entry from `pendingDefects`.
 
+### Recommended implementation approach
+
+- Keep the candidate isolated from the served asset until all six validation steps pass; never use a production client as the first execution environment.
+- Persist only the public dynamic `dbTutorialsCompleted` field on the existing `dbSavedGameData` SharedObject. Do not reuse an internal `Game` slot QName for dynamic storage.
+- Preserve the existing `Game.StoreGameInfo` path rather than adding a separate flush path, so the patch keeps the client's established error handling and lifecycle ordering.
+- Treat a player disconnect, an AVM2 verifier exception, malformed SharedObject data, or cross-character completion as a failed candidate. Revert the disposable artifact and capture the projector log before changing the patch.
+
 ## Static compatibility follow-up
 
 The Room 4 legacy scripts are superseded by `patch-levelsnr-room4-current-tutorial-flow.ts`, which structurally verifies the shipped jump/drop state machine. Story Zone Locks remains the only static blocker; Forge persistence remains runtime-only.
@@ -28,6 +35,14 @@ The Room 4 legacy scripts are superseded by `patch-levelsnr-room4-current-tutori
 | Patch | Current static evidence | Next action |
 | --- | --- | --- |
 | `patch-dungeonblitz-story-zone-locks.js` | FFDec exports `class_119`, but the expected mission-loop source text is absent. | Compare the current decompile with the intended story-lock behavior; update the source transform and add a focused structural verifier. |
+
+### Recommended rewrite approach for Story Zone Locks
+
+1. Locate the current map-marker construction method from `class_119` bytecode rather than relying on FFDec's unstable source-text layout.
+2. Add an offset-safe eligibility gate immediately before marker creation. It should allow tutorial/early zones, require authoritative completion of `DeliverToSwamp` for later zones, and apply the `FindAnnasFather` exception only to that mission's marker.
+3. Build the gate using existing ABC strings/multinames where possible; if a pool extension is unavoidable, verify the pool counts, namespace visibility, branch targets, local count, and exception offsets before writing the SWF.
+4. Add a focused verifier that proves the gate references the two mission names and rejects the old ungated marker path. Verify the patched SWF on a disposable copy before promoting it.
+5. Validate marker visibility with a real client for a fresh character, after `DeliverToSwamp`, while `FindAnnasFather` is active, and after it completes. Record screenshots/logs with the promoted asset digest.
 
 ## Release rule
 
