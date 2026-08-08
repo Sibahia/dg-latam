@@ -94,6 +94,31 @@ npm run build
 
 Keep changes focused and include a regression when fixing server, protocol, gameplay, or client-patch behavior. Read the full [contribution guide](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) for repository workflow, and [SKILL.md](SKILL.md) for gameplay-specific debugging guidance.
 
+## Alpha and stable environments
+
+The project runs two live environments from the same repository:
+
+| | Stable (`main`) | Alpha (`alpha`) |
+|---|---|---|
+| URL | `https://dgblitzlatam.duckdns.org` | `https://alpha.dgblitzlatam.duckdns.org` |
+| Container | `dungeon-blitz-r` | `dungeon-blitz-r-alpha` |
+| Ports | 80 / 8080 / 843 | 8081 / 8082 / 844 |
+| Mongo DB | `dungeonblitz` | `dungeonblitz_alpha` |
+| Client game port | 8080 | 8082 (patched SWF) |
+| Deploy trigger | push to `main` | push to `alpha` |
+
+Workflow:
+
+1. **Daily changes** land on `alpha` (PRs target `alpha`). Pushing to `alpha` builds a `:alpha` image with the client game-port patch (`patch-dungeonblitz-alpha-ports.ts`, 8080 → 8082) and deploys it to the isolated alpha container via `Container/deploy-alpha.sh`. A few testers validate there.
+2. **Promotion**: when the alpha build is validated, open a PR `alpha` → `main` (squash) with the version bump. That deploys to the stable container. **`main` never receives untested feature changes directly**, and alpha activity never restarts or touches the stable container, its ports, its Mongo DB, or its image tag (`latest`).
+
+Operations:
+
+- `alpha` uses its own checkout `/opt/dungeon-blitz-r-alpha` (git branch `alpha`) so the stable checkout `/opt/dungeon-blitz-r` stays on `main`.
+- The alpha Mongo DB is a clone of production (`src/server/tools/cloneAlphaDb.sh`); it evolves independently and can be re-cloned on demand.
+- The alpha admin panel runs separately on port 8789 (`https://alpha.dgblitzlatam.duckdns.org/admin`), authenticating against the alpha DB.
+- `patch-dungeonblitz-alpha-ports.ts` changes only the game-server port in the client SWF (the single `pushshort 8080` operand in `m1516`). The policy port stays on Flash's default 843, which the production policy server answers permissively.
+
 ## More documentation
 
 - [Hosting and operations](docs/HOSTING.md)
