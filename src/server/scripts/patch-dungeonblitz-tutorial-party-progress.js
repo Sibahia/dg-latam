@@ -4,9 +4,243 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+// class_112 cannot be round-tripped through FFDec source: its export contains
+// non-importable control-flow pseudo-instructions.  Load the shared AVM2
+// parser so the progress label can be patched directly instead.
+require('ts-node/register');
+const {
+    PatchError,
+    applyPatchesToBody,
+    classIndexByName,
+    disassemble,
+    methodIdxForTrait,
+    parseAbc,
+    parseSwf,
+    readU30,
+    writeSwf,
+    writeU30
+} = require('./swfPatchUtils');
+
 const TARGET_SWFS = [
     path.join('src', 'client', 'content', 'localhost', 'p', 'cbp', 'DungeonBlitz.swf')
 ];
+
+const PROGRESS_CLASS = 'class_112';
+const PROGRESS_METHOD = 'OnRefreshScreen';
+const PROGRESS_FIELD = 'var_690';
+const STRING_MULTINAME = 'String';
+
+function findMultinames(abc, name) {
+    const matches = [];
+    for (let index = 0; index < abc.multinameNames.length; index += 1) {
+        if (abc.multinameNames[index] === name) {
+            matches.push(index);
+        }
+    }
+    if (matches.length === 0) {
+        throw new PatchError(`Could not find multiname ${name}`);
+    }
+    return matches;
+}
+
+function writeS24(value) {
+    if (value < -0x800000 || value > 0x7fffff) {
+        throw new PatchError(`s24 branch offset out of range: ${value}`);
+    }
+    const encoded = value < 0 ? value + 0x1000000 : value;
+    return Buffer.from([encoded & 0xff, (encoded >>> 8) & 0xff, (encoded >>> 16) & 0xff]);
+}
+
+function isBranch(instruction) {
+    return instruction.opcode >= 0x0c && instruction.opcode <= 0x1a;
+}
+
+function patchCodeAndRelocateBranches(originalCode, instructions, edits, label) {
+    const ordered = [...edits].sort((left, right) => left.start - right.start);
+    let cursor = 0;
+    const chunks = [];
+    for (const edit of ordered) {
+        if (edit.start < cursor || edit.end < edit.start || edit.end > originalCode.length) {
+            throw new PatchError(`Invalid ${label} bytecode edit ${edit.start}:${edit.end}`);
+        }
+        chunks.push(originalCode.subarray(cursor, edit.start), edit.data);
+        cursor = edit.end;
+    }
+    chunks.push(originalCode.subarray(cursor));
+    const patched = Buffer.concat(chunks);
+
+    const deltaFor = (edit) => edit.data.length - (edit.end - edit.start);
+    const isEdited = (offset) => ordered.some((edit) => offset >= edit.start && offset < edit.end);
+    const mapOffset = (offset) => ordered.reduce(
+        (mapped, edit) => mapped + (edit.end <= offset ? deltaFor(edit) : 0),
+        offset
+    );
+    const mapTarget = (offset) => {
+        let mapped = offset;
+        for (const edit of ordered) {
+            if (offset < edit.start) {
+                continue;
+            }
+            if (offset === edit.start) {
+                return mapped;
+            }
+            if (offset < edit.end) {
+                throw new PatchError(`${label} branch targets replaced instructions at ${offset}`);
+            }
+            mapped += deltaFor(edit);
+        }
+        return mapped;
+    };
+
+    for (const instruction of instructions) {
+        if (!isBranch(instruction) || isEdited(instruction.offset)) {
+            continue;
+        }
+        const branch = instruction.operands[0];
+        if (!branch || branch[0] !== 's24') {
+            throw new PatchError(`Malformed ${label} branch at ${instruction.offset}`);
+        }
+        const oldTarget = instruction.offset + instruction.size + branch[1];
+        const newOffset = mapOffset(instruction.offset);
+        const newTarget = mapTarget(oldTarget);
+        writeS24(newTarget - (newOffset + instruction.size)).copy(patched, newOffset + 1);
+    }
+
+    return patched;
+}
+
+function verifyBranchTargets(code, label) {
+    const instructions = disassemble(code, label);
+    const boundaries = new Set(instructions.map((instruction) => instruction.offset));
+    boundaries.add(code.length);
+    for (const instruction of instructions) {
+        if (!isBranch(instruction)) {
+            continue;
+        }
+        const branch = instruction.operands[0];
+        const target = instruction.offset + instruction.size + branch[1];
+        if (!boundaries.has(target)) {
+            throw new PatchError(`${label} branch at ${instruction.offset} targets ${target}, not an instruction boundary`);
+        }
+    }
+}
+
+function progressMethod(ctx, abc) {
+    const classIndex = classIndexByName(abc, PROGRESS_CLASS);
+    if (classIndex === null) {
+        throw new PatchError(`Class ${PROGRESS_CLASS} not found`);
+    }
+    const methodIndex = methodIdxForTrait(abc.instances[classIndex].traits, abc, PROGRESS_METHOD);
+    if (methodIndex === null) {
+        throw new PatchError(`Method ${PROGRESS_CLASS}.${PROGRESS_METHOD} not found`);
+    }
+    const body = abc.methodBodies.get(methodIndex);
+    if (!body || body.exceptionCount !== 0) {
+        throw new PatchError(`Unexpected ${PROGRESS_CLASS}.${PROGRESS_METHOD} body shape`);
+    }
+    return body;
+}
+
+function progressPatchStatus(swfPath) {
+    const ctx = parseSwf(swfPath);
+    const abc = parseAbc(ctx);
+    const body = progressMethod(ctx, abc);
+    const code = Buffer.from(ctx.body.subarray(body.codeStart, body.codeStart + body.codeLen));
+    const fieldIndexes = findMultinames(abc, PROGRESS_FIELD);
+    const stringIndexes = findMultinames(abc, STRING_MULTINAME);
+    const originalOffsets = [];
+    const patchedOffsets = [];
+
+    for (const field of fieldIndexes) {
+        const getProgress = Buffer.concat([Buffer.from([0xd1, 0x66]), writeU30(field)]);
+        const clamp = Buffer.concat([
+            getProgress,
+            Buffer.from([0x2a, 0x24, 0x63, 0xaf, 0xa1, 0x70])
+        ]);
+        for (const string of stringIndexes) {
+            const original = Buffer.concat([
+                Buffer.from([0x5d]),
+                writeU30(string),
+                getProgress,
+                Buffer.from([0x46]),
+                writeU30(string),
+                Buffer.from([0x01])
+            ]);
+            let offset = code.indexOf(original);
+            while (offset >= 0) {
+                originalOffsets.push({ offset, length: original.length, replacement: clamp });
+                offset = code.indexOf(original, offset + 1);
+            }
+        }
+        let offset = code.indexOf(clamp);
+        while (offset >= 0) {
+            patchedOffsets.push(offset);
+            offset = code.indexOf(clamp, offset + 1);
+        }
+    }
+
+    if (originalOffsets.length > 0 && patchedOffsets.length > 0) {
+        throw new PatchError('Tutorial progress display is in a mixed partial state');
+    }
+    if (originalOffsets.length === 0 && patchedOffsets.length === 0) {
+        throw new PatchError('Could not locate tutorial progress display call sites');
+    }
+    if (originalOffsets.length > 0 && originalOffsets.length !== 2) {
+        throw new PatchError(`Expected two unpatched tutorial progress call sites, found ${originalOffsets.length}`);
+    }
+    if (patchedOffsets.length > 0 && patchedOffsets.length !== 2) {
+        throw new PatchError(`Expected two patched tutorial progress call sites, found ${patchedOffsets.length}`);
+    }
+    return { ctx, abc, body, code, originalOffsets, patchedOffsets };
+}
+
+function patchTutorialProgressDisplay(swfPath) {
+    const status = progressPatchStatus(swfPath);
+    if (status.patchedOffsets.length > 0) {
+        return;
+    }
+    const instructions = disassemble(status.code, `${PROGRESS_CLASS}.${PROGRESS_METHOD}`);
+    const patchedCode = patchCodeAndRelocateBranches(
+        status.code,
+        instructions,
+        status.originalOffsets.map((entry) => ({
+            start: entry.offset,
+            end: entry.offset + entry.length,
+            data: entry.replacement
+        })),
+        `${PROGRESS_CLASS}.${PROGRESS_METHOD}`
+    );
+    verifyBranchTargets(patchedCode, `${PROGRESS_CLASS}.${PROGRESS_METHOD}`);
+    const [maxStack] = readU30(status.ctx.body, status.body.maxStackPos, `${PROGRESS_CLASS}.${PROGRESS_METHOD}.max_stack`);
+    if (maxStack < 4) {
+        throw new PatchError(`${PROGRESS_CLASS}.${PROGRESS_METHOD} max_stack ${maxStack} is too small`);
+    }
+    const patched = applyPatchesToBody(status.ctx.body, [
+        {
+            key: 'tutorial-progress-display-code',
+            start: status.body.codeStart,
+            end: status.body.codeStart + status.body.codeLen,
+            data: patchedCode,
+            detail: 'clamp follower progress display at 99 until the tutorial completes'
+        },
+        {
+            key: 'tutorial-progress-display-code-length',
+            start: status.body.codeLenPos,
+            end: status.body.codeStart,
+            data: writeU30(patchedCode.length),
+            detail: 'update class_112 OnRefreshScreen code length'
+        }
+    ]);
+    writeSwf(status.ctx, patched.body, patched.delta);
+    const verified = progressPatchStatus(swfPath);
+    if (verified.patchedOffsets.length !== 2) {
+        throw new PatchError('Tutorial progress display did not verify after patching');
+    }
+    verifyBranchTargets(
+        verified.code,
+        `${PROGRESS_CLASS}.${PROGRESS_METHOD} verified`
+    );
+}
 
 function parseArgs(argv) {
     const args = {
@@ -49,7 +283,7 @@ function printHelp() {
             'Defaults:',
             '  patches the served SWF:',
             `    ${TARGET_SWFS[0]}`,
-            '  --verify exports the selected SWFs and checks that the tutorial party-progress markers are present'
+            '  --verify validates bytecode and source-imported markers for the tutorial party-progress fix'
         ].join('\n')
     );
 }
@@ -178,17 +412,9 @@ function patchLinkUpdater(source) {
         source = replaceExact(
             source,
             join([
-                '         if(_loc46_.cue)',
-                '         {',
-                '            _loc46_.cue.bSpawned = true;',
-                '         }',
                 '         _loc46_.var_38.var_914 = _loc5_;'
             ]),
             join([
-                '         if(_loc46_.cue)',
-                '         {',
-                '            _loc46_.cue.bSpawned = true;',
-                '         }',
                 '         if(_loc12_ != Entity.PLAYER)',
                 '         {',
                 '            this.method_1912(_loc46_);',
@@ -281,7 +507,7 @@ function patchRoom(source) {
                 '               if(_loc6_.x - _loc3_.x > const_1046)',
                 '               {',
                 '                  var _loc8_:* = §§findproperty(_loc6_);',
-                '                  var _loc9_:Number = Number(_loc8_._loc6_) + 1;',
+                '                  var _loc9_:* = Number(_loc8_._loc6_) + 1;',
                 '                  _loc8_._loc6_ = _loc9_;',
                 '               }',
                 '            }',
@@ -396,17 +622,13 @@ function assertVerification(content, checks, targetLabel) {
     }
 }
 
-function verifyPatchedScripts(class112Source, linkUpdaterSource, roomSource, swfPath) {
+function verifyPatchedScripts(linkUpdaterSource, roomSource, swfPath) {
     const label = path.basename(swfPath);
-    assertVerification(
-        class112Source,
-        [
-            { label: 'class_112 method_2048', needle: 'private function method_2048(param1:Level) : uint' },
-            { label: 'class_112 follower 99 clamp', needle: 'return param1.var_690 >= 100 ? 99 : param1.var_690;' },
-            { label: 'class_112 render callsite', needle: 'this.var_327.SetText(this.method_2048(_loc1_) + "%");' }
-        ],
-        `${label} class_112`
-    );
+    const progress = progressPatchStatus(swfPath);
+    if (progress.patchedOffsets.length !== 2) {
+        throw new Error(`${label} class_112 is missing both follower progress clamps`);
+    }
+    verifyBranchTargets(progress.code, `${label} class_112 follower progress`);
     assertVerification(
         linkUpdaterSource,
         [
@@ -431,14 +653,13 @@ function verifyPatchedScripts(class112Source, linkUpdaterSource, roomSource, swf
 function exportScripts(ffdecPath, workRoot, swfPath) {
     fs.rmSync(workRoot, { recursive: true, force: true });
     fs.mkdirSync(workRoot, { recursive: true });
-    runFfdec(ffdecPath, ['-selectclass', 'LinkUpdater,Room,class_112', '-export', 'script', workRoot, swfPath]);
+    runFfdec(ffdecPath, ['-selectclass', 'LinkUpdater,Room', '-export', 'script', workRoot, swfPath]);
 
     const scriptsRoot = path.join(workRoot, 'scripts');
     const paths = {
         scriptsRoot,
         linkUpdater: path.join(scriptsRoot, 'LinkUpdater.as'),
-        room: path.join(scriptsRoot, 'Room.as'),
-        class112: path.join(scriptsRoot, 'class_112.as')
+        room: path.join(scriptsRoot, 'Room.as')
     };
 
     for (const filePath of Object.values(paths)) {
@@ -450,7 +671,7 @@ function exportScripts(ffdecPath, workRoot, swfPath) {
     return paths;
 }
 
-function patchSwf(repoRoot, ffdecPath, swfPath, class112Template) {
+function patchSwf(repoRoot, ffdecPath, swfPath) {
     const workRoot = path.join(
         repoRoot,
         'build',
@@ -458,14 +679,14 @@ function patchSwf(repoRoot, ffdecPath, swfPath, class112Template) {
         path.basename(swfPath, path.extname(swfPath))
     );
     const patchedSwfPath = path.join(workRoot, `${path.basename(swfPath, path.extname(swfPath))}.patched.swf`);
+    patchTutorialProgressDisplay(swfPath);
     const exported = exportScripts(ffdecPath, workRoot, swfPath);
 
     const originalLinkUpdater = fs.readFileSync(exported.linkUpdater, 'utf8');
     const originalRoom = fs.readFileSync(exported.room, 'utf8');
-    const originalClass112 = fs.readFileSync(exported.class112, 'utf8');
 
     try {
-        verifyPatchedScripts(originalClass112, originalLinkUpdater, originalRoom, swfPath);
+        verifyPatchedScripts(originalLinkUpdater, originalRoom, swfPath);
         console.log(`SWF already contains tutorial follower fix: ${swfPath}`);
         return;
     } catch (_error) {
@@ -473,11 +694,9 @@ function patchSwf(repoRoot, ffdecPath, swfPath, class112Template) {
 
     const patchedLinkUpdater = patchLinkUpdater(originalLinkUpdater);
     const patchedRoom = patchRoom(originalRoom);
-    const patchedClass112 = class112Template;
 
     fs.writeFileSync(exported.linkUpdater, patchedLinkUpdater, 'utf8');
     fs.writeFileSync(exported.room, patchedRoom, 'utf8');
-    fs.writeFileSync(exported.class112, patchedClass112, 'utf8');
 
     runFfdec(ffdecPath, ['-importScript', swfPath, patchedSwfPath, exported.scriptsRoot]);
     fs.copyFileSync(patchedSwfPath, swfPath);
@@ -493,7 +712,6 @@ function verifySwf(repoRoot, ffdecPath, swfPath) {
     );
     const exported = exportScripts(ffdecPath, workRoot, swfPath);
     verifyPatchedScripts(
-        fs.readFileSync(exported.class112, 'utf8'),
         fs.readFileSync(exported.linkUpdater, 'utf8'),
         fs.readFileSync(exported.room, 'utf8'),
         swfPath
@@ -505,23 +723,9 @@ function main() {
     const repoRoot = resolveRepoRoot();
     const args = parseArgs(process.argv);
     const ffdecPath = detectFfdec(repoRoot, args.ffdec);
-    const class112TemplatePath = path.join(
-        repoRoot,
-        'src',
-        'client',
-        'ffdec-patches',
-        'DungeonBlitz.localhost',
-        'scripts',
-        'class_112.as'
-    );
-
     if (!ffdecPath) {
         throw new Error('FFDec not found. Pass --ffdec or restore the repo-bundled FFDec app.');
     }
-    if (!fs.existsSync(class112TemplatePath)) {
-        throw new Error(`class_112 template not found: ${class112TemplatePath}`);
-    }
-    const class112Template = fs.readFileSync(class112TemplatePath, 'utf8');
 
     const swfs = (args.swfs.length ? args.swfs : TARGET_SWFS).map((entry) => resolvePath(repoRoot, entry));
     for (const swfPath of swfs) {
@@ -538,7 +742,7 @@ function main() {
     }
 
     for (const swfPath of swfs) {
-        patchSwf(repoRoot, ffdecPath, swfPath, class112Template);
+        patchSwf(repoRoot, ffdecPath, swfPath);
     }
 }
 

@@ -111,7 +111,10 @@ function exportGamePcode(ffdecPath, workRoot, swfPath) {
 }
 
 function patchPcode(source) {
-    if (source.includes('catch(_loc5_:Error)')) {
+    if (
+        source.includes('try from ofs008d to ofs009c target ofs011c type QName(PackageNamespace(""),"Error")') &&
+        source.includes('callpropvoid QName(PackageNamespace(""),"DestroySuperAnimInstance"), 0')
+    ) {
         return source;
     }
 
@@ -197,9 +200,9 @@ function verifySwf(repoRoot, ffdecPath, swfPath) {
     const source = fs.readFileSync(pcodePath, 'utf8');
     const requiredSnippets = [
         'localcount 6',
-        'catch(_loc5_:Error)',
-        'setproperty QName(PackageInternalNs(""),"m_bFinished")',
-        'try from ofs008c to ofs009c target ofs00cf type QName(PackageNamespace(""),"Error")'
+        'newcatch 0',
+        'callpropvoid QName(PackageNamespace(""),"DestroySuperAnimInstance"), 0',
+        'try from ofs008d to ofs009c target ofs011c type QName(PackageNamespace(""),"Error")'
     ];
 
     for (const snippet of requiredSnippets) {

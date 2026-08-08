@@ -11,7 +11,6 @@ export type FrozenWardCastAnimPatchStats = {
   castAnimsUpdated: number;
   castTimesUpdated: number;
   castTimesUnexpected: number;
-  freezeBuffsChanged: number;
 };
 
 function defaultSourceXmlPath(): string {
@@ -53,29 +52,12 @@ function resolveArgPaths(args: string[], flag: string, defaults: string[]): stri
   return resolved.length > 0 ? resolved : defaults;
 }
 
-function expectedFreezeBuff(powerName: string): string {
-  if (powerName === "FrozenWard10") {
-    return "Sequence:FrozenWardDelay,Chilled42,Freeze2500,Weakened,Frigid,Chilblains,Chilblains";
-  }
-  if (powerName === "FrozenWard8" || powerName === "FrozenWard9") {
-    return "Sequence:FrozenWardDelay,Chilled42,Freeze2500,Weakened,Chilblains,Chilblains";
-  }
-  if (["FrozenWard5", "FrozenWard6", "FrozenWard7"].includes(powerName)) {
-    return "Sequence:FrozenWardDelay,Chilled42,Freeze2500,Weakened,Chilblains";
-  }
-  if (powerName === "FrozenWard4") {
-    return "Sequence:FrozenWardDelay,Chilled42,Freeze2500,Chilblains";
-  }
-  return "Sequence:FrozenWardDelay,Chilled42,Freeze2500";
-}
-
 export function patchFrozenWardCastAnim(xml: string): { xml: string; stats: FrozenWardCastAnimPatchStats } {
   const stats: FrozenWardCastAnimPatchStats = {
     powerBlocks: 0,
     castAnimsUpdated: 0,
     castTimesUpdated: 0,
     castTimesUnexpected: 0,
-    freezeBuffsChanged: 0,
   };
 
   const patchedXml = xml.replace(
@@ -86,11 +68,11 @@ export function patchFrozenWardCastAnim(xml: string): { xml: string; stats: Froz
       }
 
       stats.powerBlocks += 1;
-      if (!/<CastTime>0,(?:1900|1450)(?:,0)*<\/CastTime>/.test(powerBlock)) {
+      // 1650 ms is the current pre-migration value. The patch is deliberately
+      // limited to animation/timing, so it must not reject newer buff sequences
+      // that are otherwise unrelated to the cast transition.
+      if (!/<CastTime>0,(?:1900|1650|1450)(?:,0)*<\/CastTime>/.test(powerBlock)) {
         stats.castTimesUnexpected += 1;
-      }
-      if (!powerBlock.includes(`<AddTargetBuff>${expectedFreezeBuff(powerName)}</AddTargetBuff>`)) {
-        stats.freezeBuffsChanged += 1;
       }
 
       let patchedBlock = powerBlock.replace(/<CastAnim>SkyPower2<\/CastAnim>/, () => {
@@ -98,7 +80,7 @@ export function patchFrozenWardCastAnim(xml: string): { xml: string; stats: Froz
           return `<CastAnim>${FROZEN_WARD_CAST_ANIM}</CastAnim>`;
         });
 
-      patchedBlock = patchedBlock.replace(/<CastTime>0,1900((?:,0)*)<\/CastTime>/, (_match, trailingZeros: string) => {
+      patchedBlock = patchedBlock.replace(/<CastTime>0,(?:1900|1650)((?:,0)*)<\/CastTime>/, (_match, trailingZeros: string) => {
         stats.castTimesUpdated += 1;
         return `<CastTime>0,${FROZEN_WARD_IMPACT_CAST_TIME_MS}${trailingZeros}</CastTime>`;
       });
@@ -115,7 +97,6 @@ export function hasFrozenWardCastAnimOnlyPatch(xml: string): boolean {
   let totalBlocks = 0;
   let castTimesMatching = 0;
   let castTimesUnexpected = 0;
-  let freezeBuffsChanged = 0;
 
   xml.replace(/<Power PowerName="([^"]+)">[\s\S]*?<\/Power>/g, (powerBlock: string, powerName: string) => {
     if (!FROZEN_WARD_POWER_RE.test(powerName)) {
@@ -131,13 +112,10 @@ export function hasFrozenWardCastAnimOnlyPatch(xml: string): boolean {
     } else {
       castTimesUnexpected += 1;
     }
-    if (!powerBlock.includes(`<AddTargetBuff>${expectedFreezeBuff(powerName)}</AddTargetBuff>`)) {
-      freezeBuffsChanged += 1;
-    }
     return powerBlock;
   });
 
-  return totalBlocks === 11 && matchingBlocks === 11 && castTimesMatching === 11 && castTimesUnexpected === 0 && freezeBuffsChanged === 0;
+  return totalBlocks === 11 && matchingBlocks === 11 && castTimesMatching === 11 && castTimesUnexpected === 0;
 }
 
 function patchSourceXml(xmlPath: string, verifyOnly: boolean): FrozenWardCastAnimPatchStats {

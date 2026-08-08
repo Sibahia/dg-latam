@@ -98,34 +98,65 @@ function detectFfdec(repoRoot, preferred) {
     return '';
 }
 
-function runFfdec(ffdecPath, args) {
-    const resolved = path.resolve(ffdecPath);
-    const basename = path.basename(resolved).toLowerCase();
+function ffdecEnvironment(repoRoot) {
+    // FFDec writes a lock file below Java's user.home even for read-only
+    // verification. Keep that state under the ignored build directory so a
+    // restricted CI runner (or a developer with a read-only home directory)
+    // cannot turn a valid client patch into a false "lost patch" failure.
+    const ffdecHome = path.join(repoRoot, 'build', 'ffdec-home');
+    fs.mkdirSync(ffdecHome, { recursive: true });
+    const javaToolOptions = [process.env.JAVA_TOOL_OPTIONS, `-Duser.home=${ffdecHome}`]
+        .filter(Boolean)
+        .join(' ');
+    return {
+        ...process.env,
+        JAVA_TOOL_OPTIONS: javaToolOptions
+    };
+}
 
-    if (basename.endsWith('.jar')) {
-        execFileSync('java', ['-jar', resolved, '-cli', ...args], {
+function bundledFfdecJar(ffdecPath) {
+    const resolved = path.resolve(ffdecPath);
+    if (path.basename(resolved).toLowerCase().endsWith('.jar')) {
+        return resolved;
+    }
+    const siblingJar = path.join(path.dirname(resolved), 'ffdec.jar');
+    return fs.existsSync(siblingJar) ? siblingJar : '';
+}
+
+function runFfdec(ffdecPath, args, repoRoot) {
+    const resolved = path.resolve(ffdecPath);
+    const jarPath = bundledFfdecJar(resolved);
+    const env = ffdecEnvironment(repoRoot);
+
+    if (jarPath) {
+        execFileSync('java', [`-Duser.home=${path.join(repoRoot, 'build', 'ffdec-home')}`, '-jar', jarPath, '-cli', ...args], {
+            env: process.env,
             stdio: 'inherit'
         });
         return;
     }
 
     execFileSync(resolved, ['-cli', ...args], {
+        env,
         stdio: 'inherit'
     });
 }
 
-function runFfdecCapture(ffdecPath, args) {
+function runFfdecCapture(ffdecPath, args, repoRoot) {
     const resolved = path.resolve(ffdecPath);
-    const basename = path.basename(resolved).toLowerCase();
+    const jarPath = bundledFfdecJar(resolved);
+    const env = ffdecEnvironment(repoRoot);
 
-    if (basename.endsWith('.jar')) {
-        return execFileSync('java', ['-jar', resolved, '-cli', ...args], {
+    if (jarPath) {
+        return execFileSync('java', [`-Duser.home=${path.join(repoRoot, 'build', 'ffdec-home')}`, '-jar', jarPath, '-cli', ...args], {
+            env: process.env,
             encoding: 'utf8',
             maxBuffer: 32 * 1024 * 1024
         });
     }
 
     return execFileSync(resolved, ['-cli', ...args], {
+        env,
         encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024
     });
@@ -170,10 +201,10 @@ function ensureSingleOccurrence(source, needle, replacement = needle) {
     return source.replace(new RegExp(`(?:${escapeRegExp(needle)}\\n?)+`, 'g'), `${replacement}`);
 }
 
-function exportScripts(ffdecPath, workRoot, swfPath) {
+function exportScripts(repoRoot, ffdecPath, workRoot, swfPath) {
     fs.rmSync(workRoot, { recursive: true, force: true });
     fs.mkdirSync(workRoot, { recursive: true });
-    runFfdec(ffdecPath, ['-selectclass', 'a_Room_MainTutorial', '-export', 'script', workRoot, swfPath]);
+    runFfdec(ffdecPath, ['-selectclass', 'a_Room_MainTutorial', '-export', 'script', workRoot, swfPath], repoRoot);
 
     const roomPath = path.join(workRoot, 'scripts', 'a_Room_MainTutorial.as');
     if (!fs.existsSync(roomPath)) {
@@ -295,18 +326,18 @@ function verifyRoomSource(source, swfPath) {
     }
 }
 
-function replaceKeepCharacter(ffdecPath, inputSwfPath, outputSwfPath) {
+function replaceKeepCharacter(repoRoot, ffdecPath, inputSwfPath, outputSwfPath) {
     runFfdec(ffdecPath, [
         '-replaceCharacter',
         inputSwfPath,
         outputSwfPath,
         String(UPGRADED_KEEP_CHARACTER_ID),
         String(RUINED_KEEP_CHARACTER_ID)
-    ]);
+    ], repoRoot);
 }
 
-function getDefineSpriteSignature(ffdecPath, swfPath, characterId) {
-    const dumpOutput = runFfdecCapture(ffdecPath, ['-dumpSWF', swfPath]);
+function getDefineSpriteSignature(repoRoot, ffdecPath, swfPath, characterId) {
+    const dumpOutput = runFfdecCapture(ffdecPath, ['-dumpSWF', swfPath], repoRoot);
     const pattern = new RegExp(`DefineSprite \\(chid:\\s*${characterId}\\)\\s+(tagId=\\s*39 len=\\s*\\d+\\s+.*)`);
     const match = dumpOutput.match(pattern);
     if (!match) {
@@ -316,49 +347,49 @@ function getDefineSpriteSignature(ffdecPath, swfPath, characterId) {
     return match[1].trim().replace(/\s+/g, ' ');
 }
 
-function verifyNoDuplicateCharacterWarnings(ffdecPath, swfPath) {
-    const dumpOutput = runFfdecCapture(ffdecPath, ['-dumpSWF', swfPath]);
+function verifyNoDuplicateCharacterWarnings(repoRoot, ffdecPath, swfPath) {
+    const dumpOutput = runFfdecCapture(ffdecPath, ['-dumpSWF', swfPath], repoRoot);
     if (dumpOutput.includes('already contains characterId=')) {
         throw new Error(`${path.basename(swfPath)} contains duplicate character id warnings`);
     }
 }
 
-function getKeepCharacterSignatures(ffdecPath, swfPath) {
+function getKeepCharacterSignatures(repoRoot, ffdecPath, swfPath) {
     return {
-        ruined: getDefineSpriteSignature(ffdecPath, swfPath, RUINED_KEEP_CHARACTER_ID),
-        upgraded: getDefineSpriteSignature(ffdecPath, swfPath, UPGRADED_KEEP_CHARACTER_ID)
+        ruined: getDefineSpriteSignature(repoRoot, ffdecPath, swfPath, RUINED_KEEP_CHARACTER_ID),
+        upgraded: getDefineSpriteSignature(repoRoot, ffdecPath, swfPath, UPGRADED_KEEP_CHARACTER_ID)
     };
 }
 
-function ensureKeepCharacterOrder(ffdecPath, inputSwfPath, outputSwfPath, originalSwfPath) {
-    const originalSignatures = getKeepCharacterSignatures(ffdecPath, originalSwfPath);
-    const currentSignatures = getKeepCharacterSignatures(ffdecPath, inputSwfPath);
+function ensureKeepCharacterOrder(repoRoot, ffdecPath, inputSwfPath, outputSwfPath, originalSwfPath) {
+    const originalSignatures = getKeepCharacterSignatures(repoRoot, ffdecPath, originalSwfPath);
+    const currentSignatures = getKeepCharacterSignatures(repoRoot, ffdecPath, inputSwfPath);
 
     if (
         currentSignatures.ruined === originalSignatures.ruined &&
         currentSignatures.upgraded === originalSignatures.upgraded
     ) {
         fs.copyFileSync(inputSwfPath, outputSwfPath);
-        verifyNoDuplicateCharacterWarnings(ffdecPath, outputSwfPath);
+        verifyNoDuplicateCharacterWarnings(repoRoot, ffdecPath, outputSwfPath);
         return;
     }
 
-    replaceKeepCharacter(ffdecPath, inputSwfPath, outputSwfPath);
-    const restoredSignatures = getKeepCharacterSignatures(ffdecPath, outputSwfPath);
+    replaceKeepCharacter(repoRoot, ffdecPath, inputSwfPath, outputSwfPath);
+    const restoredSignatures = getKeepCharacterSignatures(repoRoot, ffdecPath, outputSwfPath);
     if (
         restoredSignatures.ruined !== originalSignatures.ruined ||
         restoredSignatures.upgraded !== originalSignatures.upgraded
     ) {
         throw new Error(`${path.basename(outputSwfPath)} keep sprite definitions were not restored to original order`);
     }
-    verifyNoDuplicateCharacterWarnings(ffdecPath, outputSwfPath);
+    verifyNoDuplicateCharacterWarnings(repoRoot, ffdecPath, outputSwfPath);
 }
 
 function patchSwf(repoRoot, ffdecPath, target) {
     const swfPath = target.swfPath;
     const originalSwfPath = target.originalSwfPath;
     const workRoot = path.join(repoRoot, 'build', 'ffdec-levelshome-keep-tutorial', path.basename(swfPath, path.extname(swfPath)));
-    const { roomPath } = exportScripts(ffdecPath, workRoot, swfPath);
+    const { roomPath } = exportScripts(repoRoot, ffdecPath, workRoot, swfPath);
     const scriptsRoot = path.dirname(roomPath);
     const patchedSwfPath = path.join(workRoot, `${path.basename(swfPath, path.extname(swfPath))}.patched.swf`);
     const orderedSwfPath = path.join(workRoot, `${path.basename(swfPath, path.extname(swfPath))}.keep-ordered.swf`);
@@ -367,8 +398,8 @@ function patchSwf(repoRoot, ffdecPath, target) {
     verifyRoomSource(patchedRoomSource, swfPath);
     fs.writeFileSync(roomPath, patchedRoomSource, 'utf8');
 
-    runFfdec(ffdecPath, ['-importScript', swfPath, patchedSwfPath, scriptsRoot]);
-    ensureKeepCharacterOrder(ffdecPath, patchedSwfPath, orderedSwfPath, originalSwfPath);
+    runFfdec(ffdecPath, ['-importScript', swfPath, patchedSwfPath, scriptsRoot], repoRoot);
+    ensureKeepCharacterOrder(repoRoot, ffdecPath, patchedSwfPath, orderedSwfPath, originalSwfPath);
     fs.copyFileSync(orderedSwfPath, swfPath);
     console.log(`Patched keep tutorial room logic in ${swfPath}`);
 }
@@ -377,17 +408,17 @@ function verifySwf(repoRoot, ffdecPath, target) {
     const swfPath = target.swfPath;
     const originalSwfPath = target.originalSwfPath;
     const workRoot = path.join(repoRoot, 'build', 'ffdec-levelshome-keep-tutorial-verify', path.basename(swfPath, path.extname(swfPath)));
-    const { roomPath } = exportScripts(ffdecPath, workRoot, swfPath);
+    const { roomPath } = exportScripts(repoRoot, ffdecPath, workRoot, swfPath);
     verifyRoomSource(fs.readFileSync(roomPath, 'utf8'), swfPath);
-    const originalSignatures = getKeepCharacterSignatures(ffdecPath, originalSwfPath);
-    const currentSignatures = getKeepCharacterSignatures(ffdecPath, swfPath);
+    const originalSignatures = getKeepCharacterSignatures(repoRoot, ffdecPath, originalSwfPath);
+    const currentSignatures = getKeepCharacterSignatures(repoRoot, ffdecPath, swfPath);
     if (
         currentSignatures.ruined !== originalSignatures.ruined ||
         currentSignatures.upgraded !== originalSignatures.upgraded
     ) {
         throw new Error(`${path.basename(swfPath)} keep sprite definitions are not in the original order`);
     }
-    verifyNoDuplicateCharacterWarnings(ffdecPath, swfPath);
+    verifyNoDuplicateCharacterWarnings(repoRoot, ffdecPath, swfPath);
     console.log(`Verified keep tutorial room logic in ${swfPath}`);
 }
 
