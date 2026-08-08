@@ -44,7 +44,7 @@ async function api(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401) {
       sessionStorage.removeItem('admin_access');
-      window.location.href = '/';
+      window.location.reload();
       return data;
     }
     throw new Error(data.error || `HTTP ${response.status}`);

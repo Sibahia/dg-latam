@@ -43,7 +43,7 @@
                         return;
                     }
                     sessionStorage.setItem('admin_access', data.accessToken);
-                    window.location.href = '/';
+                    window.location.href = './';
                 } catch (err) {
                     error.textContent = 'Error de red: ' + err.message;
                 } finally {
